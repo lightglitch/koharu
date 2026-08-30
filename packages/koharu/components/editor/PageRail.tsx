@@ -36,6 +36,7 @@ import {
   type Page,
   type PageImportSource,
   type PageSummary,
+  type Scope,
   type ProjectInfo,
 } from '@koharu/bridge/protocol'
 import {
@@ -272,13 +273,23 @@ export function PageRail() {
   // Mirrors Process -> Selected Pages. Hovering a page that belongs to a
   // multi-selection runs the whole selection, so the row button never does
   // less than the menu item the user could have reached instead.
-  const processProject = () => {
-    void call(commands.process, { scope: 'project' }, { operation: 'full' }).catch(() => undefined)
+  // Follows the selection the same way the delete button beside it does.
+  const processingSelection = selected.length > 1
+  const processLabel = processingSelection
+    ? t('navigator.processSelection', { count: selected.length })
+    : t('menu.processProject')
+
+  const processTargets = () => {
+    const scope: Scope = processingSelection
+      ? { scope: 'pages', value: selected }
+      : { scope: 'project' }
+    void call(commands.process, scope, { operation: 'full' }).catch(() => undefined)
   }
 
+  // Just this page. The header button owns wider scope, so a row that also
+  // followed the selection would duplicate it under the same name.
   const processFrom = (page: string) => {
-    const scope = selected.length > 1 && selected.includes(page) ? selected : [page]
-    void call(commands.process, { scope: 'pages', value: scope }, { operation: 'full' }).catch(
+    void call(commands.process, { scope: 'pages', value: [page] }, { operation: 'full' }).catch(
       () => undefined,
     )
   }
@@ -310,15 +321,15 @@ export function PageRail() {
                     variant='ghost'
                     size='icon-xs'
                     disabled={running || pages.length === 0}
-                    aria-label={t('menu.processProject')}
+                    aria-label={processLabel}
                     className='shadow-none'
-                    onClick={processProject}
+                    onClick={processTargets}
                   />
                 }
               >
                 <RefreshCcwDot />
               </TooltipTrigger>
-              <TooltipContent side='bottom'>{t('menu.processProject')}</TooltipContent>
+              <TooltipContent side='bottom'>{processLabel}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
@@ -411,9 +422,6 @@ export function PageRail() {
                       onRename={() => openRename(page)}
                       onDelete={() => deletePage(page.id)}
                       onProcess={running ? undefined : () => processFrom(page.id)}
-                      processCount={
-                        selected.length > 1 && selected.includes(page.id) ? selected.length : 1
-                      }
                       onDrop={() => {
                         if (dragged && dragged !== page.id) {
                           void call(commands.movePage, dragged, index)
@@ -588,7 +596,6 @@ function PageItem({
   onDelete,
   onDrop,
   onProcess,
-  processCount,
 }: {
   page: PageSummary
   active: boolean
@@ -603,13 +610,9 @@ function PageItem({
   onDelete: () => void
   onDrop: () => void
   onProcess?: () => void
-  processCount: number
 }) {
   const { t } = useTranslation()
-  const processLabel =
-    processCount > 1
-      ? t('navigator.processSelection', { count: processCount })
-      : t('navigator.processPage', { page: page.label })
+  const processLabel = t('navigator.processPage', { page: page.label })
 
   return (
     <article

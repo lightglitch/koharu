@@ -428,9 +428,13 @@ describe('greenfield editor', () => {
     expect(screen.getByRole('button', { name: 'Process Project' })).toBeDisabled()
   })
 
-  it('processes one page from the rail, or the whole selection', async () => {
+  it('processes only its own page from a rail row', async () => {
     installProject()
     const process = vi.spyOn(commands, 'process').mockResolvedValue('job')
+    // A multi-selection is the header button's business, not the row's.
+    act(() => {
+      useKoharuStore.setState({ selectedPages: ['page', 'other'] })
+    })
     render(<PageRail />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Process Page 1' }))
@@ -440,17 +444,19 @@ describe('greenfield editor', () => {
         { operation: 'full' },
       ),
     )
+  })
 
-    // Hovering a page inside a multi-selection runs the selection, and says so.
+  it('processes the selection from the rail header when one is active', async () => {
+    installProject()
+    const process = vi.spyOn(commands, 'process').mockResolvedValue('job')
     act(() => {
       useKoharuStore.setState({ selectedPages: ['page', 'other'] })
     })
-    const selectionButton = await screen.findByRole('button', {
-      name: 'Process 2 selected pages',
-    })
-    fireEvent.click(selectionButton)
+    render(<PageRail />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Process 2 selected pages' }))
     await waitFor(() =>
-      expect(process).toHaveBeenLastCalledWith(
+      expect(process).toHaveBeenCalledWith(
         { scope: 'pages', value: ['page', 'other'] },
         { operation: 'full' },
       ),
