@@ -1868,6 +1868,35 @@ describe('greenfield editor', () => {
     expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument()
   })
 
+  it('copies a failed page and its reason', async () => {
+    installProject()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    useKoharuStore.setState({
+      jobs: {
+        job: {
+          id: 'job',
+          kind: 'processing',
+          state: 'finished',
+          completed: 3,
+          total: 3,
+          page: null,
+          stage: null,
+          model: null,
+          error: null,
+          failures: [{ page: 'page', stage: 'translation', message: 'provider refused' }],
+        },
+      },
+    })
+    render(<ActivityCenter />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy error' }))
+
+    // The copied text has to stand on its own once it leaves the panel.
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Page 1: provider refused'))
+    vi.unstubAllGlobals()
+  })
+
   it('marks a failed page in the rail', () => {
     installProject()
     render(<PageRail />)

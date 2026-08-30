@@ -1,12 +1,18 @@
 'use client'
 
-import { CircleAlert, Download, Square, X } from 'lucide-react'
+import { Check, CircleAlert, Copy, Download, Square, X } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { call } from '@/lib/backend'
 import { usePages } from '@/lib/queries'
 import { useKoharuStore } from '@/lib/store'
-import { commands, type Download as DownloadState, type Job } from '@koharu/bridge/protocol'
+import {
+  commands,
+  type Download as DownloadState,
+  type Job,
+  type PageSummary,
+} from '@koharu/bridge/protocol'
 import { Button } from '@koharu/ui/components/button'
 
 export function ActivityCenter() {
@@ -141,12 +147,13 @@ function JobItem({ job }: { job: Job }) {
             {job.failures.map((failure) => (
               <li key={`${failure.page}:${failure.stage}`} className='flex items-start gap-1.5'>
                 <CircleAlert className='mt-px size-3 shrink-0 text-destructive' />
-                <span className='min-w-0 text-[10px] leading-4'>
+                <span className='min-w-0 flex-1 text-[10px] leading-4'>
                   <span className='font-medium text-destructive'>
-                    {pages?.find((page) => page.id === failure.page)?.label ?? failure.page}
+                    {failureLabel(failure, pages)}
                   </span>
                   <span className='ml-1 text-muted-foreground'>{failure.message}</span>
                 </span>
+                <CopyButton text={`${failureLabel(failure, pages)}: ${failure.message}`} />
               </li>
             ))}
           </ul>
@@ -190,7 +197,8 @@ function Failure({ message, onDismiss }: { message: string; onDismiss: () => voi
   return (
     <div className='grid grid-cols-[1rem_minmax(0,1fr)_2.25rem_1.5rem] items-start gap-x-2.5 border-b p-3 text-[11px] last:border-b-0'>
       <CircleAlert className='mt-0.5 size-3.5 justify-self-center text-destructive' />
-      <span className='col-start-2 col-end-4 min-w-0 text-destructive'>{message}</span>
+      <span className='min-w-0 text-destructive'>{message}</span>
+      <CopyButton text={message} />
       <Button
         size='icon-xs'
         variant='ghost'
@@ -201,6 +209,40 @@ function Failure({ message, onDismiss }: { message: string; onDismiss: () => voi
         <X />
       </Button>
     </div>
+  )
+}
+
+function failureLabel(failure: Job['failures'][number], pages: PageSummary[] | undefined): string {
+  return pages?.find((page) => page.id === failure.page)?.label ?? failure.page
+}
+
+/// A pipeline error is worth reporting elsewhere, and selecting it out of a
+/// small panel by hand is awkward.
+function CopyButton({ text }: { text: string }) {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    const written = navigator.clipboard?.writeText(text)
+    if (!written) return
+    void written
+      .then(() => {
+        setCopied(true)
+        window.setTimeout(() => setCopied(false), 1500)
+      })
+      .catch(() => undefined)
+  }
+
+  return (
+    <Button
+      size='icon-xs'
+      variant='ghost'
+      className='-mt-1 shrink-0'
+      aria-label={copied ? t('activity.copied') : t('activity.copyError')}
+      onClick={copy}
+    >
+      {copied ? <Check /> : <Copy />}
+    </Button>
   )
 }
 

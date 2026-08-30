@@ -6,6 +6,8 @@
     "version": "版本"
   },
   "activity": {
+    "copied": "已複製",
+    "copyError": "複製錯誤",
     "dismiss": "關閉",
     "downloadFailed": "下載失敗。",
     "downloadingFiles": "正在下載 {{count}} 個檔案",

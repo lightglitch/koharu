@@ -6,6 +6,8 @@
     "version": "버전"
   },
   "activity": {
+    "copied": "복사됨",
+    "copyError": "오류 복사",
     "dismiss": "닫기",
     "downloadFailed": "다운로드에 실패했습니다.",
     "downloadingFiles": "{{count}}개 파일 다운로드 중",
