@@ -62,6 +62,17 @@ pub(super) async fn translate(
     request: &TranslationRequest,
 ) -> Result<Vec<String>> {
     let (system, user) = prompt::prompts(request)?;
+    // Diagnostic: a model that drifts from the requested shape does so per
+    // request, so a failing page is only explicable next to a working one.
+    tracing::info!(
+        provider = backend.provider,
+        model = backend.model,
+        segments = request.segments.len(),
+        constrained = !matches!(backend.response_mode, ResponseMode::PromptOnly),
+        system = %prompt::snippet(&system),
+        input = %prompt::snippet(&user),
+        "translation request",
+    );
     let user_content = match request.image.as_deref() {
         Some(image) => MessageContent::Parts(vec![
             ContentPart::Text { text: user },
@@ -111,6 +122,12 @@ pub(super) async fn translate(
         .context("chat completion returned no choices")?
         .message
         .content;
+    tracing::info!(
+        provider = backend.provider,
+        segments = request.segments.len(),
+        response = %prompt::snippet(&text),
+        "translation response",
+    );
     Ok(prompt::translations(
         backend.provider,
         &text,
