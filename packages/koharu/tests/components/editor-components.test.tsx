@@ -369,7 +369,12 @@ describe('greenfield editor', () => {
     })
     render(<PageRail />)
 
-    expect(screen.getByRole('button', { name: 'Process Page 1' })).toBeDisabled()
+    const button = screen.getByRole('button', { name: 'Process Page 1' })
+    expect(button).toBeDisabled()
+    // Disabling must not reveal it: Button's disabled:opacity-50 outranks a
+    // plain opacity-0, so the reveal has to use visibility instead.
+    expect(button).toHaveClass('invisible')
+    expect(button.className).not.toMatch(/(^|\s)opacity-0(\s|$)/)
   })
 
   it('loads page thumbnails into the filmstrip', async () => {

@@ -550,7 +550,11 @@ function PageItem({
                   size='icon-xs'
                   disabled={!onProcess}
                   aria-label={processLabel}
-                  className='-mt-1 shrink-0 opacity-0 shadow-none group-hover:opacity-100 focus-visible:opacity-100'
+                  // Reveal with visibility, not opacity: Button carries
+                  // disabled:opacity-50, and that variant outranks a plain
+                  // opacity-0, which left the button showing on every row
+                  // while a run disabled them all.
+                  className='invisible -mt-1 shrink-0 shadow-none group-hover:visible focus-visible:visible'
                   onClick={() => onProcess?.()}
                 />
               }
