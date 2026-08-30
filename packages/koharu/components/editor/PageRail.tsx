@@ -235,6 +235,10 @@ export function PageRail() {
   // Mirrors Process -> Selected Pages. Hovering a page that belongs to a
   // multi-selection runs the whole selection, so the row button never does
   // less than the menu item the user could have reached instead.
+  const processProject = () => {
+    void call(commands.process, { scope: 'project' }, { operation: 'full' }).catch(() => undefined)
+  }
+
   const processFrom = (page: string) => {
     const scope = selected.length > 1 && selected.includes(page) ? selected : [page]
     void call(commands.process, { scope: 'pages', value: scope }, { operation: 'full' }).catch(
@@ -252,15 +256,34 @@ export function PageRail() {
               {pages.length}
             </span>
           </div>
-          {selected.length > 1 && (
-            <span
-              role='status'
-              aria-live='polite'
-              className='shrink-0 text-[9px] text-muted-foreground tabular-nums'
-            >
-              {t('navigator.selected', { count: selected.length })}
-            </span>
-          )}
+          <div className='flex shrink-0 items-center gap-1.5'>
+            {selected.length > 1 && (
+              <span
+                role='status'
+                aria-live='polite'
+                className='text-[9px] text-muted-foreground tabular-nums'
+              >
+                {t('navigator.selected', { count: selected.length })}
+              </span>
+            )}
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant='ghost'
+                    size='icon-xs'
+                    disabled={running || pages.length === 0}
+                    aria-label={t('menu.processProject')}
+                    className='shadow-none'
+                    onClick={processProject}
+                  />
+                }
+              >
+                <RefreshCcwDot />
+              </TooltipTrigger>
+              <TooltipContent side='bottom'>{t('menu.processProject')}</TooltipContent>
+            </Tooltip>
+          </div>
         </header>
 
         {importing && (

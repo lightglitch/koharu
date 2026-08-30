@@ -319,6 +319,36 @@ describe('greenfield editor', () => {
     expect(nativeGetVersion).toHaveBeenCalledTimes(1)
   })
 
+  it('runs the whole project from the rail header', async () => {
+    installProject()
+    const process = vi.spyOn(commands, 'process').mockResolvedValue('job')
+    render(<PageRail />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Process Project' }))
+    await waitFor(() =>
+      expect(process).toHaveBeenCalledWith({ scope: 'project' }, { operation: 'full' }),
+    )
+
+    act(() => {
+      useKoharuStore.setState({
+        jobs: {
+          job: {
+            id: 'job',
+            kind: 'processing',
+            state: 'running',
+            completed: 1,
+            total: 4,
+            page: 'page',
+            stage: 'ocr',
+            model: 'manga-ocr',
+            error: null,
+          },
+        },
+      })
+    })
+    expect(screen.getByRole('button', { name: 'Process Project' })).toBeDisabled()
+  })
+
   it('processes one page from the rail, or the whole selection', async () => {
     installProject()
     const process = vi.spyOn(commands, 'process').mockResolvedValue('job')
