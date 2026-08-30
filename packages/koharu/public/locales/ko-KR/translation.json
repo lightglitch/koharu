@@ -250,6 +250,8 @@
     "moveUp": "{{name}} 위로 이동",
     "opacityLabel": "{{name}} 불투명도",
     "originalArtwork": "원본 아트워크",
+    "process": "{{name}} 처리",
+    "processLayer": "레이어 처리",
     "show": "{{name}} 표시",
     "sourceLabel": "{{name}} 원문",
     "textName": "텍스트 {{index}}",

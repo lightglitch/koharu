@@ -250,6 +250,8 @@
     "moveUp": "{{name}}を上へ移動",
     "opacityLabel": "{{name}}の不透明度",
     "originalArtwork": "元のアートワーク",
+    "process": "{{name}}を処理",
+    "processLayer": "レイヤーを処理",
     "show": "{{name}}を表示",
     "sourceLabel": "{{name}}の原文",
     "textName": "テキスト {{index}}",

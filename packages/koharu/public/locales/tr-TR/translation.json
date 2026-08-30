@@ -250,6 +250,8 @@
     "moveUp": "{{name}} öğesini yukarı taşı",
     "opacityLabel": "{{name}} opaklığı",
     "originalArtwork": "Orijinal çizim",
+    "process": "{{name}} işle",
+    "processLayer": "Katmanı işle",
     "show": "{{name}} öğesini göster",
     "sourceLabel": "{{name}} kaynak metni",
     "textName": "Metin {{index}}",

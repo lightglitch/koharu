@@ -250,6 +250,8 @@
     "moveUp": "Переместить {{name}} вверх",
     "opacityLabel": "Непрозрачность {{name}}",
     "originalArtwork": "Исходное изображение",
+    "process": "Обработать {{name}}",
+    "processLayer": "Обработать слой",
     "show": "Показать {{name}}",
     "sourceLabel": "Исходный текст {{name}}",
     "textName": "Текст {{index}}",

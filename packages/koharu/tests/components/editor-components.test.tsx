@@ -319,6 +319,39 @@ describe('greenfield editor', () => {
     expect(nativeGetVersion).toHaveBeenCalledTimes(1)
   })
 
+  it('offers a process button on text layers but not on artwork', async () => {
+    installProject()
+    const artwork: Layer = {
+      type: 'artwork',
+      id: 'artwork',
+      parent: 'page',
+      geometry: { points: [] },
+      visibility: { visible: true, opacity: 1 },
+      image: 'source',
+    }
+    queryClient.setQueryData(pageKey, {
+      id: 'page',
+      label: 'Page 1',
+      size: { width: 1000, height: 1500 },
+      layers: [textLayer, artwork],
+      regions: [],
+    })
+    const process = vi.spyOn(commands, 'process').mockResolvedValue('job')
+    render(<Inspector />)
+
+    // Only the text layer can be reprocessed, so exactly one button appears.
+    const buttons = await screen.findAllByRole('button', { name: /^Process / })
+    expect(buttons).toHaveLength(1)
+
+    fireEvent.click(buttons[0]!)
+    await waitFor(() =>
+      expect(process).toHaveBeenCalledWith(
+        { scope: 'entities', value: ['element'] },
+        { operation: 'stages', stages: ['ocr', 'translation'] },
+      ),
+    )
+  })
+
   it('runs the whole project from the rail header', async () => {
     installProject()
     const process = vi.spyOn(commands, 'process').mockResolvedValue('job')

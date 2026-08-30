@@ -250,6 +250,8 @@
     "moveUp": "Mover {{name}} arriba",
     "opacityLabel": "Opacidad de {{name}}",
     "originalArtwork": "Ilustración original",
+    "process": "Procesar {{name}}",
+    "processLayer": "Procesar capa",
     "show": "Mostrar {{name}}",
     "sourceLabel": "Texto original de {{name}}",
     "textName": "Texto {{index}}",

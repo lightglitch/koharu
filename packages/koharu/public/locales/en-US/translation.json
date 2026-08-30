@@ -250,6 +250,8 @@
     "moveUp": "Move {{name}} up",
     "opacityLabel": "{{name}} opacity",
     "originalArtwork": "Original artwork",
+    "process": "Process {{name}}",
+    "processLayer": "Process layer",
     "show": "Show {{name}}",
     "sourceLabel": "{{name}} source text",
     "textName": "Text {{index}}",

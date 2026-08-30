@@ -17,6 +17,7 @@ import {
   Lock,
   Minus,
   Plus,
+  RefreshCcwDot,
   RotateCcw,
   Trash2,
   Type,
@@ -499,6 +500,18 @@ function LayersInspector() {
     selected.length === 1 ? (selected[0] ?? null) : null,
   )
   const [movingLayer, setMovingLayer] = useState<EntityId | null>(null)
+  const running = useKoharuStore((state) =>
+    Object.values(state.jobs).some((job) => job.kind === 'processing' && job.state === 'running'),
+  )
+
+  // Mirrors Process -> Selected Layers, which runs OCR and translation only.
+  const processLayer = (layer: EntityId) => {
+    void call(
+      commands.process,
+      { scope: 'entities', value: [layer] },
+      { operation: 'stages', stages: ['ocr', 'translation'] },
+    ).catch(() => undefined)
+  }
 
   useEffect(() => {
     setExpandedLayer(selected.length === 1 ? (selected[0] ?? null) : null)
@@ -601,6 +614,9 @@ function LayersInspector() {
                 canMoveDown={!locked && position >= 0 && position < siblings.length - 1}
                 reordering={movingLayer !== null}
                 onDelete={isGroupLayer(layer) ? undefined : () => deleteLayer(layer.id)}
+                onProcess={
+                  isTextLayer(layer) && !running ? () => processLayer(layer.id) : undefined
+                }
               />
             )
           })}
@@ -625,6 +641,7 @@ function LayerRow({
   canMoveDown,
   reordering,
   onDelete,
+  onProcess,
 }: {
   layer: Layer
   index: number
@@ -639,6 +656,7 @@ function LayerRow({
   canMoveDown: boolean
   reordering: boolean
   onDelete?: () => void
+  onProcess?: () => void
 }) {
   const { t } = useTranslation()
   const name = localizedLayerName(layer, index, t)
@@ -690,6 +708,27 @@ function LayerRow({
               >
                 <ArrowDown className='size-3' />
               </button>
+              {/* Only text layers carry OCR and translation, so only they can
+                  be reprocessed on their own. */}
+              {onProcess && (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type='button'
+                        aria-label={t('layers.process', { name })}
+                        className='grid size-5 place-items-center rounded-sm text-muted-foreground hover:bg-foreground/[0.07] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 disabled:pointer-events-none disabled:opacity-30'
+                        onClick={onProcess}
+                      />
+                    }
+                  >
+                    <RefreshCcwDot className='size-3' />
+                  </TooltipTrigger>
+                  {/* The accessible name carries the layer, which for a text
+                      layer is its whole text; the tooltip stays short. */}
+                  <TooltipContent side='bottom'>{t('layers.processLayer')}</TooltipContent>
+                </Tooltip>
+              )}
             </div>
           )}
           {!expanded && (
