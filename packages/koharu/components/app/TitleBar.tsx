@@ -59,6 +59,10 @@ export function TitleBar() {
 
   const closeProject = () => void call(commands.closeProject).catch(() => undefined)
 
+  // Exactly what the export commands below will receive, so the count in the
+  // menu cannot disagree with what is written.
+  const exportCount = exportSelection(selectedPages, page?.id).length
+
   return (
     <>
       <header
@@ -122,6 +126,11 @@ export function TitleBar() {
                     }
                   >
                     {t('menu.exportPng')}
+                    {exportCount > 1 && (
+                      <MenubarShortcut>
+                        {t('menu.exportSelection', { count: exportCount })}
+                      </MenubarShortcut>
+                    )}
                   </MenubarItem>
                   <MenubarItem
                     onClick={() =>
@@ -133,7 +142,14 @@ export function TitleBar() {
                     }
                   >
                     {t('menu.exportPsd')}
+                    {exportCount > 1 && (
+                      <MenubarShortcut>
+                        {t('menu.exportSelection', { count: exportCount })}
+                      </MenubarShortcut>
+                    )}
                   </MenubarItem>
+                  {/* CBZ always covers the whole project, so a selection count
+                      would be misleading here. */}
                   <MenubarItem onClick={() => setCbzOpen(true)}>{t('menu.exportCbz')}</MenubarItem>
                 </MenubarSubContent>
               </MenubarSub>

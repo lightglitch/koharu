@@ -1625,6 +1625,42 @@ describe('greenfield editor', () => {
     expect(screen.getByText('Export failed.')).toBeInTheDocument()
   })
 
+  it('shows how many pages are selected above the filter', async () => {
+    installProject()
+    act(() => {
+      useKoharuStore.setState({ selectedPages: ['page-1'] })
+    })
+    render(<PageRail />)
+
+    // A single selection is not worth announcing.
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+
+    // The rail subscribes to the store, so no re-render is needed.
+    act(() => {
+      useKoharuStore.setState({ selectedPages: ['page-1', 'page-2', 'page-3'] })
+    })
+
+    expect(await screen.findByRole('status')).toHaveTextContent('3 selected')
+  })
+
+  it('tells the export items how many pages they will write', async () => {
+    installProject()
+    const user = userEvent.setup()
+    act(() => {
+      useKoharuStore.setState({ selectedPages: ['page-1', 'page-2'] })
+    })
+    render(<TitleBar />)
+
+    await user.click(screen.getByRole('menuitem', { name: 'File' }))
+    await user.hover(await screen.findByRole('menuitem', { name: 'Export' }))
+    const png = await screen.findByRole('menuitem', { name: /PNG/ })
+    const psd = await screen.findByRole('menuitem', { name: /PSD/ })
+    expect(png).toHaveTextContent('2 pages')
+    expect(psd).toHaveTextContent('2 pages')
+    // CBZ covers the whole project, so it carries no selection count.
+    expect(await screen.findByRole('menuitem', { name: /CBZ/ })).not.toHaveTextContent('pages)')
+  })
+
   it('combines concurrent downloads into one progress bar', () => {
     useKoharuStore.setState({
       downloads: {

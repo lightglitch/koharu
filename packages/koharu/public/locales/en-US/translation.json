@@ -266,6 +266,7 @@
     "exportCbz": "CBZ (All Pages)…",
     "exportPng": "PNG…",
     "exportPsd": "PSD…",
+    "exportSelection": "{{count}} pages",
     "file": "File",
     "fit": "Fit Window",
     "github": "GitHub",
@@ -316,7 +317,8 @@
     "pages": "Pages",
     "rename": "Rename",
     "renameDescription": "Choose a new name for this page.",
-    "renameTitle": "Rename page"
+    "renameTitle": "Rename page",
+    "selected": "{{count}} selected"
   },
   "outputPicker": {
     "instructions": "Translation instructions",
