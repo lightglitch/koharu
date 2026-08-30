@@ -375,6 +375,7 @@ describe('greenfield editor', () => {
             stage: 'ocr',
             model: 'manga-ocr',
             error: null,
+            failures: [],
           },
         },
       })
@@ -426,6 +427,7 @@ describe('greenfield editor', () => {
             stage: 'ocr',
             model: 'manga-ocr',
             error: null,
+            failures: [],
           },
         },
       })
@@ -1688,6 +1690,7 @@ describe('greenfield editor', () => {
           stage: 'ocr',
           model: 'manga-ocr',
           error: null,
+          failures: [],
         },
       },
     })
@@ -1714,6 +1717,7 @@ describe('greenfield editor', () => {
           stage: null,
           model: null,
           error: null,
+          failures: [],
         },
       },
     })
@@ -1741,6 +1745,7 @@ describe('greenfield editor', () => {
           stage: null,
           model: null,
           error: null,
+          failures: [],
         },
       },
     })
@@ -1782,6 +1787,62 @@ describe('greenfield editor', () => {
     expect(psd).toHaveTextContent('2 pages')
     // CBZ covers the whole project, so it carries no selection count.
     expect(await screen.findByRole('menuitem', { name: /CBZ/ })).not.toHaveTextContent('pages)')
+  })
+
+  it('lists failed pages in the activity panel after the run finishes', () => {
+    installProject()
+    useKoharuStore.setState({
+      jobs: {
+        job: {
+          id: 'job',
+          kind: 'processing',
+          state: 'finished',
+          completed: 3,
+          total: 3,
+          page: null,
+          stage: null,
+          model: null,
+          error: null,
+          failures: [{ page: 'page', stage: 'translation', message: 'provider refused' }],
+        },
+      },
+    })
+    render(<ActivityCenter />)
+
+    // A finished run stays on screen while it still has failures to report.
+    expect(screen.getByText('Page 1')).toBeInTheDocument()
+    expect(screen.getByText('provider refused')).toBeInTheDocument()
+    // It can be dismissed rather than stopped, since it is no longer running.
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument()
+  })
+
+  it('marks a failed page in the rail', () => {
+    installProject()
+    render(<PageRail />)
+    expect(screen.getByRole('article')).not.toHaveAttribute('data-failed', 'true')
+
+    act(() => {
+      useKoharuStore.setState({
+        jobs: {
+          job: {
+            id: 'job',
+            kind: 'processing',
+            state: 'finished',
+            completed: 1,
+            total: 1,
+            page: null,
+            stage: null,
+            model: null,
+            error: null,
+            failures: [{ page: 'page', stage: 'translation', message: 'provider refused' }],
+          },
+        },
+      })
+    })
+
+    // The rail subscribes to the store, so no re-render is needed.
+    expect(screen.getByRole('article')).toHaveAttribute('data-failed', 'true')
   })
 
   it('combines concurrent downloads into one progress bar', () => {

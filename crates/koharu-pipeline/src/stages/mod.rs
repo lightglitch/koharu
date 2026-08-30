@@ -74,6 +74,35 @@ pub(crate) struct Stages {
     ocr: ocr::Processor,
     translation: translation::Processor,
     inpainting: inpainting::Processor,
+    /// Test-only: forces one stage to fail so failure handling can be
+    /// exercised without a model. Per-instance rather than global, so parallel
+    /// tests cannot affect one another.
+    #[cfg(test)]
+    failing: std::sync::Mutex<Option<Stage>>,
+}
+
+/// Test-only stand-in whose processing always fails.
+#[cfg(test)]
+struct FailingProcessor;
+
+#[cfg(test)]
+#[async_trait]
+impl StageProcessor for FailingProcessor {
+    fn model(&self) -> &'static str {
+        "failing-test-processor"
+    }
+
+    fn unload(&self) -> bool {
+        false
+    }
+
+    async fn load(&self) -> Result<()> {
+        Ok(())
+    }
+
+    async fn process(&self, _input: StageInput) -> Result<Patch> {
+        anyhow::bail!("stage failed on purpose")
+    }
 }
 
 impl Stages {
@@ -87,10 +116,21 @@ impl Stages {
             ocr: ocr::Processor::new(config.ocr.clone(), device.clone()),
             translation: translation::Processor::new(config.translation.clone(), translator),
             inpainting: inpainting::Processor::new(config.inpainting()?, device.clone())?,
+            #[cfg(test)]
+            failing: std::sync::Mutex::new(None),
         })
     }
 
+    #[cfg(test)]
+    pub(crate) fn fail_stage(&self, stage: Stage) {
+        *self.failing.lock().expect("failing stage lock") = Some(stage);
+    }
+
     fn processor(&self, stage: Stage) -> &dyn StageProcessor {
+        #[cfg(test)]
+        if *self.failing.lock().expect("failing stage lock") == Some(stage) {
+            return &FailingProcessor;
+        }
         match stage {
             Stage::Detection => &self.detection,
             Stage::Ocr => &self.ocr,

@@ -487,6 +487,8 @@ pub(crate) async fn export_pages(
         stage: None,
         model: None,
         error: None,
+        // Export writes every page or none; there is no per-page failure.
+        failures: Vec::new(),
     };
     processing.jobs.lock().insert(id, job.clone());
     job_channel.channel.publish(job);

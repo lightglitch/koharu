@@ -35,6 +35,15 @@ impl fmt::Display for JobId {
     }
 }
 
+/// A page abandoned mid-run because one of its stages failed. The run keeps
+/// going, so a job can finish holding several of these.
+#[derive(Clone, Debug, Serialize, Type)]
+pub struct JobFailure {
+    pub page: koharu_scene::EntityId,
+    pub stage: Option<koharu_pipeline::Stage>,
+    pub message: String,
+}
+
 #[derive(Clone, Debug, Serialize, Type)]
 pub struct Job {
     pub id: JobId,
@@ -48,6 +57,7 @@ pub struct Job {
     pub stage: Option<koharu_pipeline::Stage>,
     pub model: Option<String>,
     pub error: Option<String>,
+    pub failures: Vec<JobFailure>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Type)]
@@ -121,6 +131,7 @@ pub(crate) async fn process(
         stage: None,
         model: None,
         error: None,
+        failures: Vec::new(),
     };
     processing.jobs.lock().insert(id, job.clone());
     job_channel.channel.publish(job);
@@ -190,6 +201,34 @@ pub(crate) async fn process(
                     progress.0 = progress.0.saturating_add(1).min(progress.1);
                     Some((progress.0, progress.1, Some(page), Some(stage), None))
                 }
+                Progress::Failed {
+                    page,
+                    stage,
+                    message,
+                } => {
+                    tracing::warn!(
+                        target: "koharu_metrics",
+                        metric = "page_failed",
+                        stage = stage.map(|stage| stage.to_string()),
+                        %message,
+                    );
+                    let job = {
+                        let processing = progress_handle.state::<Processing>();
+                        let mut jobs = processing.jobs.lock();
+                        jobs.get_mut(&id).map(|job| {
+                            job.failures.push(JobFailure {
+                                page,
+                                stage,
+                                message,
+                            });
+                            job.clone()
+                        })
+                    };
+                    if let Some(job) = job {
+                        progress_handle.state::<JobChannel>().channel.publish(job);
+                    }
+                    None
+                }
                 Progress::Running { stage, model, .. } => {
                     tracing::info!(
                         target: "koharu_metrics",
@@ -250,6 +289,8 @@ pub(crate) async fn process(
             handle: task_handle.clone(),
         };
         let result = pipeline.execute(snapshot, request, &mut committer).await;
+        // A run that abandoned pages still finished; the per-page failures are
+        // already on the job, so this is not a failed run.
         let (stopped, error) = match result {
             Ok(report) => (report.status == RunStatus::Stopped, None),
             Err(error) => {

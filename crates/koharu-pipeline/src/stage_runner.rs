@@ -20,6 +20,11 @@ pub(crate) struct StageRunner {
 }
 
 impl StageRunner {
+    #[cfg(test)]
+    pub(crate) fn fail_stage(&self, stage: Stage) {
+        self.stages.fail_stage(stage);
+    }
+
     pub(crate) fn new(
         config: &PipelineConfig,
         translator: koharu_translator::Translator,

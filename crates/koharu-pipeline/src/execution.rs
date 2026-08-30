@@ -9,8 +9,8 @@ use futures::{StreamExt as _, stream::FuturesUnordered};
 use koharu_scene::{EntityId, Snapshot};
 
 use crate::{
-    Committer, ErrorKind, PipelineError, Progress, ProgressSink, Report, Request, RunStatus, Stage,
-    StageOutput, StopToken,
+    Committer, ErrorKind, PageFailure, PipelineError, Progress, ProgressSink, Report, Request,
+    RunStatus, Stage, StageOutput, StopToken,
     images::ImageCache,
     progress,
     resources::ResourceMonitor,
@@ -32,7 +32,11 @@ pub(crate) struct Execution<'a> {
     images: BTreeMap<EntityId, Arc<ImageCache>>,
     busy_stages: BTreeSet<Stage>,
     completed: usize,
-    failure: Option<PipelineError>,
+    /// Work items abandoned because their page failed. Counted separately so
+    /// the completed-versus-total invariant still balances.
+    abandoned: usize,
+    failures: Vec<PageFailure>,
+    failed_pages: BTreeSet<EntityId>,
     base: koharu_scene::Revision,
     started: Instant,
     inpainting_mask: Option<crate::InpaintingMask>,
@@ -84,7 +88,9 @@ impl<'a> Execution<'a> {
             images: BTreeMap::new(),
             busy_stages: BTreeSet::new(),
             completed: 0,
-            failure: None,
+            abandoned: 0,
+            failures: Vec::new(),
+            failed_pages: BTreeSet::new(),
             base,
             started,
             inpainting_mask: request.inpainting_mask,
@@ -110,11 +116,17 @@ impl<'a> Execution<'a> {
                 break;
             };
             self.busy_stages.remove(&completion.stage);
-            if self.stopped() || self.failure.is_some() {
+            if self.stopped() {
                 continue;
             }
+            // A sibling stage of an already-abandoned page: its slot was
+            // counted when the page failed, so drop the result.
+            if self.failed_pages.contains(&completion.page) {
+                continue;
+            }
+            let page = completion.page;
             if let Err(error) = self.apply_completion(completion).await {
-                self.failure = Some(error);
+                self.fail_page(page, error);
             }
         }
 
@@ -122,7 +134,7 @@ impl<'a> Execution<'a> {
     }
 
     fn take_ready_job(&mut self) -> Option<StageJob> {
-        if self.stopped() || self.failure.is_some() {
+        if self.stopped() {
             return None;
         }
         let (page, stage) = self.scheduler.start_next(&self.busy_stages)?;
@@ -216,6 +228,31 @@ impl<'a> Execution<'a> {
         Ok(true)
     }
 
+    /// Records a page failure, abandons the rest of that page and lets the run
+    /// continue. Whole-run problems are not routed here: a committer that
+    /// breaks its contract is a defect, not a page that failed to translate.
+    fn fail_page(&mut self, page: EntityId, error: PipelineError) {
+        let stage = error.stage;
+        let message = format!("{error:#}");
+        tracing::warn!(%page, ?stage, %message, "abandoning page after a stage failure");
+        self.failures.push(PageFailure {
+            page,
+            stage,
+            message: message.clone(),
+        });
+        self.failed_pages.insert(page);
+        self.abandoned += self.scheduler.fail_page(page);
+        self.images.remove(&page);
+        progress::emit(
+            self.progress.as_ref(),
+            Progress::Failed {
+                page,
+                stage,
+                message,
+            },
+        );
+    }
+
     fn mark_complete(&mut self, page: EntityId, stage: Stage) {
         if self.scheduler.complete_stage(page, stage) {
             self.images.remove(&page);
@@ -227,25 +264,25 @@ impl<'a> Execution<'a> {
         self.stop.stopped()
     }
 
-    fn finalize(mut self) -> std::result::Result<Report, PipelineError> {
-        if let Some(error) = self.failure.take() {
-            return Err(error);
-        }
-        if !self.stopped() && self.completed != self.scheduler.total() {
+    fn finalize(self) -> std::result::Result<Report, PipelineError> {
+        let settled = self.completed + self.abandoned;
+        if !self.stopped() && settled != self.scheduler.total() {
             return Err(PipelineError::new(
                 ErrorKind::InvalidOutput,
                 None,
                 anyhow::anyhow!(
                     "pipeline scheduler stopped after {} of {} work items",
-                    self.completed,
+                    settled,
                     self.scheduler.total()
                 ),
             ));
         }
         let status = if self.stopped() {
             RunStatus::Stopped
-        } else {
+        } else if self.failures.is_empty() {
             RunStatus::Completed
+        } else {
+            RunStatus::CompletedWithFailures
         };
         Ok(self.report(status))
     }
@@ -253,6 +290,7 @@ impl<'a> Execution<'a> {
     fn report(&self, status: RunStatus) -> Report {
         Report {
             status,
+            failures: self.failures.clone(),
             base: self.base,
             final_revision: self.scene.revision(),
             completed: self.completed,

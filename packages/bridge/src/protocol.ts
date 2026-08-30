@@ -291,6 +291,17 @@ export type Job = {
 	stage: Stage | null,
 	model: string | null,
 	error: string | null,
+	failures: JobFailure[],
+};
+
+/**
+ *  A page abandoned mid-run because one of its stages failed. The run keeps
+ *  going, so a job can finish holding several of these.
+ */
+export type JobFailure = {
+	page: EntityId,
+	stage: Stage | null,
+	message: string,
 };
 
 export type JobId = string;

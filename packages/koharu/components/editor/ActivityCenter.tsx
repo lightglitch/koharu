@@ -14,7 +14,7 @@ export function ActivityCenter() {
   const jobs = useKoharuStore((state) => state.jobs)
   const downloads = useKoharuStore((state) => state.downloads)
   const visibleJobs = Object.values(jobs).filter(
-    (job) => job.state === 'running' || job.state === 'failed',
+    (job) => job.state === 'running' || job.state === 'failed' || job.failures.length > 0,
   )
   const runningDownloads = Object.values(downloads).filter(
     (download) => download.state === 'running',
@@ -112,18 +112,45 @@ function JobItem({ job }: { job: Job }) {
         <span className='pt-0.5 text-right text-[10px] tabular-nums'>
           {percent !== null ? `${percent}%` : null}
         </span>
-        <Button
-          size='icon-xs'
-          variant='ghost'
-          className='-mt-1'
-          aria-label={t('activity.stop')}
-          onClick={() => void call(commands.stopJob, job.id).catch(() => undefined)}
-        >
-          <Square className='size-2.5 fill-current' />
-        </Button>
+        {job.state === 'running' ? (
+          <Button
+            size='icon-xs'
+            variant='ghost'
+            className='-mt-1'
+            aria-label={t('activity.stop')}
+            onClick={() => void call(commands.stopJob, job.id).catch(() => undefined)}
+          >
+            <Square className='size-2.5 fill-current' />
+          </Button>
+        ) : (
+          <Button
+            size='icon-xs'
+            variant='ghost'
+            className='-mt-1'
+            aria-label={t('activity.dismiss')}
+            onClick={() => dismiss(job.id)}
+          >
+            <X />
+          </Button>
+        )}
         <div className='col-start-2 col-end-4'>
           <Progress value={percent} />
         </div>
+        {job.failures.length > 0 && (
+          <ul className='col-start-2 col-end-5 mt-2 grid gap-1'>
+            {job.failures.map((failure) => (
+              <li key={`${failure.page}:${failure.stage}`} className='flex items-start gap-1.5'>
+                <CircleAlert className='mt-px size-3 shrink-0 text-destructive' />
+                <span className='min-w-0 text-[10px] leading-4'>
+                  <span className='font-medium text-destructive'>
+                    {pages?.find((page) => page.id === failure.page)?.label ?? failure.page}
+                  </span>
+                  <span className='ml-1 text-muted-foreground'>{failure.message}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )

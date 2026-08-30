@@ -29,6 +29,13 @@ pub enum Progress {
         page: EntityId,
         stage: Stage,
     },
+    /// A stage failed. The rest of that page is abandoned; the run carries on
+    /// with the remaining pages.
+    Failed {
+        page: EntityId,
+        stage: Option<Stage>,
+        message: String,
+    },
 }
 
 pub type ProgressSink = Arc<dyn Fn(Progress) + Send + Sync>;

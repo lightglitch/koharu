@@ -67,6 +67,13 @@ impl Pipeline {
         })
     }
 
+    /// Test-only: makes the given stage fail on every page, so the run's
+    /// failure handling can be exercised without loading a model.
+    #[cfg(test)]
+    pub(crate) fn fail_stage(&self, stage: crate::Stage) {
+        self.current.load().fail_stage(stage);
+    }
+
     pub fn subscribe_resources(&self) -> tokio::sync::watch::Receiver<ResourceSnapshot> {
         self.resources.start();
         self.resources.subscribe()

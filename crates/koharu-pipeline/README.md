@@ -26,6 +26,9 @@ let report = pipeline
 
 match report.status {
     RunStatus::Completed => println!("all page stages finished"),
+    RunStatus::CompletedWithFailures => {
+        println!("{} pages were abandoned", report.failures.len())
+    }
     RunStatus::Stopped => println!("completed commits were kept"),
 }
 ```
@@ -123,8 +126,22 @@ preflight failures.
 - Every earlier commit remains in the project.
 - `execute` returns `Ok(Report { status: RunStatus::Stopped, .. })`.
 
-Errors are reserved for invalid input/output, model load or inference failure,
-and commit failure. An error also leaves earlier page-stage commits intact.
+## Failure semantics
+
+A stage failure belongs to one page, not to the run.
+
+- The rest of that page is abandoned, including stages that could still run.
+- The page is reported through `Progress::Failed` and collected into
+  `Report::failures`.
+- Remaining pages continue to be scheduled.
+- `execute` returns `Ok(Report { status: RunStatus::CompletedWithFailures, .. })`.
+- Every commit made before the failure remains in the project, on that page and
+  on every other.
+
+`execute` still returns `Err` for problems that belong to the whole run rather
+than to a page: an invalid scope or operation, and a committer that breaks its
+contract by returning another project's snapshot or failing to advance the
+revision.
 
 ## Model residency
 

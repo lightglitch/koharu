@@ -72,6 +72,12 @@ export function PageRail() {
   const pages = usePages().data ?? emptyPages
   const active = usePage().data?.id ?? null
   const selected = useKoharuStore((state) => state.selectedPages)
+  const jobs = useKoharuStore((state) => state.jobs)
+  const failedPages = useMemo(
+    () =>
+      new Set(Object.values(jobs).flatMap((job) => job.failures.map((failure) => failure.page))),
+    [jobs],
+  )
   const running = useKoharuStore((state) =>
     Object.values(state.jobs).some((job) => job.kind === 'processing' && job.state === 'running'),
   )
@@ -348,6 +354,7 @@ export function PageRail() {
                       page={page}
                       active={active === page.id}
                       selected={selected.includes(page.id)}
+                      failed={failedPages.has(page.id)}
                       dragged={dragged === page.id}
                       onIntent={active === page.id ? undefined : () => prefetchOnIntent(page.id)}
                       onSelect={(additive, range) => select(index, additive, range)}
@@ -495,6 +502,7 @@ function PageItem({
   page,
   active,
   selected,
+  failed,
   dragged,
   onIntent,
   onSelect,
@@ -509,6 +517,7 @@ function PageItem({
   page: PageSummary
   active: boolean
   selected: boolean
+  failed: boolean
   dragged: boolean
   onIntent?: () => void
   onSelect: (additive: boolean, range: boolean) => void
@@ -531,13 +540,18 @@ function PageItem({
       draggable
       data-active={active}
       data-selected={selected}
+      data-failed={failed}
       className={cn(
         'group grid cursor-default grid-cols-[48px_minmax(0,1fr)] gap-2.5 rounded-xl p-1.5 transition-colors select-none',
-        active
-          ? 'bg-primary/[0.09] hover:bg-primary/[0.09]'
-          : selected
-            ? 'bg-foreground/[0.06] hover:bg-foreground/[0.08]'
-            : 'hover:bg-foreground/[0.045]',
+        // A page the pipeline gave up on stays marked until its job is
+        // dismissed, and outranks selection so it is never hidden by it.
+        failed
+          ? 'bg-destructive/[0.14] hover:bg-destructive/[0.18]'
+          : active
+            ? 'bg-primary/[0.09] hover:bg-primary/[0.09]'
+            : selected
+              ? 'bg-foreground/[0.06] hover:bg-foreground/[0.08]'
+              : 'hover:bg-foreground/[0.045]',
         dragged && 'opacity-50',
       )}
       onPointerEnter={onIntent}

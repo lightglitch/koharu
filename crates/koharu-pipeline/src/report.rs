@@ -8,12 +8,24 @@ use crate::Stage;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RunStatus {
     Completed,
+    /// Every page was attempted, but at least one failed and was abandoned.
+    CompletedWithFailures,
     Stopped,
+}
+
+/// A page abandoned mid-run because one of its stages failed.
+#[derive(Clone, Debug)]
+pub struct PageFailure {
+    pub page: koharu_scene::EntityId,
+    pub stage: Option<Stage>,
+    pub message: String,
 }
 
 #[derive(Debug)]
 pub struct Report {
     pub status: RunStatus,
+    /// Pages abandoned during the run, in the order they failed.
+    pub failures: Vec<PageFailure>,
     pub base: koharu_scene::Revision,
     pub final_revision: koharu_scene::Revision,
     pub completed: usize,
