@@ -319,6 +319,71 @@ describe('greenfield editor', () => {
     expect(nativeGetVersion).toHaveBeenCalledTimes(1)
   })
 
+  it('hides every layer at once, then shows them again', async () => {
+    installProject()
+    const visibility = vi.spyOn(commands, 'setVisibility').mockResolvedValue(null)
+    render(<Inspector />)
+
+    // The fixture layer is visible, so the header offers to hide.
+    fireEvent.click(screen.getByRole('button', { name: 'Hide all layers' }))
+    await waitFor(() => expect(visibility).toHaveBeenCalledWith(['element'], false, null))
+
+    queryClient.setQueryData(pageKey, {
+      id: 'page',
+      label: 'Page 1',
+      size: { width: 1000, height: 1500 },
+      layers: [{ ...textLayer, visibility: { visible: false, opacity: 1 } }],
+      regions: [],
+    })
+
+    const show = await screen.findByRole('button', { name: 'Show all layers' })
+    fireEvent.click(show)
+    await waitFor(() => expect(visibility).toHaveBeenLastCalledWith(['element'], true, null))
+  })
+
+  it('offers to show again once every togglable layer is hidden', async () => {
+    installProject()
+    const visibility = vi.spyOn(commands, 'setVisibility').mockResolvedValue(null)
+    const group: Layer = {
+      type: 'group',
+      id: 'group',
+      parent: 'page',
+      visibility: { visible: true, opacity: 1 },
+      name: 'Text',
+      role: 'text',
+    }
+    const artwork: Layer = {
+      type: 'artwork',
+      id: 'artwork',
+      parent: 'page',
+      geometry: { points: [] },
+      visibility: { visible: true, opacity: 1 },
+      image: 'source',
+    }
+    // Everything with a visibility control is hidden. The group and the locked
+    // artwork stay visible, and neither should keep the page reading as partly
+    // visible.
+    queryClient.setQueryData(pageKey, {
+      id: 'page',
+      label: 'Page 1',
+      size: { width: 1000, height: 1500 },
+      layers: [
+        artwork,
+        group,
+        { ...textLayer, parent: 'group', visibility: { visible: false, opacity: 1 } },
+      ],
+      regions: [],
+    })
+    render(<Inspector />)
+
+    const show = await screen.findByRole('button', { name: 'Show all layers' })
+    fireEvent.click(show)
+
+    // The group is written to, or its children stay off the canvas. The locked
+    // artwork is not: it has no visibility control of its own.
+    await waitFor(() => expect(visibility).toHaveBeenCalledWith(['group', 'element'], true, null))
+  })
+
   it('offers a process button on text layers but not on artwork', async () => {
     installProject()
     const artwork: Layer = {

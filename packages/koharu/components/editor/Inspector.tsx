@@ -519,6 +519,28 @@ function LayersInspector() {
 
   const layers = useMemo(() => (page ? displayedLayers(page.layers, page.id) : []), [page])
 
+  // The original artwork has no visibility control and is never hidden, and a
+  // group is not something the rows toggle either. Counting either one means
+  // the page never reads as fully hidden, so the button never flips.
+  const anyVisible =
+    page?.layers.some(
+      (layer) => !isGroupLayer(layer) && !isLockedLayer(layer) && layer.visibility.visible,
+    ) ?? false
+  const toggleEveryLayer = () => {
+    if (!page) return
+    // Groups are written to, since one left hidden would keep its children off
+    // the canvas however visible they claim to be. The artwork is not: it has
+    // no control of its own and hiding it is not something the UI allows.
+    void call(
+      commands.setVisibility,
+      page.layers.filter((layer) => !isLockedLayer(layer)).map((layer) => layer.id),
+      !anyVisible,
+      null,
+    )
+      .then(() => refresh(projectKey, pageKey))
+      .catch(() => undefined)
+  }
+
   if (!page) return <EmptyInspector>{t('inspector.selectPage')}</EmptyInspector>
 
   const move = (layer: Layer, displayDelta: number) => {
@@ -577,6 +599,25 @@ function LayersInspector() {
         <span className='text-[9px] text-muted-foreground tabular-nums'>
           {page.layers.filter((layer) => !isGroupLayer(layer)).length}
         </span>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='icon-xs'
+                disabled={page.layers.length === 0}
+                aria-label={anyVisible ? t('layers.hideAll') : t('layers.showAll')}
+                className='ml-auto shadow-none'
+                onClick={toggleEveryLayer}
+              />
+            }
+          >
+            {anyVisible ? <Eye /> : <EyeOff />}
+          </TooltipTrigger>
+          <TooltipContent side='bottom'>
+            {anyVisible ? t('layers.hideAll') : t('layers.showAll')}
+          </TooltipContent>
+        </Tooltip>
       </header>
 
       <ScrollArea className='min-h-0 flex-1'>

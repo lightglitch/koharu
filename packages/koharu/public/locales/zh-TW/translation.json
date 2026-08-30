@@ -235,6 +235,7 @@
     "edit": "編輯 {{name}}",
     "empty": "此頁面沒有圖層。",
     "hide": "隱藏 {{name}}",
+    "hideAll": "隱藏所有圖層",
     "imageName": "影像 {{index}}",
     "kinds": {
       "cleanup": "清理",
@@ -255,6 +256,7 @@
     "process": "處理 {{name}}",
     "processLayer": "處理圖層",
     "show": "顯示 {{name}}",
+    "showAll": "顯示所有圖層",
     "sourceLabel": "{{name}} 的原文",
     "textName": "文字 {{index}}",
     "title": "圖層",

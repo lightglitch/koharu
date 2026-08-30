@@ -235,6 +235,7 @@
     "edit": "Editar {{name}}",
     "empty": "No hay capas en esta página.",
     "hide": "Ocultar {{name}}",
+    "hideAll": "Ocultar todas las capas",
     "imageName": "Imagen {{index}}",
     "kinds": {
       "cleanup": "Limpieza",
@@ -255,6 +256,7 @@
     "process": "Procesar {{name}}",
     "processLayer": "Procesar capa",
     "show": "Mostrar {{name}}",
+    "showAll": "Mostrar todas las capas",
     "sourceLabel": "Texto original de {{name}}",
     "textName": "Texto {{index}}",
     "title": "Capas",

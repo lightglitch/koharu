@@ -235,6 +235,7 @@
     "edit": "Изменить {{name}}",
     "empty": "На этой странице нет слоёв.",
     "hide": "Скрыть {{name}}",
+    "hideAll": "Скрыть все слои",
     "imageName": "Изображение {{index}}",
     "kinds": {
       "cleanup": "Очистка",
@@ -255,6 +256,7 @@
     "process": "Обработать {{name}}",
     "processLayer": "Обработать слой",
     "show": "Показать {{name}}",
+    "showAll": "Показать все слои",
     "sourceLabel": "Исходный текст {{name}}",
     "textName": "Текст {{index}}",
     "title": "Слои",

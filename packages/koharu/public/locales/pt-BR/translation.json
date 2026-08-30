@@ -235,6 +235,7 @@
     "edit": "Editar {{name}}",
     "empty": "Não há camadas nesta página.",
     "hide": "Ocultar {{name}}",
+    "hideAll": "Ocultar todas as camadas",
     "imageName": "Imagem {{index}}",
     "kinds": {
       "cleanup": "Limpeza",
@@ -255,6 +256,7 @@
     "process": "Processar {{name}}",
     "processLayer": "Processar camada",
     "show": "Mostrar {{name}}",
+    "showAll": "Mostrar todas as camadas",
     "sourceLabel": "Texto de origem de {{name}}",
     "textName": "Texto {{index}}",
     "title": "Camadas",

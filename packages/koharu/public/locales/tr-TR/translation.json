@@ -235,6 +235,7 @@
     "edit": "{{name}} öğesini düzenle",
     "empty": "Bu sayfada katman yok.",
     "hide": "{{name}} öğesini gizle",
+    "hideAll": "Tüm katmanları gizle",
     "imageName": "Görüntü {{index}}",
     "kinds": {
       "cleanup": "Temizleme",
@@ -255,6 +256,7 @@
     "process": "{{name}} işle",
     "processLayer": "Katmanı işle",
     "show": "{{name}} öğesini göster",
+    "showAll": "Tüm katmanları göster",
     "sourceLabel": "{{name}} kaynak metni",
     "textName": "Metin {{index}}",
     "title": "Katmanlar",

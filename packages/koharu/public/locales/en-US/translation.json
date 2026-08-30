@@ -235,6 +235,7 @@
     "edit": "Edit {{name}}",
     "empty": "No layers on this page.",
     "hide": "Hide {{name}}",
+    "hideAll": "Hide all layers",
     "imageName": "Image {{index}}",
     "kinds": {
       "cleanup": "Cleanup",
@@ -255,6 +256,7 @@
     "process": "Process {{name}}",
     "processLayer": "Process layer",
     "show": "Show {{name}}",
+    "showAll": "Show all layers",
     "sourceLabel": "{{name}} source text",
     "textName": "Text {{index}}",
     "title": "Layers",
