@@ -7,10 +7,10 @@ import {
   FolderOpen,
   LoaderCircle,
   MoreHorizontal,
+  RefreshCcwDot,
   Search,
   Settings,
   Trash2,
-  WandSparkles,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -555,7 +555,7 @@ function PageItem({
                 />
               }
             >
-              <WandSparkles />
+              <RefreshCcwDot />
             </TooltipTrigger>
             <TooltipContent side='left'>{processLabel}</TooltipContent>
           </Tooltip>
