@@ -33,6 +33,22 @@ import { TooltipProvider } from '@koharu/ui/components/tooltip'
 export function Providers({ children }: { children: ReactNode }) {
   const runtime = useRef({ active: false, bound: false })
 
+  // CEF shows a browser context menu that has nothing to do with the editor,
+  // and the runtime only ever removes its Inspect entry. Suppress it, except
+  // over text fields where copy, paste and spelling suggestions are wanted.
+  //
+  // Development keeps the menu: Inspect is how the webview is debugged.
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') return
+    const suppress = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, [contenteditable="true"]')) return
+      event.preventDefault()
+    }
+    document.addEventListener('contextmenu', suppress)
+    return () => document.removeEventListener('contextmenu', suppress)
+  }, [])
+
   useEffect(() => {
     const lifecycle = runtime.current
     lifecycle.active = true

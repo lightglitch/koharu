@@ -86,6 +86,12 @@ async function start() {
   return { binding, dispose: view.unmount }
 }
 
+function contextMenuOn(element: Element): boolean {
+  const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
+  element.dispatchEvent(event)
+  return !event.defaultPrevented
+}
+
 function ProjectProbe() {
   const project = useProject().data
   return createElement(
@@ -96,6 +102,25 @@ function ProjectProbe() {
 }
 
 describe('Tauri runtime', () => {
+  it('suppresses the browser context menu except over text fields', async () => {
+    const { dispose } = await start()
+
+    const surface = document.createElement('div')
+    document.body.append(surface)
+    expect(contextMenuOn(surface)).toBe(false)
+
+    // Copy, paste and spelling suggestions still matter in a text field.
+    const field = document.createElement('input')
+    document.body.append(field)
+    expect(contextMenuOn(field)).toBe(true)
+
+    dispose()
+    // The listener must not outlive the provider.
+    expect(contextMenuOn(surface)).toBe(true)
+    surface.remove()
+    field.remove()
+  })
+
   it('keeps the project unresolved until its backend query returns', async () => {
     const projectPending = deferred<ProjectInfo | null>()
     vi.spyOn(commands, 'getProject').mockReturnValue(projectPending.promise)
