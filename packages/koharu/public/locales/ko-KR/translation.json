@@ -315,6 +315,8 @@
     "noResults": "필터와 일치하는 페이지가 없습니다.",
     "pageName": "페이지 이름",
     "pages": "페이지",
+    "processPage": "{{page}} 처리",
+    "processSelection": "선택한 {{count}}페이지 처리",
     "rename": "이름 바꾸기",
     "renameDescription": "이 페이지의 새 이름을 정하세요.",
     "renameTitle": "페이지 이름 바꾸기",

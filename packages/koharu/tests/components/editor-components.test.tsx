@@ -319,6 +319,59 @@ describe('greenfield editor', () => {
     expect(nativeGetVersion).toHaveBeenCalledTimes(1)
   })
 
+  it('processes one page from the rail, or the whole selection', async () => {
+    installProject()
+    const process = vi.spyOn(commands, 'process').mockResolvedValue('job')
+    render(<PageRail />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Process Page 1' }))
+    await waitFor(() =>
+      expect(process).toHaveBeenCalledWith(
+        { scope: 'pages', value: ['page'] },
+        { operation: 'full' },
+      ),
+    )
+
+    // Hovering a page inside a multi-selection runs the selection, and says so.
+    act(() => {
+      useKoharuStore.setState({ selectedPages: ['page', 'other'] })
+    })
+    const selectionButton = await screen.findByRole('button', {
+      name: 'Process 2 selected pages',
+    })
+    fireEvent.click(selectionButton)
+    await waitFor(() =>
+      expect(process).toHaveBeenLastCalledWith(
+        { scope: 'pages', value: ['page', 'other'] },
+        { operation: 'full' },
+      ),
+    )
+  })
+
+  it('withholds the rail process button while a run is in flight', async () => {
+    installProject()
+    act(() => {
+      useKoharuStore.setState({
+        jobs: {
+          job: {
+            id: 'job',
+            kind: 'processing',
+            state: 'running',
+            completed: 1,
+            total: 4,
+            page: 'page',
+            stage: 'ocr',
+            model: 'manga-ocr',
+            error: null,
+          },
+        },
+      })
+    })
+    render(<PageRail />)
+
+    expect(screen.getByRole('button', { name: 'Process Page 1' })).toBeDisabled()
+  })
+
   it('loads page thumbnails into the filmstrip', async () => {
     installProject()
     const thumbnail = vi.spyOn(commands, 'getThumbnail').mockResolvedValue([1])

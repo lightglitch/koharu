@@ -315,6 +315,8 @@
     "noResults": "このフィルターに一致するページはありません。",
     "pageName": "ページ名",
     "pages": "ページ",
+    "processPage": "{{page}}を処理",
+    "processSelection": "選択中の{{count}}ページを処理",
     "rename": "名前を変更",
     "renameDescription": "このページの新しい名前を入力します。",
     "renameTitle": "ページ名を変更",

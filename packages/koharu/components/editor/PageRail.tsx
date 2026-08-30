@@ -10,6 +10,7 @@ import {
   Search,
   Settings,
   Trash2,
+  WandSparkles,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -71,6 +72,9 @@ export function PageRail() {
   const pages = usePages().data ?? emptyPages
   const active = usePage().data?.id ?? null
   const selected = useKoharuStore((state) => state.selectedPages)
+  const running = useKoharuStore((state) =>
+    Object.values(state.jobs).some((job) => job.kind === 'processing' && job.state === 'running'),
+  )
   const selectPages = useKoharuStore((state) => state.selectPages)
   const selectLayers = useKoharuStore((state) => state.selectLayers)
   const setSettingsOpen = useKoharuStore((state) => state.setSettingsOpen)
@@ -228,6 +232,16 @@ export function PageRail() {
       .finally(closeRename)
   }
 
+  // Mirrors Process -> Selected Pages. Hovering a page that belongs to a
+  // multi-selection runs the whole selection, so the row button never does
+  // less than the menu item the user could have reached instead.
+  const processFrom = (page: string) => {
+    const scope = selected.length > 1 && selected.includes(page) ? selected : [page]
+    void call(commands.process, { scope: 'pages', value: scope }, { operation: 'full' }).catch(
+      () => undefined,
+    )
+  }
+
   return (
     <>
       <aside className='flex h-full min-h-0 flex-col bg-[var(--surface-sidebar)]'>
@@ -318,6 +332,10 @@ export function PageRail() {
                       onDragEnd={() => setDragged(null)}
                       onRename={() => openRename(page)}
                       onDelete={() => deletePage(page.id)}
+                      onProcess={running ? undefined : () => processFrom(page.id)}
+                      processCount={
+                        selected.length > 1 && selected.includes(page.id) ? selected.length : 1
+                      }
                       onDrop={() => {
                         if (dragged && dragged !== page.id) {
                           void call(commands.movePage, dragged, index)
@@ -462,6 +480,8 @@ function PageItem({
   onRename,
   onDelete,
   onDrop,
+  onProcess,
+  processCount,
 }: {
   page: PageSummary
   active: boolean
@@ -474,8 +494,14 @@ function PageItem({
   onRename: () => void
   onDelete: () => void
   onDrop: () => void
+  onProcess?: () => void
+  processCount: number
 }) {
   const { t } = useTranslation()
+  const processLabel =
+    processCount > 1
+      ? t('navigator.processSelection', { count: processCount })
+      : t('navigator.processPage', { page: page.label })
 
   return (
     <article
@@ -516,6 +542,23 @@ function PageItem({
       <div className='min-w-0 py-0.5'>
         <div className='flex items-start gap-1'>
           <span className='min-w-0 flex-1 truncate text-[10px] font-medium'>{page.label}</span>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant='ghost'
+                  size='icon-xs'
+                  disabled={!onProcess}
+                  aria-label={processLabel}
+                  className='-mt-1 shrink-0 opacity-0 shadow-none group-hover:opacity-100 focus-visible:opacity-100'
+                  onClick={() => onProcess?.()}
+                />
+              }
+            >
+              <WandSparkles />
+            </TooltipTrigger>
+            <TooltipContent side='left'>{processLabel}</TooltipContent>
+          </Tooltip>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={

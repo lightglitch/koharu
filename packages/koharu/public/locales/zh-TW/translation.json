@@ -315,6 +315,8 @@
     "noResults": "沒有符合此篩選條件的頁面。",
     "pageName": "頁面名稱",
     "pages": "頁面",
+    "processPage": "處理 {{page}}",
+    "processSelection": "處理選取的 {{count}} 頁",
     "rename": "重新命名",
     "renameDescription": "為此頁面選擇新名稱。",
     "renameTitle": "重新命名頁面",

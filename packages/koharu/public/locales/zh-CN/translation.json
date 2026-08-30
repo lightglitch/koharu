@@ -315,6 +315,8 @@
     "noResults": "没有与此筛选条件匹配的页面。",
     "pageName": "页面名称",
     "pages": "页面",
+    "processPage": "处理 {{page}}",
+    "processSelection": "处理选中的 {{count}} 页",
     "rename": "重命名",
     "renameDescription": "为此页面选择一个新名称。",
     "renameTitle": "重命名页面",

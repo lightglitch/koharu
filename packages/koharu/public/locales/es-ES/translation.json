@@ -315,6 +315,8 @@
     "noResults": "Ninguna página coincide con este filtro.",
     "pageName": "Nombre de página",
     "pages": "Páginas",
+    "processPage": "Procesar {{page}}",
+    "processSelection": "Procesar {{count}} páginas seleccionadas",
     "rename": "Cambiar nombre",
     "renameDescription": "Elige un nombre nuevo para esta página.",
     "renameTitle": "Cambiar nombre de página",

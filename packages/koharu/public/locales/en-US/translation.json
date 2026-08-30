@@ -315,6 +315,8 @@
     "noResults": "No pages match this filter.",
     "pageName": "Page name",
     "pages": "Pages",
+    "processPage": "Process {{page}}",
+    "processSelection": "Process {{count}} selected pages",
     "rename": "Rename",
     "renameDescription": "Choose a new name for this page.",
     "renameTitle": "Rename page",

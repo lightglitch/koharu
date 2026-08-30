@@ -315,6 +315,8 @@
     "noResults": "Bu filtreyle eşleşen sayfa yok.",
     "pageName": "Sayfa adı",
     "pages": "Sayfalar",
+    "processPage": "{{page}} sayfasını işle",
+    "processSelection": "Seçili {{count}} sayfayı işle",
     "rename": "Yeniden adlandır",
     "renameDescription": "Bu sayfa için yeni bir ad seçin.",
     "renameTitle": "Sayfayı yeniden adlandır",
