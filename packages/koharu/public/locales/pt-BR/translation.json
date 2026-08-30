@@ -302,6 +302,10 @@
   "navigator": {
     "actionsFor": "Ações para {{page}}",
     "delete": "Excluir",
+    "deleteAll": "Excluir todas as páginas",
+    "deleteAllAction": "Excluir todas",
+    "deleteAllDescription": "Isto remove as {{count}} páginas do projeto. Você pode desfazer pelo menu Editar.",
+    "deleteAllTitle": "Excluir todas as páginas?",
     "emptyDescription": "Importe arquivos de imagem ou uma pasta para adicionar páginas.",
     "emptyTitle": "Ainda não há páginas",
     "filter": "Filtrar páginas",

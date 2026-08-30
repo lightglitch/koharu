@@ -352,6 +352,34 @@ describe('greenfield editor', () => {
     )
   })
 
+  it('deletes every page only after the warning is confirmed', async () => {
+    installProject()
+    const user = userEvent.setup()
+    const remove = vi.spyOn(commands, 'deletePages').mockResolvedValue(null)
+    render(<PageRail />)
+
+    await user.click(screen.getByRole('button', { name: 'Delete all pages' }))
+
+    // Destructive and bulk, so it must not fire straight off the icon.
+    expect(remove).not.toHaveBeenCalled()
+    expect(await screen.findByText('Delete all pages?')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Delete all' }))
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(['page']))
+  })
+
+  it('leaves the pages alone when the warning is dismissed', async () => {
+    installProject()
+    const user = userEvent.setup()
+    const remove = vi.spyOn(commands, 'deletePages').mockResolvedValue(null)
+    render(<PageRail />)
+
+    await user.click(screen.getByRole('button', { name: 'Delete all pages' }))
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }))
+
+    expect(remove).not.toHaveBeenCalled()
+  })
+
   it('runs the whole project from the rail header', async () => {
     installProject()
     const process = vi.spyOn(commands, 'process').mockResolvedValue('job')

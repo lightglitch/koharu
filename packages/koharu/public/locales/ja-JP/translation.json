@@ -302,6 +302,10 @@
   "navigator": {
     "actionsFor": "{{page}}の操作",
     "delete": "削除",
+    "deleteAll": "すべてのページを削除",
+    "deleteAllAction": "すべて削除",
+    "deleteAllDescription": "プロジェクトから{{count}}ページすべてを削除します。編集メニューから元に戻せます。",
+    "deleteAllTitle": "すべてのページを削除しますか？",
     "emptyDescription": "画像ファイルまたはフォルダーを読み込んでページを追加します。",
     "emptyTitle": "ページがまだありません",
     "filter": "ページを絞り込む",

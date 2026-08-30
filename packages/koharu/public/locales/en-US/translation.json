@@ -302,6 +302,10 @@
   "navigator": {
     "actionsFor": "Actions for {{page}}",
     "delete": "Delete",
+    "deleteAll": "Delete all pages",
+    "deleteAllAction": "Delete all",
+    "deleteAllDescription": "This removes all {{count}} pages from the project. You can undo it from the Edit menu.",
+    "deleteAllTitle": "Delete all pages?",
     "emptyDescription": "Import image files or a folder to add pages.",
     "emptyTitle": "No pages yet",
     "filter": "Filter pages",

@@ -38,6 +38,17 @@ import {
   type PageSummary,
   type ProjectInfo,
 } from '@koharu/bridge/protocol'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from '@koharu/ui/components/alert-dialog'
 import { Button } from '@koharu/ui/components/button'
 import {
   Dialog,
@@ -89,6 +100,7 @@ export function PageRail() {
   const selectionRequest = useRef(0)
   const intentPrefetch = useRef<IntentPrefetchState | null>(null)
   const [dragged, setDragged] = useState<string | null>(null)
+  const [confirmingDeleteAll, setConfirmingDeleteAll] = useState(false)
   const [query, setQuery] = useState('')
   const [renaming, setRenaming] = useState<PageSummary | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -206,6 +218,20 @@ export function PageRail() {
       })
   }
 
+  const deleteAllPages = () => {
+    setConfirmingDeleteAll(false)
+    void call(
+      commands.deletePages,
+      pages.map((page) => page.id),
+    )
+      .then(() => {
+        selectPages([])
+        selectLayers([])
+        return refresh(projectKey, pagesKey, pageKey)
+      })
+      .catch(() => undefined)
+  }
+
   const deletePage = (page: string) =>
     void call(commands.deletePages, [page])
       .then(() => {
@@ -288,6 +314,23 @@ export function PageRail() {
                 <RefreshCcwDot />
               </TooltipTrigger>
               <TooltipContent side='bottom'>{t('menu.processProject')}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant='ghost'
+                    size='icon-xs'
+                    disabled={running || pages.length === 0}
+                    aria-label={t('navigator.deleteAll')}
+                    className='shadow-none hover:text-destructive'
+                    onClick={() => setConfirmingDeleteAll(true)}
+                  />
+                }
+              >
+                <Trash2 />
+              </TooltipTrigger>
+              <TooltipContent side='bottom'>{t('navigator.deleteAll')}</TooltipContent>
             </Tooltip>
           </div>
         </header>
@@ -403,6 +446,26 @@ export function PageRail() {
           <ResourceMonitor />
         </div>
       </aside>
+
+      <AlertDialog open={confirmingDeleteAll} onOpenChange={setConfirmingDeleteAll}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia className='bg-destructive/10 text-destructive'>
+              <Trash2 className='size-5' />
+            </AlertDialogMedia>
+            <AlertDialogTitle>{t('navigator.deleteAllTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('navigator.deleteAllDescription', { count: pages.length })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction variant='destructive' onClick={deleteAllPages}>
+              {t('navigator.deleteAllAction')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog
         open={renaming !== null}

@@ -302,6 +302,10 @@
   "navigator": {
     "actionsFor": "{{page}} için eylemler",
     "delete": "Sil",
+    "deleteAll": "Tüm sayfaları sil",
+    "deleteAllAction": "Tümünü sil",
+    "deleteAllDescription": "Bu, projedeki {{count}} sayfanın tamamını siler. Düzen menüsünden geri alabilirsiniz.",
+    "deleteAllTitle": "Tüm sayfalar silinsin mi?",
     "emptyDescription": "Sayfa eklemek için görüntü dosyalarını veya bir klasörü içe aktarın.",
     "emptyTitle": "Henüz sayfa yok",
     "filter": "Sayfaları filtrele",
