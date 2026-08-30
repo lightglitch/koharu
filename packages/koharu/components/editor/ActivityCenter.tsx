@@ -4,6 +4,7 @@ import { CircleAlert, Download, Square, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { call } from '@/lib/backend'
+import { usePages } from '@/lib/queries'
 import { useKoharuStore } from '@/lib/store'
 import { commands, type Download as DownloadState, type Job } from '@koharu/bridge/protocol'
 import { Button } from '@koharu/ui/components/button'
@@ -77,6 +78,10 @@ function JobItem({ job }: { job: Job }) {
   const { t } = useTranslation()
   const dismiss = useKoharuStore((state) => state.dismissJob)
   const exporting = job.kind === 'export'
+  // The pipeline reports which page it is on; the rail has already loaded the
+  // labels, so this resolves from cache rather than fetching.
+  const pages = usePages(!exporting).data
+  const pageLabel = job.page ? pages?.find((page) => page.id === job.page)?.label : undefined
   if (job.state === 'failed') {
     return (
       <Failure
@@ -99,7 +104,9 @@ function JobItem({ job }: { job: Job }) {
                 : t('activity.processing')}
           </span>
           <p className='mt-0.5 truncate text-[10px] text-muted-foreground'>
-            {exporting ? `${job.completed} / ${job.total}` : job.model}
+            {exporting
+              ? `${job.completed} / ${job.total}`
+              : [pageLabel, job.model].filter(Boolean).join(' · ')}
           </p>
         </div>
         <span className='pt-0.5 text-right text-[10px] tabular-nums'>
