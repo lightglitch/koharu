@@ -100,7 +100,7 @@ export function PageRail() {
   const selectionRequest = useRef(0)
   const intentPrefetch = useRef<IntentPrefetchState | null>(null)
   const [dragged, setDragged] = useState<string | null>(null)
-  const [confirmingDeleteAll, setConfirmingDeleteAll] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [query, setQuery] = useState('')
   const [renaming, setRenaming] = useState<PageSummary | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -218,12 +218,17 @@ export function PageRail() {
       })
   }
 
-  const deleteAllPages = () => {
-    setConfirmingDeleteAll(false)
-    void call(
-      commands.deletePages,
-      pages.map((page) => page.id),
-    )
+  // A multi-selection is what the user pointed at, so honour it; otherwise the
+  // button means the whole project. Mirrors the process button beside it.
+  const deletingSelection = selected.length > 1
+  const deleteTargets = deletingSelection ? selected : pages.map((page) => page.id)
+  const deleteLabel = deletingSelection
+    ? t('navigator.deleteSelected', { count: selected.length })
+    : t('navigator.deleteAll')
+
+  const deleteTargetPages = () => {
+    setConfirmingDelete(false)
+    void call(commands.deletePages, deleteTargets)
       .then(() => {
         selectPages([])
         selectLayers([])
@@ -322,15 +327,15 @@ export function PageRail() {
                     variant='ghost'
                     size='icon-xs'
                     disabled={running || pages.length === 0}
-                    aria-label={t('navigator.deleteAll')}
+                    aria-label={deleteLabel}
                     className='shadow-none hover:text-destructive'
-                    onClick={() => setConfirmingDeleteAll(true)}
+                    onClick={() => setConfirmingDelete(true)}
                   />
                 }
               >
                 <Trash2 />
               </TooltipTrigger>
-              <TooltipContent side='bottom'>{t('navigator.deleteAll')}</TooltipContent>
+              <TooltipContent side='bottom'>{deleteLabel}</TooltipContent>
             </Tooltip>
           </div>
         </header>
@@ -447,21 +452,29 @@ export function PageRail() {
         </div>
       </aside>
 
-      <AlertDialog open={confirmingDeleteAll} onOpenChange={setConfirmingDeleteAll}>
+      <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogMedia className='bg-destructive/10 text-destructive'>
               <Trash2 className='size-5' />
             </AlertDialogMedia>
-            <AlertDialogTitle>{t('navigator.deleteAllTitle')}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deletingSelection
+                ? t('navigator.deleteSelectedTitle', { count: selected.length })
+                : t('navigator.deleteAllTitle')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('navigator.deleteAllDescription', { count: pages.length })}
+              {deletingSelection
+                ? t('navigator.deleteSelectedDescription', { count: selected.length })
+                : t('navigator.deleteAllDescription', { count: pages.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant='destructive' onClick={deleteAllPages}>
-              {t('navigator.deleteAllAction')}
+            <AlertDialogAction variant='destructive' onClick={deleteTargetPages}>
+              {deletingSelection
+                ? t('navigator.deleteSelectedAction')
+                : t('navigator.deleteAllAction')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

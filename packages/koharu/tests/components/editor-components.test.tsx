@@ -368,6 +368,23 @@ describe('greenfield editor', () => {
     await waitFor(() => expect(remove).toHaveBeenCalledWith(['page']))
   })
 
+  it('deletes only the selection when more than one page is selected', async () => {
+    installProject()
+    const user = userEvent.setup()
+    act(() => {
+      useKoharuStore.setState({ selectedPages: ['page', 'other'] })
+    })
+    const remove = vi.spyOn(commands, 'deletePages').mockResolvedValue(null)
+    render(<PageRail />)
+
+    // The button follows the selection, and says so before anything happens.
+    await user.click(screen.getByRole('button', { name: 'Delete 2 selected pages' }))
+    expect(await screen.findByText('Delete 2 selected pages?')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Delete selected' }))
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(['page', 'other']))
+  })
+
   it('leaves the pages alone when the warning is dismissed', async () => {
     installProject()
     const user = userEvent.setup()
