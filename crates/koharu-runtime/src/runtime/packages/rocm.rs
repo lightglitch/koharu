@@ -141,20 +141,32 @@ pub(crate) fn wheel_platform() -> Result<&'static str> {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, strum::Display, strum::EnumString)]
 pub(crate) enum Rocm {
+    #[strum(serialize = "gfx908")]
+    Gfx908,
+    #[strum(serialize = "gfx90a")]
+    Gfx90a,
+    #[strum(serialize = "gfx942")]
+    Gfx942,
+    #[strum(serialize = "gfx950")]
+    Gfx950,
     #[strum(serialize = "gfx1030")]
     Gfx1030,
-    #[strum(serialize = "gfx1031")]
-    Gfx1031,
-    #[strum(serialize = "gfx1032")]
-    Gfx1032,
     #[strum(serialize = "gfx1100")]
     Gfx1100,
     #[strum(serialize = "gfx1101")]
     Gfx1101,
     #[strum(serialize = "gfx1102")]
     Gfx1102,
+    #[strum(serialize = "gfx1103")]
+    Gfx1103,
+    #[strum(serialize = "gfx1150")]
+    Gfx1150,
     #[strum(serialize = "gfx1151")]
     Gfx1151,
+    #[strum(serialize = "gfx1152")]
+    Gfx1152,
+    #[strum(serialize = "gfx1153")]
+    Gfx1153,
     #[strum(serialize = "gfx1200")]
     Gfx1200,
     #[strum(serialize = "gfx1201")]
