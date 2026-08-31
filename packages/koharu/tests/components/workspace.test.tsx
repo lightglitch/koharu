@@ -45,6 +45,8 @@ vi.mock('@/components/editor/useCanvas', () => ({
 vi.mock('@koharu/bridge/canvas', () => ({
   prefetchCanvasPages,
   workspaceColor: () => [245, 245, 245],
+  // No prepared frame in tests, so page activation runs straight through.
+  showCanvasPage: () => false,
 }))
 
 const layer: Layer = {
@@ -192,6 +194,74 @@ describe('canvas interaction adapter', () => {
     })
 
     expect(useKoharuStore.getState().camera).toEqual(camera)
+  })
+
+  it('steps between pages and opens go to from the configured keys', async () => {
+    installProject()
+    queryClient.setQueryData(pagesKey, [
+      {
+        id: 'page',
+        label: 'one',
+        size: { width: 1, height: 1 },
+        source_asset: null,
+        layer_count: 0,
+      },
+      {
+        id: 'next',
+        label: 'two',
+        size: { width: 1, height: 1 },
+        source_asset: null,
+        layer_count: 0,
+      },
+    ])
+    const select = vi.spyOn(commands, 'selectPage').mockResolvedValue({
+      project: {
+        name: 'Book',
+        revision: 1,
+        active_page: 'next',
+        can_undo: false,
+        can_redo: false,
+      },
+      page: queryClient.getQueryData(pageKey)!,
+    })
+    renderWorkspace()
+
+    // Defaults: D forward, A back, G for the dialog.
+    fireEvent.keyDown(window, { key: 'd' })
+    await waitFor(() => expect(select).toHaveBeenCalledWith('next'))
+
+    fireEvent.keyDown(window, { key: 'g' })
+    expect(useKoharuStore.getState().goToPageOpen).toBe(true)
+  })
+
+  it('leaves navigation keys alone while a modifier is held', () => {
+    installProject()
+    queryClient.setQueryData(pagesKey, [
+      {
+        id: 'page',
+        label: 'one',
+        size: { width: 1, height: 1 },
+        source_asset: null,
+        layer_count: 0,
+      },
+      {
+        id: 'next',
+        label: 'two',
+        size: { width: 1, height: 1 },
+        source_asset: null,
+        layer_count: 0,
+      },
+    ])
+    const select = vi.spyOn(commands, 'selectPage')
+    useKoharuStore.setState({ goToPageOpen: false })
+    renderWorkspace()
+
+    // Ctrl+A is select all layers, so it must not page backwards as well.
+    fireEvent.keyDown(window, { key: 'a', ctrlKey: true })
+    fireEvent.keyDown(window, { key: 'g', ctrlKey: true })
+
+    expect(select).not.toHaveBeenCalled()
+    expect(useKoharuStore.getState().goToPageOpen).toBe(false)
   })
 
   it('suppresses Alt browser handling while an editor input retains focus', () => {

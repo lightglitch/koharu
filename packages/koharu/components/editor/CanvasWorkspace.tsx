@@ -20,6 +20,7 @@ import {
   selectableLayer,
   translateFrames,
 } from '@/lib/geometry'
+import { activatePage, pageStep } from '@/lib/pages'
 import {
   pageKey,
   pagesKey,
@@ -39,7 +40,13 @@ import {
   type CanvasTool,
 } from '@/lib/store'
 import { prefetchCanvasPages, workspaceColor, type CanvasColor } from '@koharu/bridge/canvas'
-import { commands, type Frame, type Point, type TransformFrame } from '@koharu/bridge/protocol'
+import {
+  commands,
+  type Frame,
+  type PageSummary,
+  type Point,
+  type TransformFrame,
+} from '@koharu/bridge/protocol'
 import { Button } from '@koharu/ui/components/button'
 
 const BRUSH_DIAMETER_STEP = 4
@@ -80,6 +87,8 @@ interface StrokeUpdate {
   points: Point[]
 }
 
+const emptyPages: PageSummary[] = []
+
 export function CanvasWorkspace() {
   const { t } = useTranslation()
   const surface = useRef<HTMLDivElement>(null)
@@ -99,7 +108,7 @@ export function CanvasWorkspace() {
   const colorSampling = useColorSampling()
 
   const page = usePage().data
-  const pages = usePages().data
+  const pages = usePages().data ?? emptyPages
   const camera = useKoharuStore((state) => state.camera)
   const canvasPage = useKoharuStore((state) => state.canvasPage)
   const canvasRevision = useKoharuStore((state) => state.canvasRevision)
@@ -108,6 +117,7 @@ export function CanvasWorkspace() {
   const fitCanvasRequest = useKoharuStore((state) => state.fitCanvasRequest)
   const layerFrames = useKoharuStore((state) => state.layerFrames)
   const tool = useKoharuStore((state) => state.tool)
+  const setGoToPageOpen = useKoharuStore((state) => state.setGoToPageOpen)
   const brush = useKoharuStore((state) => state.brush)
   const selected = useKoharuStore((state) => state.selectedLayers)
   const selectLayers = useKoharuStore((state) => state.selectLayers)
@@ -352,6 +362,23 @@ export function CanvasWorkspace() {
           .catch(() => undefined)
         return
       }
+      const pressed = event.key.toLowerCase()
+      if (!command && pressed === state.shortcuts.go_to_page && pages.length > 0) {
+        event.preventDefault()
+        setGoToPageOpen(true)
+        return
+      }
+      if (
+        !command &&
+        (pressed === state.shortcuts.next_page || pressed === state.shortcuts.previous_page)
+      ) {
+        const target = pageStep(pages, page?.id, pressed === state.shortcuts.next_page ? 1 : -1)
+        if (target) {
+          event.preventDefault()
+          activatePage(target, [target])
+        }
+        return
+      }
       if (event.key.toLowerCase() === state.shortcuts.fit) {
         requestCanvasFit()
         return
@@ -385,7 +412,16 @@ export function CanvasWorkspace() {
       window.removeEventListener('keyup', up)
       window.removeEventListener('blur', blur)
     }
-  }, [cancelGesture, colorSampling, page, requestCanvasFit, selectLayers, setTool])
+  }, [
+    cancelGesture,
+    colorSampling,
+    page,
+    pages,
+    requestCanvasFit,
+    selectLayers,
+    setGoToPageOpen,
+    setTool,
+  ])
 
   const clientPagePoint = (clientX: number, clientY: number) =>
     pagePoint(

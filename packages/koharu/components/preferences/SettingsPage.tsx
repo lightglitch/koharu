@@ -318,7 +318,7 @@ function ShortcutPreferences() {
   const { t } = useTranslation()
   const shortcuts = useKoharuStore((state) => state.shortcuts)
   const setShortcut = useKoharuStore((state) => state.setShortcut)
-  const actions: ShortcutAction[] = [
+  const tools: ShortcutAction[] = [
     'select',
     'text',
     'draw',
@@ -328,23 +328,27 @@ function ShortcutPreferences() {
     'pan',
     'fit',
   ]
+  const navigation: ShortcutAction[] = ['previous_page', 'next_page', 'go_to_page']
+
+  const row = (action: ShortcutAction) => (
+    <PreferenceRow key={action} title={t(shortcutKeys[action])}>
+      <Input
+        aria-label={t('settings.shortcuts.inputLabel', { action: t(shortcutKeys[action]) })}
+        maxLength={1}
+        value={shortcuts[action]}
+        className='ml-auto h-8 w-14 text-center text-[12px] uppercase'
+        onChange={(event) => setShortcut(action, event.currentTarget.value)}
+      />
+    </PreferenceRow>
+  )
   return (
     <PreferencePage
       title={t('settings.shortcuts.title')}
       description={t('settings.shortcuts.description')}
     >
-      <PreferenceSection title={t('settings.shortcuts.tools')}>
-        {actions.map((action) => (
-          <PreferenceRow key={action} title={t(shortcutKeys[action])}>
-            <Input
-              aria-label={t('settings.shortcuts.inputLabel', { action: t(shortcutKeys[action]) })}
-              maxLength={1}
-              value={shortcuts[action]}
-              className='ml-auto h-8 w-14 text-center text-[12px] uppercase'
-              onChange={(event) => setShortcut(action, event.currentTarget.value)}
-            />
-          </PreferenceRow>
-        ))}
+      <PreferenceSection title={t('settings.shortcuts.tools')}>{tools.map(row)}</PreferenceSection>
+      <PreferenceSection title={t('settings.shortcuts.navigation')}>
+        {navigation.map(row)}
       </PreferenceSection>
     </PreferencePage>
   )
@@ -364,4 +368,7 @@ const shortcutKeys: Record<ShortcutAction, string> = {
   remove: 'tools.remove',
   pan: 'tools.pan',
   fit: 'canvas.fit',
+  previous_page: 'navigator.previousPage',
+  next_page: 'navigator.nextPage',
+  go_to_page: 'navigator.goToTitle',
 }

@@ -3,6 +3,7 @@
 import { ColorSamplingProvider } from '@/components/controls/ColorSampling'
 import { ActivityCenter } from '@/components/editor/ActivityCenter'
 import { CanvasWorkspace } from '@/components/editor/CanvasWorkspace'
+import { GoToPageDialog } from '@/components/editor/GoToPageDialog'
 import { PageRail } from '@/components/editor/PageRail'
 import { RightSidebar } from '@/components/editor/RightSidebar'
 import {
@@ -16,6 +17,7 @@ export function Editor() {
     <ColorSamplingProvider>
       <div className='relative min-h-0 flex-1 bg-transparent'>
         <ActivityCenter />
+        <GoToPageDialog />
         <ResizablePanelGroup id='editor' orientation='horizontal' className='h-full min-h-0'>
           <ResizablePanel
             id='pages'

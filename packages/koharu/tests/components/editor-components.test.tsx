@@ -9,6 +9,7 @@ import { TitleBar } from '@/components/app/TitleBar'
 import { WindowControls } from '@/components/app/WindowChrome'
 import { ActivityCenter } from '@/components/editor/ActivityCenter'
 import { CanvasCommandBar } from '@/components/editor/CanvasCommandBar'
+import { GoToPageDialog } from '@/components/editor/GoToPageDialog'
 import { Inspector } from '@/components/editor/Inspector'
 import { PageRail } from '@/components/editor/PageRail'
 import { ResourceMonitor } from '@/components/editor/ResourceMonitor'
@@ -339,6 +340,43 @@ describe('greenfield editor', () => {
     const show = await screen.findByRole('button', { name: 'Show all layers' })
     fireEvent.click(show)
     await waitFor(() => expect(visibility).toHaveBeenLastCalledWith(['element'], true, null))
+  })
+
+  it('jumps to a page number from the go to dialog', async () => {
+    installProject()
+    const user = userEvent.setup()
+    const select = vi.spyOn(commands, 'selectPage').mockResolvedValue({
+      project: {
+        name: 'Book',
+        revision: 1,
+        active_page: 'page',
+        can_undo: true,
+        can_redo: false,
+      },
+      page: {
+        id: 'page',
+        label: 'Page 1',
+        size: { width: 1000, height: 1500 },
+        layers: [textLayer],
+        regions: [],
+      },
+    })
+    act(() => {
+      useKoharuStore.setState({ goToPageOpen: true })
+    })
+    render(<GoToPageDialog />)
+
+    const field = await screen.findByRole('textbox', { name: 'Page number' })
+    // The fixture has one page, so anything past it has nowhere to go.
+    await user.type(field, '4')
+    expect(screen.getByRole('button', { name: 'Go' })).toBeDisabled()
+
+    await user.clear(field)
+    await user.type(field, '1')
+    await user.click(screen.getByRole('button', { name: 'Go' }))
+
+    await waitFor(() => expect(select).toHaveBeenCalledWith('page'))
+    expect(useKoharuStore.getState().goToPageOpen).toBe(false)
   })
 
   it('offers to show again once every togglable layer is hidden', async () => {

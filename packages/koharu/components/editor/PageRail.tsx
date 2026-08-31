@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next'
 
 import { ResourceMonitor } from '@/components/editor/ResourceMonitor'
 import { call } from '@/lib/backend'
+import { activatePage, cancelPageActivation } from '@/lib/pages'
 import {
   pageKey,
   pagesKey,
@@ -128,12 +129,7 @@ export function PageRail() {
       ),
   })
 
-  useEffect(
-    () => () => {
-      selectionRequest.current += 1
-    },
-    [],
-  )
+  useEffect(() => cancelPageActivation, [])
 
   const select = (index: number, additive: boolean, range: boolean) => {
     const page = pages[index]
@@ -153,38 +149,7 @@ export function PageRail() {
       next = [page.id]
       anchor.current = index
     }
-    const previousProject = queryClient.getQueryData<ProjectInfo | null>(projectKey)
-    const previousPage = queryClient.getQueryData<Page | null>(pageKey)
-    const prepared = queryClient.getQueryData<CanvasPagePreparation>(preparedPageKey(page.id))
-    const activated = showCanvasPage(page.id, previousProject?.revision ?? null)
-    const request = ++selectionRequest.current
-    const synchronize = () => {
-      if (selectionRequest.current !== request) return
-      if (activated && previousProject && prepared?.revision === previousProject.revision) {
-        queryClient.setQueryData(projectKey, { ...previousProject, active_page: page.id })
-        queryClient.setQueryData(pageKey, prepared.page)
-      }
-      selectPages(next)
-      selectLayers([])
-      void call(commands.selectPage, page.id)
-        .then((selection) => {
-          if (selectionRequest.current !== request) return
-          queryClient.setQueryData(projectKey, selection.project)
-          queryClient.setQueryData(pageKey, selection.page)
-        })
-        .catch(() => {
-          if (selectionRequest.current !== request) return
-          if (queryClient.getQueryData<ProjectInfo | null>(projectKey)?.active_page === page.id) {
-            queryClient.setQueryData(projectKey, previousProject)
-            queryClient.setQueryData(pageKey, previousPage)
-          }
-        })
-    }
-    if (activated) {
-      requestAnimationFrame(() => window.setTimeout(synchronize, 0))
-    } else {
-      synchronize()
-    }
+    activatePage(page.id, next)
   }
 
   const prefetchOnIntent = (page: string) => {
