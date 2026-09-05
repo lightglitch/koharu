@@ -28,7 +28,7 @@ pub(crate) fn translations(
     text: &str,
     source_segments: &[String],
 ) -> anyhow::Result<Vec<String>> {
-    let output = crate::json::from_str::<TranslationOutput>(text).with_context(|| {
+    let output = serde_json::from_str::<TranslationOutput>(text).with_context(|| {
         format!(
             "{provider} returned invalid translation JSON for {} segments; response was: {}",
             source_segments.len(),
@@ -43,23 +43,6 @@ pub(crate) fn translations(
             translations[translation.id] = translation.text;
             translated[translation.id] = true;
         }
-    }
-
-    let applied = translated.iter().filter(|done| **done).count();
-    if applied == 0 && !source_segments.is_empty() {
-        anyhow::bail!(
-            "{provider} returned no usable translations for {} segments; response was: {}",
-            source_segments.len(),
-            snippet(text),
-        );
-    }
-    if applied < source_segments.len() {
-        tracing::warn!(
-            provider,
-            applied,
-            expected = source_segments.len(),
-            "some segments were left untranslated; their source text is kept",
-        );
     }
 
     Ok(translations)
@@ -202,26 +185,8 @@ struct TranslationInputSegment<'a> {
     text: &'a str,
 }
 
-/// Keeps the segments that deserialize and drops the ones that do not.
-///
-/// A model can corrupt a single entry, for instance by writing the key as
-/// `"text экран"`, and serde would otherwise discard the whole array with it.
-/// Anything dropped here keeps its source text, which is what a segment the
-/// model never returned already does.
-fn segments_that_parse<'de, D>(deserializer: D) -> Result<Vec<TranslationOutputSegment>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let entries = Vec::<serde_json::Value>::deserialize(deserializer)?;
-    Ok(entries
-        .into_iter()
-        .filter_map(|entry| serde_json::from_value(entry).ok())
-        .collect())
-}
-
 #[derive(Debug, Deserialize)]
 struct TranslationOutput {
-    #[serde(deserialize_with = "segments_that_parse")]
     translations: Vec<TranslationOutputSegment>,
 }
 
@@ -254,42 +219,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn keeps_the_segments_around_a_corrupted_one() {
-        // The model wrote one key as "text экран", which used to discard every
-        // other segment with it.
-        let response = concat!(
-            "{\"translations\": [",
-            "{\"id\": 0, \"text\": \"first\"},",
-            "{\"id\": 1, \"text \u{044d}\u{043a}\u{0440}\u{0430}\u{043d}\": \"!?\"},",
-            "{\"id\": 2, \"text\": \"third\"}",
-            "]}"
-        );
-        let sources = vec!["one".to_owned(), "two".to_owned(), "three".to_owned()];
-
-        let output = super::translations("test", response, &sources).expect("should recover");
-
-        assert_eq!(output[0], "first");
-        // The corrupted segment keeps its source text, exactly as a segment the
-        // model never returned would.
-        assert_eq!(output[1], "two");
-        assert_eq!(output[2], "third");
-    }
-
-    #[test]
-    fn a_response_with_nothing_usable_still_fails() {
-        // Dropping bad segments must not turn a wholly wrong response into a
-        // silent pass-through of untranslated source text.
-        let response = r#"{"translations": [{"nope": 1}, {"nope": 2}]}"#;
-        let sources = vec!["one".to_owned(), "two".to_owned()];
-
-        let error = super::translations("test", response, &sources).expect_err("should fail");
-        assert!(
-            format!("{error:#}").contains("no usable translations"),
-            "{error:#}"
-        );
-    }
-
-    #[test]
     fn snippet_keeps_a_response_on_one_line() {
         let flattened = snippet("{\n  \"translations\": [\n\t\"hello\"\n  ]\n}");
 
@@ -315,31 +244,46 @@ mod tests {
     }
 
     #[test]
-    fn parses_plain_json_and_markdown_fences() {
+    fn parses_plain_json() {
         let source = ["one".to_owned(), "two".to_owned()];
-        let expected = vec!["hello".to_owned(), "world".to_owned()];
+        let response = r#"{"translations":[{"id":0,"text":"hello"},{"id":1,"text":"world"}]}"#;
+
+        assert_eq!(
+            translations("test", response, &source).unwrap(),
+            ["hello", "world"]
+        );
+    }
+
+    #[test]
+    fn rejects_wrapped_and_malformed_json() {
+        let source = ["one".to_owned(), "two".to_owned()];
         for response in [
-            r#"{"translations":[{"id":0,"text":"hello"},{"id":1,"text":"world"}]}"#,
             "```json\n{\"translations\":[{\"id\":0,\"text\":\"hello\"},{\"id\":1,\"text\":\"world\"}]}\n```",
-            "```JSON\n{\"translations\":[{\"id\":0,\"text\":\"hello\"},{\"id\":1,\"text\":\"world\"}]}\n```",
-            "```\n{\"translations\":[{\"id\":0,\"text\":\"hello\"},{\"id\":1,\"text\":\"world\"}]}\n```",
+            r#"{translations: [{id: 0, text: 'hello'}, {id: 1, text: 'world'},],}"#,
+            r#"Here is the result: {"translations": [{"id": 0, "text": "hello"}, {"id": 1, "text": "world"},]}"#,
+            "{\"translations\":[{\"id\":0,\"text\":\"hello\"},{\"id\":1,\"text\":\"world\"",
         ] {
-            assert_eq!(translations("test", response, &source).unwrap(), expected);
+            assert!(
+                translations("test", response, &source).is_err(),
+                "{response}"
+            );
         }
     }
 
     #[test]
-    fn repairs_malformed_llm_json() {
-        let source = ["one".to_owned(), "two".to_owned()];
-        let expected = vec!["hello".to_owned(), "world".to_owned()];
-        for response in [
-            r#"{translations: [{id: 0, text: 'hello'}, {id: 1, text: 'world'},],}"#,
-            r#"Here is the result: {"translations": [{"id": 0, "text": "hello"}, {"id": 1, "text": "world"},]}"#,
-            "{\"translations\":[{\"id\":0,\"text\":\"hello\"},{\"id\":1,\"text\":\"world\"",
-            r#"{"translations":[{"id":"0","text":"hello"},{"id":"1","text":"world"}]}"#,
-        ] {
-            assert_eq!(translations("test", response, &source).unwrap(), expected);
-        }
+    fn parse_error_preserves_the_root_failure_and_response() {
+        let source = ["one".to_owned()];
+        let response = "{\n  \"translations\": [{\"id\": 0}]\n}";
+        let error = format!(
+            "{:#}",
+            translations("test", response, &source).expect_err("missing text should fail")
+        );
+
+        assert!(error.contains("missing field `text`"), "{error}");
+        assert!(
+            error.contains(r#"response was: {\n  "translations": [{"id": 0}]\n}"#),
+            "{error}"
+        );
     }
 
     #[test]

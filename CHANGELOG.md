@@ -1,3 +1,82 @@
+## [0.81.7](https://github.com/koharu-rs/koharu/compare/0.81.6..0.81.7) - 2026-09-05
+
+### 🐛 Bug Fixes
+
+- *(app)* Remove ineffective hide-chrome-bubbles flag - ([5e317b6](https://github.com/koharu-rs/koharu/commit/5e317b6255faf2802b5a7e3a58a2719f0e0a86c5))
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove summary GHA - ([3a0c6a3](https://github.com/koharu-rs/koharu/commit/3a0c6a366d5355dee7a19cc905f28d84afa6e4b8))
+
+
+## [0.81.6](https://github.com/koharu-rs/koharu/compare/0.81.5..0.81.6) - 2026-09-04
+
+### 🐛 Bug Fixes
+
+- *(app)* Pass Linux CEF switches correctly - ([24bda3a](https://github.com/koharu-rs/koharu/commit/24bda3a5cc9d47ed45b0d118cbf0711c3b46effe))
+
+
+## [0.81.5](https://github.com/koharu-rs/koharu/compare/0.81.4..0.81.5) - 2026-09-03
+
+### 🐛 Bug Fixes
+
+- *(updater)* Install Windows updates quietly - ([e2df1f6](https://github.com/koharu-rs/koharu/commit/e2df1f60ad3850b79d78b224dc698de6c2d82c8b))
+
+
+## [0.81.4](https://github.com/koharu-rs/koharu/compare/0.81.3..0.81.4) - 2026-09-03
+
+### 🐛 Bug Fixes
+
+- *(translator)* Recover model responses the JSON repair layer rejects ([#1022](https://github.com/koharu-rs/koharu/issues/1022)) - ([e6d330c](https://github.com/koharu-rs/koharu/commit/e6d330c83a76ed3efa1f7ab15988f81544df8219))
+
+
+## [0.81.3](https://github.com/koharu-rs/koharu/compare/0.81.2..0.81.3) - 2026-09-03
+
+### 🐛 Bug Fixes
+
+- *(ci)* Remove AppImage bundle target ([#1035](https://github.com/koharu-rs/koharu/issues/1035)) ([#1037](https://github.com/koharu-rs/koharu/issues/1037)) - ([859ae68](https://github.com/koharu-rs/koharu/commit/859ae68a6c012afe349bedffc616e38a929b8f19))
+
+
+## [0.81.2](https://github.com/koharu-rs/koharu/compare/0.81.1..0.81.2) - 2026-09-03
+
+### 🐛 Bug Fixes
+
+- *(agent)* Recover from invalidated Codex refresh tokens ([#1034](https://github.com/koharu-rs/koharu/issues/1034)) - ([5f299cd](https://github.com/koharu-rs/koharu/commit/5f299cd88e2ecfd834823a6e62068f420a72f73a))
+
+
+## [0.81.1](https://github.com/koharu-rs/koharu/compare/0.81.0..0.81.1) - 2026-09-02
+
+### ⚙️ Miscellaneous Tasks
+
+- Build Linux ARM64 application - ([4add6d8](https://github.com/koharu-rs/koharu/commit/4add6d8d7a60f7a7cafc70a9b756fae4a3b0dd6a))
+
+
+## [0.81.0](https://github.com/koharu-rs/koharu/compare/0.80.0..0.81.0) - 2026-09-02
+
+### ⛰️  Features
+
+- *(runtime)* Support Linux ARM64 CUDA - ([892db6b](https://github.com/koharu-rs/koharu/commit/892db6bfe0d4e1f461793341a26607bfddbba59a))
+- *(runtime)* Support all ROCm 10 targets - ([1938566](https://github.com/koharu-rs/koharu/commit/193856650c85352eff530fbfbab75ef83e6679d9))
+
+### 🐛 Bug Fixes
+
+- *(runtime)* Align ROCm targets with llama.cpp - ([eadb797](https://github.com/koharu-rs/koharu/commit/eadb7976450ded81849d88b79e1d0f279da6c928))
+- *(runtime)* Drop unsupported gfx1250 - ([64173ab](https://github.com/koharu-rs/koharu/commit/64173abbc4fd4c089bf5c3d8a9e350c483e4cbef))
+- *(runtime)* Use exact ROCm library paths - ([eb06347](https://github.com/koharu-rs/koharu/commit/eb063470e06a8c8fdc2e510774996915c869fbba))
+
+### 🚜 Refactor
+
+- *(runtime)* Inline ROCm device library check - ([9152946](https://github.com/koharu-rs/koharu/commit/9152946a89e96fa2cc9ec78c7385d190afa0c014))
+
+### 🧪 Testing
+
+- *(runtime)* Remove gfx1250 reference - ([c3e79e6](https://github.com/koharu-rs/koharu/commit/c3e79e689179921c70de04cb5ac9913afb3ce8a5))
+
+### ⚙️ Miscellaneous Tasks
+
+- Update sponsors ([#943](https://github.com/koharu-rs/koharu/issues/943)) - ([687af18](https://github.com/koharu-rs/koharu/commit/687af180abcd5ecb69994d997acfcef115ad560f))
+
+
 ## [0.80.0](https://github.com/koharu-rs/koharu/compare/0.79.5..0.80.0) - 2026-08-31
 
 ### ⛰️  Features
