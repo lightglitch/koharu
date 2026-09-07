@@ -34,6 +34,7 @@ import { prefetchCanvasPages, showCanvasPage } from '@koharu/bridge/canvas'
 import {
   commands,
   type CanvasPagePreparation,
+  type EntityId,
   type Page,
   type PageImportSource,
   type PageSummary,
@@ -130,6 +131,22 @@ export function PageRail() {
   })
 
   useEffect(() => cancelPageActivation, [])
+
+  // Keyboard navigation and Go to page can make a page active while it is
+  // scrolled out of sight, so reveal it. Tracking what was last revealed keeps
+  // this to one scroll per change of page: the rail re-renders on every
+  // thumbnail and progress update during a run, and those must not yank the
+  // list away from wherever the reader left it.
+  const revealed = useRef<EntityId | null>(null)
+  useEffect(() => {
+    if (!active || revealed.current === active) return
+    const index = visiblePages.findIndex(({ page }) => page.id === active)
+    // The active page can be filtered out; reveal it once the filter clears.
+    if (index < 0) return
+    revealed.current = active
+    // Leaves an already-visible page exactly where it is.
+    pageVirtualizer.scrollToIndex(index, { align: 'auto' })
+  }, [active, visiblePages, pageVirtualizer])
 
   const select = (index: number, additive: boolean, range: boolean) => {
     const page = pages[index]

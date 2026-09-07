@@ -342,6 +342,62 @@ describe('greenfield editor', () => {
     await waitFor(() => expect(visibility).toHaveBeenLastCalledWith(['element'], true, null))
   })
 
+  it('scrolls the rail to a page that navigation made active', async () => {
+    installProject()
+    const pages = Array.from({ length: 40 }, (_, index) => ({
+      id: `page-${index + 1}`,
+      label: `Page ${index + 1}`,
+      size: { width: 1000, height: 1500 },
+      source_asset: 'source',
+      layer_count: 1,
+    }))
+    queryClient.setQueryData(pagesKey, pages)
+    queryClient.setQueryData(pageKey, {
+      id: 'page-1',
+      label: 'Page 1',
+      size: { width: 1000, height: 1500 },
+      layers: [],
+      regions: [],
+    })
+    // jsdom has no scrolling of its own, so stand in for it and record.
+    const scrollTo = vi.fn()
+    Element.prototype.scrollTo = scrollTo as unknown as Element['scrollTo']
+
+    render(<PageRail />)
+    // Ignore the reveal of whatever was active on mount.
+    scrollTo.mockClear()
+
+    // What a shortcut or the go to dialog does: a distant page becomes active.
+    queryClient.setQueryData(pageKey, {
+      id: 'page-30',
+      label: 'Page 30',
+      size: { width: 1000, height: 1500 },
+      layers: [],
+      regions: [],
+    })
+
+    // jsdom has no layout, so the offset react-virtual picks is not
+    // meaningful here; that a scroll was requested for the new page is.
+    await waitFor(() => expect(scrollTo).toHaveBeenCalled())
+
+    scrollTo.mockClear()
+    // A run updates page data constantly. Those re-renders must not yank the
+    // list back to the active page while the reader is looking elsewhere.
+    queryClient.setQueryData(pagesKey, [
+      ...pages,
+      {
+        id: 'page-41',
+        label: 'Page 41',
+        size: { width: 1000, height: 1500 },
+        source_asset: 'source',
+        layer_count: 1,
+      },
+    ])
+    await act(async () => {})
+
+    expect(scrollTo).not.toHaveBeenCalled()
+  })
+
   it('jumps to a page number from the go to dialog', async () => {
     installProject()
     const user = userEvent.setup()
