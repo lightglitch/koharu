@@ -99,13 +99,31 @@ impl StageProcessor for Processor {
         MODEL_NAME
     }
 
+    /// Whether the page already holds detections worth keeping.
+    ///
+    /// A text region counts only while some content still recognizes from it.
+    /// Deleting a text layer takes its content with it but leaves the region
+    /// behind, and treating that orphan as work already done made the deleted
+    /// layer impossible to bring back: nothing recreated the region, OCR found
+    /// no content to attach to, and translation had no layer to read. Ignoring
+    /// orphans lets `remove_previous_regions` replace them on the next run.
     fn skip(&self, input: &StageInput) -> Result<bool> {
         for entity in input.scene.descendants(input.page)? {
             let id = entity.id();
-            if input.contains_entity(id)?
-                && entity
-                    .component::<Region>()?
-                    .is_some_and(|region| region.kind == TextRegion::kind())
+            if !input.contains_entity(id)? {
+                continue;
+            }
+            let is_text_region = entity
+                .component::<Region>()?
+                .is_some_and(|region| region.kind == TextRegion::kind());
+            if !is_text_region {
+                continue;
+            }
+            if input
+                .scene
+                .relations_to_as::<RecognizedFrom>(id)
+                .next()
+                .is_some()
             {
                 return Ok(true);
             }
@@ -1839,8 +1857,8 @@ mod tests {
     };
     use koharu_ml::koharu_layout_rfdetr_seg_2xl::{KoharuLayoutDetection, KoharuLayoutMask};
     use koharu_scene::{
-        At, BubbleRegion, FitsTo, FlowsIn, Geometry, Inside, Origin, PageDraft, Session,
-        TextLayout, TextLayoutKind, TextRegion, Typography, WritingMode,
+        At, BubbleRegion, FitsTo, FlowsIn, Geometry, Inside, Origin, PageDraft, RecognizedFrom,
+        Session, TextLayout, TextLayoutKind, TextRegion, Typography, WritingMode,
     };
 
     use super::{
@@ -1868,29 +1886,32 @@ mod tests {
         assert_eq!(settings.panel_threshold, Some(0.55));
     }
 
-    #[tokio::test]
-    async fn detection_skips_a_page_with_existing_text() {
+    /// A page is "already detected" only while its regions still carry text.
+    async fn skips_page(recognized: bool) -> bool {
         let mut session = Session::memory().await.unwrap();
         let mut page = None;
         let patch = session
             .snapshot()
             .patch(|edit| {
                 let id = edit.add_page(PageDraft::new("page", 100.0, 100.0), At::End)?;
-                edit.add_analysis_region::<TextRegion>(
+                let region = edit.add_analysis_region::<TextRegion>(
                     id,
                     At::End,
                     &Geometry::rectangle(10.0, 10.0, 20.0, 20.0),
                     None,
                 )?;
+                if recognized {
+                    let content = edit.add_text_content(id, At::End)?;
+                    edit.relate::<RecognizedFrom>(content, region)?;
+                }
                 page = Some(id);
                 Ok(())
             })
             .unwrap();
         let snapshot = session.commit(patch).await.unwrap().snapshot;
-        let page = page.unwrap();
         let input = StageInput::new(
             snapshot,
-            page,
+            page.unwrap(),
             None,
             None,
             std::sync::Arc::new(crate::ImageCache::default()),
@@ -1901,7 +1922,19 @@ mod tests {
             koharu_ml::Device::cpu(),
         );
 
-        assert!(processor.skip(&input).unwrap());
+        processor.skip(&input).unwrap()
+    }
+
+    #[tokio::test]
+    async fn detection_skips_a_page_with_existing_text() {
+        assert!(skips_page(true).await);
+    }
+
+    /// Deleting a text layer leaves its region behind. Reprocessing has to
+    /// detect the page again, or the layer can never come back.
+    #[tokio::test]
+    async fn detection_reruns_when_a_region_lost_its_text() {
+        assert!(!skips_page(false).await);
     }
 
     #[tokio::test]
