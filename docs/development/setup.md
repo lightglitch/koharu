@@ -12,8 +12,39 @@ description: Build the Tauri desktop application, run focused checks, regenerate
 - LLVM 22.1.8 or later;
 - Ninja 1.13.2 or later;
 - platform C/C++ build tools required by native dependencies.
+- dav1d 1.3.0 or later, for AVIF page import (see below).
 
 Linux development also needs GTK 3 and the X11 desktop libraries for your distribution. Windows native work uses MSVC build tools.
+
+## AVIF decoding (dav1d)
+
+AVIF page import decodes through dav1d, which the `image` crate links against for its
+`avif-native` feature. dav1d is a system library rather than a vendored crate, so it has
+to be present before the workspace will build at all. The AVIF *encoder* needs nothing:
+it is pure Rust and already enabled.
+
+- Linux: `sudo apt install libdav1d-dev`
+- macOS: `brew install dav1d`
+
+Windows has no pkg-config, so install dav1d with vcpkg and point `system-deps` at it
+directly:
+
+```bash
+vcpkg install dav1d:x64-windows-static-md
+```
+
+The `static-md` triplet links dav1d into the binary while keeping the dynamic CRT that
+Rust expects, so no DLL ships alongside the app. Then set these once, as user
+environment variables:
+
+```
+SYSTEM_DEPS_DAV1D_NO_PKG_CONFIG=1
+SYSTEM_DEPS_DAV1D_LIB=dav1d
+SYSTEM_DEPS_DAV1D_SEARCH_NATIVE=C:/vcpkg/installed/x64-windows-static-md/lib
+```
+
+`NO_PKG_CONFIG` is not optional. Without it `dav1d-sys` runs pkg-config regardless of
+the other two variables and its build script panics.
 
 ## Install and run
 

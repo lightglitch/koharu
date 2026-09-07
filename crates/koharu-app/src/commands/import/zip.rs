@@ -130,6 +130,31 @@ mod tests {
         );
     }
 
+    /// Archive members are read and decoded in Rust, so AVIF inside a CBZ is
+    /// only importable once the decoder is available to the native path.
+    #[test]
+    fn reads_avif_members() {
+        let avif = {
+            let image = image::RgbaImage::from_pixel(2, 3, image::Rgba([0, 128, 255, 255]));
+            let mut bytes = Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgba8(image)
+                .write_to(&mut bytes, ImageFormat::Avif)
+                .expect("encode AVIF");
+            bytes.into_inner()
+        };
+        let path = write_archive(&[("pages/page1.avif", &avif)]);
+
+        let images = extract(&path).expect("read archive");
+        std::fs::remove_file(&path).expect("remove archive");
+
+        assert_eq!(images.len(), 1);
+        assert_eq!(images[0].name, "pages/page1.avif");
+        assert_eq!(
+            image::guess_format(&images[0].bytes).expect("sniff member"),
+            ImageFormat::Avif
+        );
+    }
+
     #[test]
     fn rejects_archive_without_supported_images() {
         let path = write_archive(&[("ComicInfo.xml", b"<ComicInfo />")]);

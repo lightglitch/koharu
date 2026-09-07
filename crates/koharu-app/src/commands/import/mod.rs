@@ -21,7 +21,8 @@ pub(super) enum Format {
         serialize = "png",
         serialize = "jpg",
         serialize = "jpeg",
-        serialize = "webp"
+        serialize = "webp",
+        serialize = "avif"
     )]
     Raster,
     #[strum(serialize = "cbz", serialize = "zip")]
@@ -113,6 +114,45 @@ pub(super) fn import(mut paths: Vec<PathBuf>) -> Result<Vec<Page>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Encoded rather than committed as a binary: `image` ships the AVIF
+    /// encoder by default, so this also proves we decode what we encode.
+    pub(super) fn sample_avif() -> Vec<u8> {
+        let image = image::RgbaImage::from_pixel(8, 4, image::Rgba([12, 34, 56, 255]));
+        let mut encoded = Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(image)
+            .write_to(&mut encoded, ImageFormat::Avif)
+            .expect("encode avif fixture");
+        encoded.into_inner()
+    }
+
+    /// AVIF decoding needs the `avif-native` feature; without it
+    /// `guess_format` still recognises the file and the failure surfaces much
+    /// later, as an unsupported-format error from the dimension probe.
+    #[test]
+    fn avif_pages_are_imported() {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock after epoch")
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!(
+            "koharu-import-avif-{}-{timestamp}",
+            std::process::id()
+        ));
+        fs::create_dir(&directory).expect("create fixture directory");
+        let path = directory.join("page1.avif");
+        fs::write(&path, sample_avif()).expect("write fixture");
+
+        let pages = import(vec![path]).expect("import avif fixture");
+        fs::remove_dir_all(&directory).expect("remove fixture directory");
+
+        assert_eq!(pages.len(), 1);
+        assert_eq!(pages[0].name, "page1.avif");
+        assert_eq!(pages[0].format, ImageFormat::Avif);
+        assert_eq!((pages[0].width, pages[0].height), (8, 4));
+        // The stored bytes stay AVIF, so the asset keeps its own media type.
+        assert_eq!(pages[0].format.to_mime_type(), "image/avif");
+    }
 
     #[test]
     fn top_level_paths_are_naturally_sorted() {
