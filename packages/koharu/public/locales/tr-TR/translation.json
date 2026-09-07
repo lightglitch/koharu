@@ -232,6 +232,10 @@
   },
   "layers": {
     "delete": "{{name}} öğesini sil",
+    "deleteAllText": "Tüm metin katmanlarını sil",
+    "deleteAllTextAction": "Tümünü sil",
+    "deleteAllTextDescription": "Bu, bu sayfadaki {{count}} metin katmanının tamamını siler. Düzen menüsünden geri alabilirsiniz.",
+    "deleteAllTextTitle": "Tüm metin katmanları silinsin mi?",
     "edit": "{{name}} öğesini düzenle",
     "empty": "Bu sayfada katman yok.",
     "hide": "{{name}} öğesini gizle",

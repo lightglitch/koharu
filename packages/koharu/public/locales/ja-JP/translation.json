@@ -232,6 +232,10 @@
   },
   "layers": {
     "delete": "{{name}}を削除",
+    "deleteAllText": "すべてのテキストレイヤーを削除",
+    "deleteAllTextAction": "すべて削除",
+    "deleteAllTextDescription": "このページから{{count}}個のテキストレイヤーすべてを削除します。編集メニューから元に戻せます。",
+    "deleteAllTextTitle": "すべてのテキストレイヤーを削除しますか？",
     "edit": "{{name}}を編集",
     "empty": "このページにはレイヤーがありません。",
     "hide": "{{name}}を隠す",

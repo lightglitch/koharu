@@ -232,6 +232,10 @@
   },
   "layers": {
     "delete": "Delete {{name}}",
+    "deleteAllText": "Delete all text layers",
+    "deleteAllTextAction": "Delete all",
+    "deleteAllTextDescription": "This removes all {{count}} text layers from this page. You can undo it from the Edit menu.",
+    "deleteAllTextTitle": "Delete all text layers?",
     "edit": "Edit {{name}}",
     "empty": "No layers on this page.",
     "hide": "Hide {{name}}",

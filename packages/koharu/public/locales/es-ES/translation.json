@@ -232,6 +232,10 @@
   },
   "layers": {
     "delete": "Eliminar {{name}}",
+    "deleteAllText": "Eliminar todas las capas de texto",
+    "deleteAllTextAction": "Eliminar todas",
+    "deleteAllTextDescription": "Esto elimina las {{count}} capas de texto de esta página. Puedes deshacerlo desde el menú Edición.",
+    "deleteAllTextTitle": "¿Eliminar todas las capas de texto?",
     "edit": "Editar {{name}}",
     "empty": "No hay capas en esta página.",
     "hide": "Ocultar {{name}}",

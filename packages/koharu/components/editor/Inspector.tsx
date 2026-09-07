@@ -49,6 +49,17 @@ import {
   type Typography,
   type WritingMode,
 } from '@koharu/bridge/protocol'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from '@koharu/ui/components/alert-dialog'
 import { Button } from '@koharu/ui/components/button'
 import {
   DropdownMenu,
@@ -500,6 +511,7 @@ function LayersInspector() {
     selected.length === 1 ? (selected[0] ?? null) : null,
   )
   const [movingLayer, setMovingLayer] = useState<EntityId | null>(null)
+  const [confirmingDeleteText, setConfirmingDeleteText] = useState(false)
   const running = useKoharuStore((state) =>
     Object.values(state.jobs).some((job) => job.kind === 'processing' && job.state === 'running'),
   )
@@ -538,6 +550,23 @@ function LayersInspector() {
       null,
     )
       .then(() => refresh(projectKey, pageKey))
+      .catch(() => undefined)
+  }
+
+  // Detection treats a page that still holds recognized text as done, so a
+  // page has to lose all of its text before reprocessing will build it again.
+  // Clearing them one row at a time is the only way to do that today.
+  const textLayers = page?.layers.filter(isTextLayer) ?? []
+  const deleteEveryTextLayer = () => {
+    const targets = textLayers.map((layer) => layer.id)
+    if (targets.length === 0) return
+    setConfirmingDeleteText(false)
+    void call(commands.deleteLayers, targets)
+      .then(() => {
+        selectLayers(selected.filter((layer) => !targets.includes(layer)))
+        setExpandedLayer((current) => (current && targets.includes(current) ? null : current))
+        return refresh(projectKey, pageKey)
+      })
       .catch(() => undefined)
   }
 
@@ -618,7 +647,44 @@ function LayersInspector() {
             {anyVisible ? t('layers.hideAll') : t('layers.showAll')}
           </TooltipContent>
         </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='icon-xs'
+                disabled={textLayers.length === 0}
+                aria-label={t('layers.deleteAllText')}
+                className='shadow-none'
+                onClick={() => setConfirmingDeleteText(true)}
+              />
+            }
+          >
+            <Trash2 />
+          </TooltipTrigger>
+          <TooltipContent side='bottom'>{t('layers.deleteAllText')}</TooltipContent>
+        </Tooltip>
       </header>
+
+      <AlertDialog open={confirmingDeleteText} onOpenChange={setConfirmingDeleteText}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia className='bg-destructive/10 text-destructive'>
+              <Trash2 className='size-5' />
+            </AlertDialogMedia>
+            <AlertDialogTitle>{t('layers.deleteAllTextTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('layers.deleteAllTextDescription', { count: textLayers.length })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction variant='destructive' onClick={deleteEveryTextLayer}>
+              {t('layers.deleteAllTextAction')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ScrollArea className='min-h-0 flex-1'>
         <div className='py-0.5'>

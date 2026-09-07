@@ -232,6 +232,10 @@
   },
   "layers": {
     "delete": "删除 {{name}}",
+    "deleteAllText": "删除所有文字图层",
+    "deleteAllTextAction": "全部删除",
+    "deleteAllTextDescription": "这将从此页面删除全部 {{count}} 个文字图层。可在“编辑”菜单中撤销。",
+    "deleteAllTextTitle": "删除所有文字图层？",
     "edit": "编辑 {{name}}",
     "empty": "此页面上没有图层。",
     "hide": "隐藏 {{name}}",

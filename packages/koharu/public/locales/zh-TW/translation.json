@@ -232,6 +232,10 @@
   },
   "layers": {
     "delete": "刪除 {{name}}",
+    "deleteAllText": "刪除所有文字圖層",
+    "deleteAllTextAction": "全部刪除",
+    "deleteAllTextDescription": "這會從此頁面刪除全部 {{count}} 個文字圖層。可在「編輯」選單中復原。",
+    "deleteAllTextTitle": "刪除所有文字圖層？",
     "edit": "編輯 {{name}}",
     "empty": "此頁面沒有圖層。",
     "hide": "隱藏 {{name}}",

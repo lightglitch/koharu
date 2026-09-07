@@ -398,6 +398,24 @@ describe('greenfield editor', () => {
     expect(scrollTo).not.toHaveBeenCalled()
   })
 
+  it('deletes every text layer only after the warning is confirmed', async () => {
+    installProject()
+    const user = userEvent.setup()
+    const remove = vi.spyOn(commands, 'deleteLayers').mockResolvedValue(null)
+    render(<Inspector />)
+
+    await user.click(screen.getByRole('button', { name: 'Delete all text layers' }))
+
+    // Destructive and bulk, so it must not fire straight off the icon.
+    expect(remove).not.toHaveBeenCalled()
+    expect(await screen.findByText('Delete all text layers?')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Delete all' }))
+
+    // The locked artwork is not a text layer and must survive.
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(['element']))
+  })
+
   it('jumps to a page number from the go to dialog', async () => {
     installProject()
     const user = userEvent.setup()

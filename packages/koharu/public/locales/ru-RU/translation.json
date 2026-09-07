@@ -232,6 +232,10 @@
   },
   "layers": {
     "delete": "Удалить {{name}}",
+    "deleteAllText": "Удалить все текстовые слои",
+    "deleteAllTextAction": "Удалить все",
+    "deleteAllTextDescription": "С этой страницы будут удалены все текстовые слои ({{count}}). Это можно отменить в меню «Правка».",
+    "deleteAllTextTitle": "Удалить все текстовые слои?",
     "edit": "Изменить {{name}}",
     "empty": "На этой странице нет слоёв.",
     "hide": "Скрыть {{name}}",

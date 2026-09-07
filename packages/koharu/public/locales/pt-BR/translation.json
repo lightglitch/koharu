@@ -232,6 +232,10 @@
   },
   "layers": {
     "delete": "Excluir {{name}}",
+    "deleteAllText": "Excluir todas as camadas de texto",
+    "deleteAllTextAction": "Excluir todas",
+    "deleteAllTextDescription": "Isto remove as {{count}} camadas de texto desta página. Você pode desfazer pelo menu Editar.",
+    "deleteAllTextTitle": "Excluir todas as camadas de texto?",
     "edit": "Editar {{name}}",
     "empty": "Não há camadas nesta página.",
     "hide": "Ocultar {{name}}",
