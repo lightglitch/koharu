@@ -86,7 +86,7 @@ function JobItem({ job }: { job: Job }) {
   const exporting = job.kind === 'export'
   // The pipeline reports which page it is on; the rail has already loaded the
   // labels, so this resolves from cache rather than fetching.
-  const pages = usePages(!exporting).data
+  const pages = usePages(job.page !== null).data
   const pageLabel = job.page ? pages?.find((page) => page.id === job.page)?.label : undefined
   if (job.state === 'failed') {
     return (
@@ -109,11 +109,6 @@ function JobItem({ job }: { job: Job }) {
                 ? t(`phase.${job.stage}`, { defaultValue: job.stage })
                 : t('activity.processing')}
           </span>
-          <p className='mt-0.5 truncate text-[10px] text-muted-foreground'>
-            {exporting
-              ? `${job.completed} / ${job.total}`
-              : [pageLabel, job.model].filter(Boolean).join(' · ')}
-          </p>
         </div>
         <span className='pt-0.5 text-right text-[10px] tabular-nums'>
           {percent !== null ? `${percent}%` : null}
@@ -139,6 +134,24 @@ function JobItem({ job }: { job: Job }) {
             <X />
           </Button>
         )}
+        {/* Each on its own line, spanning the progress bar’s columns: a page
+            label is often a whole scan filename, and sharing a line with the
+            model left it a sliver before the ellipsis. */}
+        {exporting ? (
+          <p className='col-start-2 col-end-4 mt-0.5 truncate text-[10px] text-muted-foreground'>
+            {`${job.completed} / ${job.total}`}
+          </p>
+        ) : null}
+        {!exporting && pageLabel ? (
+          <p className='col-start-2 col-end-4 mt-0.5 truncate text-[10px] text-muted-foreground'>
+            {pageLabel}
+          </p>
+        ) : null}
+        {!exporting && job.model ? (
+          <p className='col-start-2 col-end-4 truncate text-[10px] text-muted-foreground'>
+            {job.model}
+          </p>
+        ) : null}
         <div className='col-start-2 col-end-4'>
           <Progress value={percent} />
         </div>

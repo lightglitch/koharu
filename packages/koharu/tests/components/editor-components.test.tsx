@@ -1926,7 +1926,10 @@ describe('greenfield editor', () => {
     render(<ActivityCenter />)
     expect(screen.getByText('25%')).toBeInTheDocument()
     // The pipeline reports the page it is on; name it rather than the model alone.
-    expect(screen.getByText('Page 1 · manga-ocr')).toBeInTheDocument()
+    // Separate elements so a long page label truncates without taking the
+    // model with it.
+    expect(screen.getByText('Page 1')).toBeInTheDocument()
+    expect(screen.getByText('manga-ocr')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
     await waitFor(() => expect(stop).toHaveBeenCalledWith('job'))
   })
