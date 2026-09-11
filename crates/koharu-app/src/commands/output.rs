@@ -19,7 +19,8 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use tauri::{AppHandle, Cef, Manager as _, State, WebviewWindow, ipc::IpcResponse};
+use tauri::{AppHandle, Manager as _, State, WebviewWindow, ipc::IpcResponse};
+use tauri_runtime_cef::CefRuntime;
 
 use super::{
     ChannelExt as _, Error,
@@ -245,7 +246,7 @@ async fn encode_page(
 }
 
 /// Advances a running export job and publishes the update.
-fn advance_export(handle: &AppHandle<Cef>, id: JobId, completed: usize) {
+fn advance_export(handle: &AppHandle<CefRuntime>, id: JobId, completed: usize) {
     let job = {
         let processing = handle.state::<Processing>();
         let mut jobs = processing.jobs.lock();
@@ -260,7 +261,7 @@ fn advance_export(handle: &AppHandle<Cef>, id: JobId, completed: usize) {
 }
 
 /// Retires an export job in its terminal state and publishes the update.
-fn finish_export(handle: &AppHandle<Cef>, id: JobId, state: JobState, error: Option<String>) {
+fn finish_export(handle: &AppHandle<CefRuntime>, id: JobId, state: JobState, error: Option<String>) {
     let processing = handle.state::<Processing>();
     processing.exports.lock().remove(&id);
     let job = processing.jobs.lock().remove(&id).map(|mut job| {
@@ -280,7 +281,7 @@ enum Outcome {
 
 #[allow(clippy::too_many_arguments)]
 async fn run_export(
-    handle: &AppHandle<Cef>,
+    handle: &AppHandle<CefRuntime>,
     id: JobId,
     stop: &StopToken,
     format: ExportFormat,
@@ -408,8 +409,8 @@ async fn run_export(
 #[specta::specta]
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn export_pages(
-    handle: AppHandle<Cef>,
-    window: WebviewWindow<Cef>,
+    handle: AppHandle<CefRuntime>,
+    window: WebviewWindow<CefRuntime>,
     pages: Vec<EntityId>,
     format: ExportFormat,
     project: State<'_, CurrentProject>,
