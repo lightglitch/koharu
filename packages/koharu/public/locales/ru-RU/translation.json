@@ -16,6 +16,7 @@
     "exportFailed": "Ошибка экспорта.",
     "exporting": "Экспорт",
     "modelDownload": "Скачивание модели",
+    "pageLabel": "Страница {{number}}: {{label}}",
     "processing": "Обработка",
     "processingFailed": "Ошибка обработки.",
     "stop": "Остановить",

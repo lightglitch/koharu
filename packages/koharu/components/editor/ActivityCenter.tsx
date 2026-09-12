@@ -2,6 +2,7 @@
 
 import { Check, CircleAlert, Copy, Download, Square, X } from 'lucide-react'
 import { useState } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
 import { call } from '@/lib/backend'
@@ -87,7 +88,13 @@ function JobItem({ job }: { job: Job }) {
   // The pipeline reports which page it is on; the rail has already loaded the
   // labels, so this resolves from cache rather than fetching.
   const pages = usePages(job.page !== null).data
-  const pageLabel = job.page ? pages?.find((page) => page.id === job.page)?.label : undefined
+  // Numbered by position in the rail, so the row says where in the run this
+  // is as well as which file: a scan filename alone rarely tells you.
+  const pageIndex = job.page ? (pages?.findIndex((page) => page.id === job.page) ?? -1) : -1
+  const page = pageIndex >= 0 ? pages?.[pageIndex] : undefined
+  const pageLabel = page
+    ? t('activity.pageLabel', { number: pageIndex + 1, label: page.label })
+    : undefined
   if (job.state === 'failed') {
     return (
       <Failure
@@ -162,11 +169,11 @@ function JobItem({ job }: { job: Job }) {
                 <CircleAlert className='mt-px size-3 shrink-0 text-destructive' />
                 <span className='min-w-0 flex-1 text-[10px] leading-4'>
                   <span className='font-medium text-destructive'>
-                    {failureLabel(failure, pages)}
+                    {failureLabel(failure, pages, t)}
                   </span>
                   <span className='ml-1 text-muted-foreground'>{failure.message}</span>
                 </span>
-                <CopyButton text={`${failureLabel(failure, pages)}: ${failure.message}`} />
+                <CopyButton text={`${failureLabel(failure, pages, t)}: ${failure.message}`} />
               </li>
             ))}
           </ul>
@@ -225,8 +232,16 @@ function Failure({ message, onDismiss }: { message: string; onDismiss: () => voi
   )
 }
 
-function failureLabel(failure: Job['failures'][number], pages: PageSummary[] | undefined): string {
-  return pages?.find((page) => page.id === failure.page)?.label ?? failure.page
+function failureLabel(
+  failure: Job['failures'][number],
+  pages: PageSummary[] | undefined,
+  t: TFunction,
+): string {
+  const index = pages?.findIndex((page) => page.id === failure.page) ?? -1
+  const page = index >= 0 ? pages?.[index] : undefined
+  // Falls back to the raw id, which is all there is when the page is gone.
+  if (!page) return failure.page
+  return t('activity.pageLabel', { number: index + 1, label: page.label })
 }
 
 /// A pipeline error is worth reporting elsewhere, and selecting it out of a

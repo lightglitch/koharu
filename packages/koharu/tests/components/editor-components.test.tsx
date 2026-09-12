@@ -1906,6 +1906,15 @@ describe('greenfield editor', () => {
 
   it('keeps running work visible and stoppable', async () => {
     installProject()
+    queryClient.setQueryData(pagesKey, [
+      {
+        id: 'page',
+        label: 'cover.png',
+        size: { width: 1000, height: 1500 },
+        source_asset: 'source',
+        layer_count: 1,
+      },
+    ])
     useKoharuStore.setState({
       jobs: {
         job: {
@@ -1928,7 +1937,7 @@ describe('greenfield editor', () => {
     // The pipeline reports the page it is on; name it rather than the model alone.
     // Separate elements so a long page label truncates without taking the
     // model with it.
-    expect(screen.getByText('Page 1')).toBeInTheDocument()
+    expect(screen.getByText('Page 1: cover.png')).toBeInTheDocument()
     expect(screen.getByText('manga-ocr')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
     await waitFor(() => expect(stop).toHaveBeenCalledWith('job'))
@@ -2022,6 +2031,15 @@ describe('greenfield editor', () => {
 
   it('lists failed pages in the activity panel after the run finishes', () => {
     installProject()
+    queryClient.setQueryData(pagesKey, [
+      {
+        id: 'page',
+        label: 'cover.png',
+        size: { width: 1000, height: 1500 },
+        source_asset: 'source',
+        layer_count: 1,
+      },
+    ])
     useKoharuStore.setState({
       jobs: {
         job: {
@@ -2040,8 +2058,9 @@ describe('greenfield editor', () => {
     })
     render(<ActivityCenter />)
 
-    // A finished run stays on screen while it still has failures to report.
-    expect(screen.getByText('Page 1')).toBeInTheDocument()
+    // A finished run stays on screen while it still has failures to report,
+    // naming the page the same way the running row does.
+    expect(screen.getByText('Page 1: cover.png')).toBeInTheDocument()
     expect(screen.getByText('provider refused')).toBeInTheDocument()
     // It can be dismissed rather than stopped, since it is no longer running.
     expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
@@ -2050,6 +2069,15 @@ describe('greenfield editor', () => {
 
   it('copies a failed page and its reason', async () => {
     installProject()
+    queryClient.setQueryData(pagesKey, [
+      {
+        id: 'page',
+        label: 'cover.png',
+        size: { width: 1000, height: 1500 },
+        source_asset: 'source',
+        layer_count: 1,
+      },
+    ])
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
     useKoharuStore.setState({
@@ -2073,7 +2101,9 @@ describe('greenfield editor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy error' }))
 
     // The copied text has to stand on its own once it leaves the panel.
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Page 1: provider refused'))
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith('Page 1: cover.png: provider refused'),
+    )
     vi.unstubAllGlobals()
   })
 
