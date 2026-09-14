@@ -1,5 +1,12 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { act, fireEvent, render as testingRender, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render as testingRender,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from 'next-themes'
 import { StrictMode, type ReactNode } from 'react'
@@ -24,6 +31,7 @@ import {
   preparedPageKey,
   projectKey,
   queryClient,
+  useCommand,
 } from '@/lib/queries'
 import { useKoharuStore } from '@/lib/store'
 import * as canvasRuntime from '@koharu/bridge/canvas'
@@ -87,6 +95,42 @@ const textLayer: Layer = {
   },
   layout: 'paragraph',
   automatic_region: null,
+}
+
+const secondLayer: Layer = {
+  ...textLayer,
+  id: 'second',
+  content: {
+    ...textLayer.content,
+    id: 'second-content',
+    translation: { text: 'Second', language: null },
+  },
+}
+
+const thirdLayer: Layer = {
+  ...textLayer,
+  id: 'third',
+  content: {
+    ...textLayer.content,
+    id: 'third-content',
+    translation: { text: 'Third', language: null },
+  },
+}
+
+const artworkLayer: Layer = {
+  type: 'artwork',
+  id: 'artwork',
+  parent: 'page',
+  geometry: {
+    points: [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ],
+  },
+  visibility: { visible: true, opacity: 1 },
+  image: 'source',
 }
 
 const preferences: Preferences = {
@@ -261,7 +305,7 @@ describe('greenfield editor', () => {
     const user = userEvent.setup()
     installProject()
     let finishImport: (() => void) | undefined
-    const importPages = vi.spyOn(commands, 'importPages').mockImplementation(
+    const importPages = vi.spyOn(commands, 'import').mockImplementation(
       () =>
         new Promise<null>((resolve) => {
           finishImport = () => resolve(null)
@@ -271,16 +315,18 @@ describe('greenfield editor', () => {
       <>
         <TitleBar />
         <PageRail />
+        <ActivityCenter />
       </>,
     )
 
     expect(screen.getByText('/')).toHaveClass('mx-2')
     expect(screen.queryByRole('button', { name: 'Import pages' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('menuitem', { name: 'File' }))
-    await user.hover(await screen.findByRole('menuitem', { name: 'Import Pages…' }))
+    await user.hover(await screen.findByRole('menuitem', { name: 'Import Pages' }))
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Files…' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Importing pages…')
+    expect(screen.getByRole('complementary', { name: 'Activity' })).toBeInTheDocument()
     expect(importPages).toHaveBeenCalledTimes(1)
 
     await user.click(screen.getByRole('menuitem', { name: 'File' }))
@@ -292,6 +338,88 @@ describe('greenfield editor', () => {
     finishImport?.()
     await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
   })
+
+  it.each([
+    { choice: /PNG/, format: 'png' },
+    { choice: /PSD/, format: 'psd' },
+  ] as const)('exports the selected pages as $format', async ({ choice, format }) => {
+    const user = userEvent.setup()
+    installProject()
+    const exportPages = vi.spyOn(commands, 'export').mockResolvedValue(null)
+    act(() => {
+      useKoharuStore.setState({ selectedPages: ['page-1', 'page-2'] })
+    })
+    render(<TitleBar />)
+
+    await user.click(screen.getByRole('menuitem', { name: 'File' }))
+    await user.hover(await screen.findByRole('menuitem', { name: 'Export' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: choice }))
+
+    // The command receives the selection itself, so what the menu counts
+    // and what is written cannot drift apart.
+    await waitFor(() =>
+      expect(exportPages).toHaveBeenCalledExactlyOnceWith(['page-1', 'page-2'], format),
+    )
+  })
+
+  it('asks how an archive should be encoded before writing it', async () => {
+    const user = userEvent.setup()
+    installProject()
+    const exportPages = vi.spyOn(commands, 'export').mockResolvedValue(null)
+    render(<TitleBar />)
+
+    await user.click(screen.getByRole('menuitem', { name: 'File' }))
+    await user.hover(await screen.findByRole('menuitem', { name: 'Export' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: /CBZ/ }))
+
+    // Picking CBZ opens the encoding dialog rather than starting a run.
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Export CBZ')
+    expect(exportPages).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('radio', { name: /WebP/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }))
+
+    // An archive always covers the whole project, so it passes no selection.
+    await waitFor(() => expect(exportPages).toHaveBeenCalledExactlyOnceWith([], { cbz: 'webp' }))
+  })
+
+  it.each([
+    { command: 'import', menu: 'Import Pages', choice: 'Files…', pending: 'Importing pages…' },
+  ] as const)(
+    'clears $command activity after failure',
+    async ({ command, menu, choice, pending }) => {
+      const user = userEvent.setup()
+      installProject()
+      let fail: ((error: Error) => void) | undefined
+      vi.spyOn(commands, command).mockImplementation(
+        () =>
+          new Promise<null>((_resolve, reject) => {
+            fail = reject
+          }),
+      )
+      render(
+        <>
+          <TitleBar />
+          <ActivityCenter />
+        </>,
+      )
+
+      await user.click(screen.getByRole('menuitem', { name: 'File' }))
+      await user.hover(await screen.findByRole('menuitem', { name: menu }))
+      fireEvent.click(await screen.findByRole('menuitem', { name: choice }))
+      expect(await screen.findByRole('status')).toHaveTextContent(pending)
+
+      await user.click(screen.getByRole('menuitem', { name: 'File' }))
+      await act(async () => fail?.(new Error('File operation failed')))
+      await waitFor(() =>
+        expect(screen.queryByRole('complementary', { name: 'Activity' })).not.toBeInTheDocument(),
+      )
+      expect(await screen.findByRole('menuitem', { name: menu })).not.toHaveAttribute(
+        'aria-disabled',
+        'true',
+      )
+    },
+  )
 
   it('opens community links through the Tauri opener plugin', async () => {
     nativeOpenUrl.mockClear()
@@ -1107,6 +1235,77 @@ describe('greenfield editor', () => {
     expect(screen.queryByText('Onomatopoeia')).not.toBeInTheDocument()
   })
 
+  function installLayerSelectionFixture() {
+    installProject()
+    queryClient.setQueryData(pageKey, (page: { layers: Layer[] }) => ({
+      ...page,
+      layers: [...page.layers, secondLayer, artworkLayer, thirdLayer],
+    }))
+  }
+
+  it('toggles layers in the selection with ctrl-click', () => {
+    installLayerSelectionFixture()
+    render(<Inspector />)
+
+    expect(useKoharuStore.getState().selectedLayers).toEqual(['element'])
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Second' }), { ctrlKey: true })
+    expect(useKoharuStore.getState().selectedLayers).toEqual(['element', 'second'])
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Hello' }), { ctrlKey: true })
+    expect(useKoharuStore.getState().selectedLayers).toEqual(['second'])
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Second' }), { ctrlKey: true })
+    expect(useKoharuStore.getState().selectedLayers).toEqual([])
+  })
+
+  it('toggles layers in the selection with meta-click', () => {
+    installLayerSelectionFixture()
+    render(<Inspector />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Second' }), { metaKey: true })
+    expect(useKoharuStore.getState().selectedLayers).toEqual(['element', 'second'])
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Second' }), { metaKey: true })
+    expect(useKoharuStore.getState().selectedLayers).toEqual(['element'])
+  })
+
+  it('selects a display range with shift-click, skipping locked layers', () => {
+    installLayerSelectionFixture()
+    render(<Inspector />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Third' }))
+    expect(useKoharuStore.getState().selectedLayers).toEqual(['third'])
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Hello' }), { shiftKey: true })
+    expect(useKoharuStore.getState().selectedLayers).toEqual(['third', 'second', 'element'])
+  })
+
+  it('unions a shift range with the existing selection when ctrl is held', () => {
+    installLayerSelectionFixture()
+    render(<Inspector />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Second' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Third' }), {
+      ctrlKey: true,
+      shiftKey: true,
+    })
+    expect(useKoharuStore.getState().selectedLayers).toEqual(['second', 'third'])
+  })
+
+  it('falls back to single selection when shift-clicking without an anchor', () => {
+    installLayerSelectionFixture()
+    render(<Inspector />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Third' }), { shiftKey: true })
+    expect(useKoharuStore.getState().selectedLayers).toEqual(['third'])
+  })
+
+  it('collapses a multi-selection back to a single layer on plain click', () => {
+    installLayerSelectionFixture()
+    render(<Inspector />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Second' }), { ctrlKey: true })
+    expect(useKoharuStore.getState().selectedLayers).toEqual(['element', 'second'])
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Hello' }))
+    expect(useKoharuStore.getState().selectedLayers).toEqual(['element'])
+  })
+
   it('resets a custom text frame to its automatic region', async () => {
     installProject()
     queryClient.setQueryData(pageKey, (page: { layers: Layer[] }) => ({
@@ -1904,6 +2103,43 @@ describe('greenfield editor', () => {
     expect(screen.getByText('3%')).toBeInTheDocument()
   })
 
+  it('tracks arbitrary concurrent commands until each one settles', async () => {
+    const first = Promise.withResolvers<string>()
+    const second = Promise.withResolvers<string>()
+    const command = vi
+      .fn<(name: string, count: number) => Promise<string>>()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+    const { result } = renderHook(
+      () => useCommand(['rebuild-index'], command, 'Rebuilding index…'),
+      {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      },
+    )
+    render(<ActivityCenter />)
+
+    act(() => {
+      result.current.run('first', 2)
+      result.current.run('second', 3)
+    })
+    await waitFor(() => expect(screen.getAllByRole('status')).toHaveLength(2))
+    expect(screen.getAllByText('Rebuilding index…')).toHaveLength(2)
+    expect(command).toHaveBeenNthCalledWith(1, 'first', 2)
+    expect(command).toHaveBeenNthCalledWith(2, 'second', 3)
+    expect(result.current.busy).toBe(true)
+
+    await act(async () => first.resolve('done'))
+    await waitFor(() => expect(screen.getAllByRole('status')).toHaveLength(1))
+    expect(result.current.busy).toBe(true)
+
+    await act(async () => second.reject(new Error('Index failed')))
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
+    expect(result.current.busy).toBe(false)
+    expect(screen.queryByRole('complementary', { name: 'Activity' })).not.toBeInTheDocument()
+  })
+
   it('keeps running work visible and stoppable', async () => {
     installProject()
     queryClient.setQueryData(pagesKey, [
@@ -1931,6 +2167,17 @@ describe('greenfield editor', () => {
         },
       },
     })
+    // A real page label is a filename, which says nothing about position in
+    // the run, so the row numbers it too.
+    queryClient.setQueryData(pagesKey, [
+      {
+        id: 'page',
+        label: 'cover.png',
+        size: { width: 1000, height: 1500 },
+        source_asset: 'source',
+        layer_count: 1,
+      },
+    ])
     const stop = vi.spyOn(commands, 'stopJob').mockResolvedValue(null)
     render(<ActivityCenter />)
     expect(screen.getByText('25%')).toBeInTheDocument()

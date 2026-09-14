@@ -95,7 +95,7 @@ export function TitleBar() {
                   className='min-h-8 gap-1.5 px-2 py-1 text-xs'
                 >
                   {importing && <LoaderCircle className='animate-spin' aria-hidden='true' />}
-                  {importing ? t('navigator.importing') : t('menu.importPages')}
+                  {importing ? t('navigator.importing') : t('menu.import')}
                 </MenubarSubTrigger>
                 <MenubarSubContent className='min-w-40 p-1'>
                   <MenubarItem disabled={importing} onClick={() => importPages('files')}>
@@ -118,11 +118,7 @@ export function TitleBar() {
                 <MenubarSubContent className='min-w-40 p-1'>
                   <MenubarItem
                     onClick={() =>
-                      void call(
-                        commands.exportPages,
-                        exportSelection(selectedPages, page?.id),
-                        'png',
-                      )
+                      void call(commands.export, exportSelection(selectedPages, page?.id), 'png')
                     }
                   >
                     {t('menu.exportPng')}
@@ -134,11 +130,7 @@ export function TitleBar() {
                   </MenubarItem>
                   <MenubarItem
                     onClick={() =>
-                      void call(
-                        commands.exportPages,
-                        exportSelection(selectedPages, page?.id),
-                        'psd',
-                      )
+                      void call(commands.export, exportSelection(selectedPages, page?.id), 'psd')
                     }
                   >
                     {t('menu.exportPsd')}
@@ -309,12 +301,14 @@ export function TitleBar() {
       <ExportCbzDialog
         open={cbzOpen}
         onOpenChange={setCbzOpen}
-        onConfirm={(encoding) => void call(commands.exportPages, [], { cbz: encoding })}
+        onConfirm={(encoding) => void call(commands.export, [], { cbz: encoding })}
       />
     </>
   )
 }
 
+/// The pages an export command will receive: the selection when there is
+/// one, otherwise the page being looked at.
 function exportSelection(selected: string[], active?: string): string[] {
   if (selected.length) return selected
   return active ? [active] : []

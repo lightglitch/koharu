@@ -39,7 +39,7 @@ export const commands = {
 	openProject: (name: string) => __TAURI_INVOKE<null>("open_project", { name }),
 	deleteProject: (name: string) => __TAURI_INVOKE<null>("delete_project", { name }),
 	closeProject: () => __TAURI_INVOKE<null>("close_project"),
-	importPages: (source: PageImportSource) => __TAURI_INVOKE<null>("import_pages", { source }),
+	import: (source: PageImportSource) => __TAURI_INVOKE<null>("import", { source }),
 	selectPage: (page: EntityId) => __TAURI_INVOKE<PageSelection>("select_page", { page }).then((v) => (({...v,page:({...v.page,regions:v.page.regions.map(i=>({...i,geometry:({...i.geometry,points:i.geometry.points.map(i=>i)})}))})}) as typeof v)),
 	renamePage: (page: EntityId, label: string) => __TAURI_INVOKE<null>("rename_page", { page, label }),
 	deletePages: (pages: EntityId[]) => __TAURI_INVOKE<null>("delete_pages", { pages }),
@@ -55,7 +55,7 @@ export const commands = {
 	redo: () => __TAURI_INVOKE<null>("redo"),
 	process: (scope: Scope, operation: Operation) => __TAURI_INVOKE<JobId>("process", { scope, operation }),
 	stopJob: (job: JobId) => __TAURI_INVOKE<null>("stop_job", { job }),
-	exportPages: (pages: EntityId[], format: ExportFormat) => __TAURI_INVOKE<string | null>("export_pages", { pages, format }),
+	export: (pages: EntityId[], format: ExportFormat) => __TAURI_INVOKE<string | null>("export", { pages, format }),
 	getThumbnail: (page: EntityId) => __TAURI_INVOKE<ThumbnailBytes>("get_thumbnail", { page }),
 	getFonts: () => __TAURI_INVOKE<FontFamily[]>("get_fonts"),
 	getFontPreview: (familyName: string) => __TAURI_INVOKE<FontPreviewBytes>("get_font_preview", { familyName }),
@@ -473,6 +473,7 @@ export type ProviderPreferences = {
 export type Quantization = {
 	id: string,
 	name: string,
+	downloaded: boolean,
 };
 
 export type RasterLayerKind = "cleanup" | "paint";

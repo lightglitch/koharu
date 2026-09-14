@@ -206,7 +206,7 @@ async fn encode_page(
     config: ExportConfig,
 ) -> Result<Vec<u8>> {
     let quality = config.quality(encoding);
-    tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
+    tokio_rayon::spawn(move || -> Result<Vec<u8>> {
         let mut bytes = Vec::new();
         match encoding {
             ImageEncoding::Png => {
@@ -242,7 +242,6 @@ async fn encode_page(
         Ok(bytes)
     })
     .await
-    .context("page encode worker stopped unexpectedly")?
 }
 
 /// Advances a running export job and publishes the update.
@@ -261,7 +260,12 @@ fn advance_export(handle: &AppHandle<CefRuntime>, id: JobId, completed: usize) {
 }
 
 /// Retires an export job in its terminal state and publishes the update.
-fn finish_export(handle: &AppHandle<CefRuntime>, id: JobId, state: JobState, error: Option<String>) {
+fn finish_export(
+    handle: &AppHandle<CefRuntime>,
+    id: JobId,
+    state: JobState,
+    error: Option<String>,
+) {
     let processing = handle.state::<Processing>();
     processing.exports.lock().remove(&id);
     let job = processing.jobs.lock().remove(&id).map(|mut job| {
@@ -408,7 +412,7 @@ async fn run_export(
 #[tauri::command]
 #[specta::specta]
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn export_pages(
+pub(crate) async fn export(
     handle: AppHandle<CefRuntime>,
     window: WebviewWindow<CefRuntime>,
     pages: Vec<EntityId>,
@@ -550,7 +554,7 @@ pub(crate) async fn get_thumbnail(
         .with_context(|| format!("page {page} has no source image"))?
         .blob;
     let bytes = snapshot.read_blob(blob).await?;
-    let bytes = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
+    let bytes = tokio_rayon::spawn(move || -> Result<Vec<u8>> {
         let image = image::load_from_memory(&bytes).context("failed to decode source image")?;
         if image.width() == 0 || image.height() == 0 {
             return Err(anyhow::anyhow!("source image is empty"));
@@ -559,8 +563,7 @@ pub(crate) async fn get_thumbnail(
         let encoder = webp::Encoder::from_rgba(image.as_raw(), image.width(), image.height());
         Ok(encoder.encode(80.0).to_vec())
     })
-    .await
-    .context("thumbnail worker stopped unexpectedly")??;
+    .await?;
     Ok(ThumbnailBytes(bytes))
 }
 
@@ -575,7 +578,7 @@ pub(crate) async fn rendered_preview(
     let image = rasterize(rasterizer, &frame, RasterOptions::default())
         .await?
         .image;
-    tokio::task::spawn_blocking(move || {
+    tokio_rayon::spawn(move || {
         let image = image::DynamicImage::ImageRgba8(image)
             .resize(1024, 1024, image::imageops::FilterType::Lanczos3)
             .to_rgba8();
@@ -583,7 +586,6 @@ pub(crate) async fn rendered_preview(
         Ok::<_, anyhow::Error>(encoder.encode(85.0).to_vec())
     })
     .await
-    .context("preview encode worker stopped unexpectedly")?
 }
 
 async fn rasterize(
@@ -592,9 +594,8 @@ async fn rasterize(
     options: RasterOptions,
 ) -> Result<Raster> {
     let frame = frame.raster_frame()?;
-    tokio::task::spawn_blocking(move || rasterizer.rasterize(&frame, options))
+    tokio_rayon::spawn(move || rasterizer.rasterize(&frame, options))
         .await
-        .context("rasterizer worker stopped unexpectedly")?
         .map_err(Into::into)
 }
 
