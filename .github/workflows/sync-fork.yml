@@ -1,0 +1,60 @@
+name: Sync Fork
+
+# Keeps this fork's main up to date with koharu-rs/koharu.
+#
+# This calls GitHub's own sync-fork endpoint -- the one behind the "Sync fork"
+# button -- rather than a third-party action. No checkout of a repo this size,
+# nothing to keep updated, and it takes the branch as a parameter, so it can
+# sync a branch other than the one it runs from.
+#
+# That last part is why this file lives on dev. Scheduled workflows only run
+# from a repository's default branch, so dev is the default here and main holds
+# nothing of ours at all. main stays byte-identical to upstream, every sync is a
+# clean fast-forward, and a branch cut from main carries none of our commits
+# into a pull request opened against koharu-rs.
+#
+# main only. Merging main into dev is a judgement call -- it has needed real
+# conflict resolution -- so it stays manual.
+
+on:
+  schedule:
+    # Hourly, deliberately off the hour: GitHub queues every '0 * * * *' job in
+    # the world at once and delays them, sometimes past the next run.
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+# The repository default is read-only, so write has to be requested here.
+permissions:
+  contents: write
+
+# A slow sync must not race the next hour's run onto the same branch.
+concurrency:
+  group: sync-fork
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync main from upstream
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge upstream into main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Fails the run on a 409, which is the one outcome worth a look: main
+          # has picked up a commit of its own and no longer fast-forwards.
+          result=$(gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/merge-upstream" \
+            -f branch=main \
+            --jq '"\(.merge_type)\t\(.base_branch)"')
+          merge_type=${result%%$'\t'*}
+          base_branch=${result##*$'\t'}
+          case "$merge_type" in
+            none) summary="Already up to date with ${base_branch}." ;;
+            fast-forward) summary="Fast-forwarded main to ${base_branch}." ;;
+            # main should never need a merge; if it does, it has diverged.
+            *) summary="Synced main from ${base_branch} (${merge_type})." ;;
+          esac
+          echo "$summary"
+          echo "$summary" >> "$GITHUB_STEP_SUMMARY"
