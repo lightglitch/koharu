@@ -229,6 +229,7 @@
     "edit": "Modifier {{name}}",
     "empty": "Aucun calque sur cette page.",
     "hide": "Masquer {{name}}",
+    "hideAll": "Masquer tous les calques",
     "kinds": {
       "balloon": "Bulle",
       "block": "Bloc de texte",
@@ -252,6 +253,7 @@
     "process": "Traiter {{name}}",
     "processLayer": "Traiter le calque",
     "show": "Afficher {{name}}",
+    "showAll": "Afficher tous les calques",
     "sourceLabel": "Texte source de {{name}}",
     "textLabel": "Texte de {{name}}",
     "textName": "Texte {{index}}",

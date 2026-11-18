@@ -32,6 +32,7 @@ import {
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { LayersHeader } from '@/components/editor/LayersHeader'
 import { ReprocessLayerButton } from '@/components/editor/ReprocessLayerButton'
 import { call, dispatch } from '@/lib/backend'
 import {
@@ -189,6 +190,7 @@ export function LayersPanel() {
 
   return (
     <div className='flex min-h-0 flex-1 flex-col'>
+      <LayersHeader layers={page.layers} />
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}

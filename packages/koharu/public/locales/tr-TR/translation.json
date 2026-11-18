@@ -229,6 +229,7 @@
     "edit": "{{name}} öğesini düzenle",
     "empty": "Bu sayfada katman yok.",
     "hide": "{{name}} öğesini gizle",
+    "hideAll": "Tüm katmanları gizle",
     "kinds": {
       "balloon": "Balon",
       "block": "Metin bloğu",
@@ -252,6 +253,7 @@
     "process": "{{name}} işle",
     "processLayer": "Katmanı işle",
     "show": "{{name}} öğesini göster",
+    "showAll": "Tüm katmanları göster",
     "sourceLabel": "{{name}} kaynak metni",
     "textLabel": "{{name}} metni",
     "textName": "Metin {{index}}",

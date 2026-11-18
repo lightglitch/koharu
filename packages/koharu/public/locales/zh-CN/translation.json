@@ -229,6 +229,7 @@
     "edit": "编辑 {{name}}",
     "empty": "此页面上没有图层。",
     "hide": "隐藏 {{name}}",
+    "hideAll": "隐藏所有图层",
     "kinds": {
       "balloon": "对白框",
       "block": "文本块",
@@ -252,6 +253,7 @@
     "process": "处理 {{name}}",
     "processLayer": "处理图层",
     "show": "显示 {{name}}",
+    "showAll": "显示所有图层",
     "sourceLabel": "{{name}} 的原文",
     "textLabel": "{{name}} 的文本",
     "textName": "文本 {{index}}",

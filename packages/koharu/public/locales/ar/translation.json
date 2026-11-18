@@ -229,6 +229,7 @@
     "edit": "تعديل {{name}}",
     "empty": "لا توجد طبقات في هذه الصفحة.",
     "hide": "إخفاء {{name}}",
+    "hideAll": "إخفاء كل الطبقات",
     "kinds": {
       "balloon": "فقاعة",
       "block": "كتلة نص",
@@ -252,6 +253,7 @@
     "process": "معالجة {{name}}",
     "processLayer": "معالجة الطبقة",
     "show": "إظهار {{name}}",
+    "showAll": "إظهار كل الطبقات",
     "sourceLabel": "النص المصدر لـ {{name}}",
     "textLabel": "نص {{name}}",
     "textName": "نص {{index}}",

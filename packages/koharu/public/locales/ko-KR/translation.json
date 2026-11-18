@@ -229,6 +229,7 @@
     "edit": "{{name}} 편집",
     "empty": "이 페이지에는 레이어가 없습니다.",
     "hide": "{{name}} 숨기기",
+    "hideAll": "모든 레이어 숨기기",
     "kinds": {
       "balloon": "말풍선",
       "block": "텍스트 블록",
@@ -252,6 +253,7 @@
     "process": "{{name}} 처리",
     "processLayer": "레이어 처리",
     "show": "{{name}} 표시",
+    "showAll": "모든 레이어 표시",
     "sourceLabel": "{{name}} 원문",
     "textLabel": "{{name}} 텍스트",
     "textName": "텍스트 {{index}}",

@@ -229,6 +229,7 @@
     "edit": "Editar {{name}}",
     "empty": "No hay capas en esta página.",
     "hide": "Ocultar {{name}}",
+    "hideAll": "Ocultar todas las capas",
     "kinds": {
       "balloon": "Globo",
       "block": "Bloque de texto",
@@ -252,6 +253,7 @@
     "process": "Procesar {{name}}",
     "processLayer": "Procesar capa",
     "show": "Mostrar {{name}}",
+    "showAll": "Mostrar todas las capas",
     "sourceLabel": "Texto original de {{name}}",
     "textLabel": "Texto de {{name}}",
     "textName": "Texto {{index}}",

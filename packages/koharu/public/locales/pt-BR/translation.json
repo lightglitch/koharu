@@ -229,6 +229,7 @@
     "edit": "Editar {{name}}",
     "empty": "Não há camadas nesta página.",
     "hide": "Ocultar {{name}}",
+    "hideAll": "Ocultar todas as camadas",
     "kinds": {
       "balloon": "Balão",
       "block": "Bloco de texto",
@@ -252,6 +253,7 @@
     "process": "Processar {{name}}",
     "processLayer": "Processar camada",
     "show": "Mostrar {{name}}",
+    "showAll": "Mostrar todas as camadas",
     "sourceLabel": "Texto de origem de {{name}}",
     "textLabel": "Texto de {{name}}",
     "textName": "Texto {{index}}",
