@@ -8,7 +8,7 @@ use tauri_runtime_cef::cef::{
 };
 use winit::{
     event::{ElementState, Ime, KeyEvent},
-    keyboard::{Key, KeyCode, ModifiersState, PhysicalKey},
+    keyboard::{Key, KeyCode, ModifiersState, NamedKey, PhysicalKey},
 };
 
 // `c_uint` everywhere but Windows, where bindgen makes it a `c_int`.
@@ -127,12 +127,34 @@ pub fn send_ime(host: &BrowserHost, ime: &Ime) {
 
 /// The Windows virtual-key code Chromium identifies a key by, which it also
 /// derives `KeyboardEvent.code` from. A letter is the layout's, as Windows
-/// reports it; every other key is its position's on a US layout.
+/// reports it; every other key is its position's on a US layout, except a
+/// numpad key with Num Lock off, which is the navigation key it acts as.
 fn windows_key_code(event: &KeyEvent) -> i32 {
     if let Key::Character(text) = &event.logical_key
         && let Some(letter) = text.chars().next().filter(char::is_ascii_alphabetic)
     {
         return letter.to_ascii_uppercase() as i32;
+    }
+    // Fork fix: by position alone, numpad 9 with Num Lock off reached the
+    // interface as "9" rather than Page Up, so laptops whose Page Up and
+    // Page Down live on the numpad had none.
+    if let Key::Named(named) = &event.logical_key {
+        let navigation = match named {
+            NamedKey::PageUp => Some(0x21),
+            NamedKey::PageDown => Some(0x22),
+            NamedKey::End => Some(0x23),
+            NamedKey::Home => Some(0x24),
+            NamedKey::ArrowLeft => Some(0x25),
+            NamedKey::ArrowUp => Some(0x26),
+            NamedKey::ArrowRight => Some(0x27),
+            NamedKey::ArrowDown => Some(0x28),
+            NamedKey::Insert => Some(0x2d),
+            NamedKey::Delete => Some(0x2e),
+            _ => None,
+        };
+        if let Some(code) = navigation {
+            return code;
+        }
     }
     let PhysicalKey::Code(code) = event.physical_key else {
         return 0;

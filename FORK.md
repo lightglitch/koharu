@@ -101,6 +101,14 @@ Code: `components/editor/LayersHeader.tsx` and
   scroll under the title past a fixed height, so many failures don't grow the
   panel over the canvas.
 
+### Numpad navigation keys
+
+- `crates/koharu-desktop/src/screen/keys.rs` `windows_key_code` sends a numpad
+  key with Num Lock off as the navigation key it acts as (Page Up, Page Down,
+  Home, End, the arrows, Insert, Delete). Upstream identifies it by position
+  only, so it reached the interface as a digit, and laptops whose Page Up and
+  Page Down live on the numpad couldn't page.
+
 ### Sentry is off
 
 - `crates/koharu/src/sentry.rs` starts the Sentry client without a DSN and
