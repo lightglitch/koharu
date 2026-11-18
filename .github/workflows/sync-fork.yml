@@ -23,9 +23,11 @@ on:
     - cron: '17 * * * *'
   workflow_dispatch:
 
-# The repository default is read-only, so write has to be requested here.
-permissions:
-  contents: write
+# The sync rewrites main's .github/workflows whenever upstream changes them, and
+# GitHub refuses that to the built-in GITHUB_TOKEN: it can't be granted the
+# workflows permission. SYNC_FORK_TOKEN is a fine-grained personal access token
+# for this repository with Contents and Workflows set to read and write.
+permissions: {}
 
 # A slow sync must not race the next hour's run onto the same branch.
 concurrency:
@@ -39,9 +41,13 @@ jobs:
     steps:
       - name: Merge upstream into main
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_FORK_TOKEN }}
         run: |
           set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Add the SYNC_FORK_TOKEN secret: a fine-grained token with Contents and Workflows read and write on this repository."
+            exit 1
+          fi
           # Fails the run on a 409, which is the one outcome worth a look: main
           # has picked up a commit of its own and no longer fast-forwards.
           result=$(gh api --method POST \
