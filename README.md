@@ -170,6 +170,7 @@ Platform dependencies and validation commands for local builds are listed in [De
 - [Rust](https://www.rust-lang.org/tools/install) 1.97.1 or later (Rust 2024 edition)
 - [Bun](https://bun.sh/) 1.3.14 or later
 - [LLVM](https://llvm.org/) 22.1.8 or later
+- [dav1d](https://code.videolan.org/videolan/dav1d) 1.3.0 or later, for this fork's AVIF page import: see [FORK.md](FORK.md#avif-import-needs-dav1d)
 
 ### Install dependencies
 

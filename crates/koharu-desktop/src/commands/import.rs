@@ -38,8 +38,8 @@ pub enum ImportSource {
 }
 
 /// The page files the file dialog offers.
-const EXTENSIONS: [&str; 9] = [
-    "png", "jpg", "jpeg", "webp", "zip", "cbz", "rar", "cbr", "pdf",
+const EXTENSIONS: [&str; 10] = [
+    "png", "jpg", "jpeg", "webp", "avif", "zip", "cbz", "rar", "cbr", "pdf",
 ];
 
 /// PDF points to pixels at 300 DPI, which keeps fine lettering and line art.
@@ -74,7 +74,7 @@ static METADATA: LazyLock<GlobSet> = LazyLock::new(|| {
 fn raster(name: &Path) -> bool {
     matches!(
         ImageFormat::from_path(name),
-        Ok(ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::WebP)
+        Ok(ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::WebP | ImageFormat::Avif)
     )
 }
 
@@ -263,4 +263,22 @@ fn render_pdf(path: &Path) -> anyhow::Result<Vec<Vec<u8>>> {
                 })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use image::{GenericImageView as _, ImageFormat, RgbaImage};
+
+    /// AVIF pages decode, which only links when dav1d is installed.
+    #[test]
+    fn an_avif_page_decodes() -> anyhow::Result<()> {
+        let mut avif = Vec::new();
+        RgbaImage::from_pixel(16, 8, image::Rgba([200, 30, 30, 255]))
+            .write_to(&mut Cursor::new(&mut avif), ImageFormat::Avif)?;
+        assert!(super::raster(std::path::Path::new("page.avif")));
+        assert_eq!(image::load_from_memory(&avif)?.dimensions(), (16, 8));
+        Ok(())
+    }
 }

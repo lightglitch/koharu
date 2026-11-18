@@ -22,7 +22,9 @@ futures = { workspace = true }
 globset = { workspace = true }
 hayro = { workspace = true }
 heck = { workspace = true }
-image = { workspace = true }
+# Fork addition: AVIF pages decode through dav1d, a system library; see FORK.md.
+# Enabled here, not in the workspace, so the other crates build without it.
+image = { workspace = true, features = ["avif-native"] }
 indoc = { workspace = true }
 koharu-agent = { workspace = true }
 koharu-canvas = { workspace = true }

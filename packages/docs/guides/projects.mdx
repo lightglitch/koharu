@@ -40,11 +40,11 @@ Create, open, or delete projects here. A project's name is its file name, so a n
   </Step>
 </Steps>
 
-| Source                            | Imported result                                                  |
-| --------------------------------- | ---------------------------------------------------------------- |
-| PNG, JPEG (`.jpg`, `.jpeg`), WebP | One page per image                                               |
-| ZIP, CBZ, RAR, CBR                | One page per PNG, JPEG, or WebP entry; other entries are skipped |
-| PDF                               | One page per document page, rendered at 300 DPI                  |
+| Source                                  | Imported result                                                        |
+| --------------------------------------- | ---------------------------------------------------------------------- |
+| PNG, JPEG (`.jpg`, `.jpeg`), WebP, AVIF | One page per image                                                     |
+| ZIP, CBZ, RAR, CBR                      | One page per PNG, JPEG, WebP, or AVIF entry; other entries are skipped |
+| PDF                                     | One page per document page, rendered at 300 DPI                        |
 
 Files that operating systems leave in archives, such as macOS's `__MACOSX` resource forks, are skipped. Imported bytes are copied into the project file, so moving or deleting an original does not affect the project.
 
