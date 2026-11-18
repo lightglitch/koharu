@@ -307,6 +307,7 @@
     "noImage": "Aucune image",
     "pageNumber": "Page {{number}}",
     "pages": "Pages",
+    "processPage": "Traiter {{page}}",
     "run": {
       "detect": "Détecter",
       "inpaint": "Retoucher",

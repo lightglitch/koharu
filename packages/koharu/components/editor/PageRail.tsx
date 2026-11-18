@@ -15,6 +15,7 @@ import { FilePlus2, FolderOpen, LoaderCircle, MoreHorizontal, Settings } from 'l
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { RunPageButton } from '@/components/editor/PageRailActions'
 import { call, dispatch } from '@/lib/backend'
 import { useImportPages, usePage, useProject } from '@/lib/queries'
 import { deletePages, movePage } from '@/lib/scene'
@@ -421,6 +422,7 @@ function PageItem({
           <div className='min-w-0 py-0.5'>
             <div className='flex items-start gap-1'>
               <span className='min-w-0 flex-1 truncate text-[10px] font-medium'>{name}</span>
+              <RunPageButton page={page.id} name={name} />
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={

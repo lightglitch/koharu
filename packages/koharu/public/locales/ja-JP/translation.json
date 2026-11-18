@@ -307,6 +307,7 @@
     "noImage": "画像なし",
     "pageNumber": "{{number}}ページ目",
     "pages": "ページ",
+    "processPage": "{{page}}を処理",
     "run": {
       "detect": "検出",
       "inpaint": "インペイント",

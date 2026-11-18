@@ -307,6 +307,7 @@
     "noImage": "Sem imagem",
     "pageNumber": "Página {{number}}",
     "pages": "Páginas",
+    "processPage": "Processar {{page}}",
     "run": {
       "detect": "Detectar",
       "inpaint": "Preencher",

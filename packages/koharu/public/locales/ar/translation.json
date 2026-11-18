@@ -307,6 +307,7 @@
     "noImage": "لا توجد صورة",
     "pageNumber": "الصفحة {{number}}",
     "pages": "الصفحات",
+    "processPage": "معالجة {{page}}",
     "run": {
       "detect": "كشف",
       "inpaint": "ترميم",

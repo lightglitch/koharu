@@ -307,6 +307,7 @@
     "noImage": "呒没图像",
     "pageNumber": "第 {{number}} 页",
     "pages": "页面",
+    "processPage": "处理 {{page}}",
     "run": {
       "detect": "检测",
       "inpaint": "修补",

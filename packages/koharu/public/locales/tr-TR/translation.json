@@ -307,6 +307,7 @@
     "noImage": "Görüntü yok",
     "pageNumber": "Sayfa {{number}}",
     "pages": "Sayfalar",
+    "processPage": "{{page}} sayfasını işle",
     "run": {
       "detect": "Algıla",
       "inpaint": "Doldur",

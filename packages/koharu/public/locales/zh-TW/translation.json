@@ -307,6 +307,7 @@
     "noImage": "無影像",
     "pageNumber": "第 {{number}} 頁",
     "pages": "頁面",
+    "processPage": "處理 {{page}}",
     "run": {
       "detect": "偵測",
       "inpaint": "修補",

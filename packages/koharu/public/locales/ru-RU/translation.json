@@ -307,6 +307,7 @@
     "noImage": "Нет изображения",
     "pageNumber": "Страница {{number}}",
     "pages": "Страницы",
+    "processPage": "Обработать {{page}}",
     "run": {
       "detect": "Обнаружить",
       "inpaint": "Восстановить",

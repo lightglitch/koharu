@@ -307,6 +307,7 @@
     "noImage": "이미지 없음",
     "pageNumber": "{{number}}페이지",
     "pages": "페이지",
+    "processPage": "{{page}} 처리",
     "run": {
       "detect": "감지",
       "inpaint": "인페인팅",

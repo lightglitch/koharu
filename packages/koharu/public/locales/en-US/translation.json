@@ -307,6 +307,7 @@
     "noImage": "No image",
     "pageNumber": "Page {{number}}",
     "pages": "Pages",
+    "processPage": "Process {{page}}",
     "run": {
       "detect": "Detect",
       "inpaint": "Inpaint",
