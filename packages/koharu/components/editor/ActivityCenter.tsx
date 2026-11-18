@@ -5,6 +5,7 @@ import { CircleAlert, Download, LoaderCircle, Square, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { call } from '@/lib/backend'
+import { useExportProgress } from '@/lib/exportProgress'
 import { usePages } from '@/lib/queries'
 import { useKoharuStore, type Job } from '@/lib/store'
 import { commands, type PageFailure, type PageId, type Transfer } from '@koharu/ipc/protocol'
@@ -50,19 +51,23 @@ export function ActivityCenter() {
       {/* Failed runs stay until dismissed, so the rows scroll under the title past a few rather
           than grow the panel up over the canvas. */}
       <ScrollArea viewportClassName='max-h-80'>
-        {activities.map((activity) => (
-          <div
-            key={activity.id}
-            role='status'
-            className='grid grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2.5 border-b p-3 last:border-b-0'
-          >
-            <LoaderCircle
-              className='size-3.5 animate-spin justify-self-center text-primary motion-reduce:animate-none'
-              aria-hidden='true'
-            />
-            <span className='truncate text-[12px] font-medium'>{t(activity.label)}</span>
-          </div>
-        ))}
+        {activities.map((activity) =>
+          activity.label === 'menu.export' ? (
+            <ExportItem key={activity.id} />
+          ) : (
+            <div
+              key={activity.id}
+              role='status'
+              className='grid grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2.5 border-b p-3 last:border-b-0'
+            >
+              <LoaderCircle
+                className='size-3.5 animate-spin justify-self-center text-primary motion-reduce:animate-none'
+                aria-hidden='true'
+              />
+              <span className='truncate text-[12px] font-medium'>{t(activity.label)}</span>
+            </div>
+          ),
+        )}
         {runningDownloads.length > 1 ? (
           <DownloadGroup downloads={runningDownloads} />
         ) : (
@@ -262,6 +267,40 @@ function Failure({ message, onDismiss }: { message: string; onDismiss: () => voi
       >
         <X />
       </Button>
+    </div>
+  )
+}
+
+/** The export going on: its pages written, and Stop, which deletes a CBZ it leaves unfinished. */
+// Fork addition: upstream's export shows only that it's going on.
+function ExportItem() {
+  const { t } = useTranslation()
+  const written = useExportProgress((state) => state.progress)
+  const percent = written ? progress(written.done, written.total) : null
+  return (
+    <div role='status' className='border-b p-3 last:border-b-0'>
+      <div className='grid grid-cols-[1rem_minmax(0,1fr)_2.25rem_1.5rem] items-start gap-x-2.5'>
+        <LoaderCircle
+          className='mt-0.5 size-3.5 animate-spin justify-self-center text-primary motion-reduce:animate-none'
+          aria-hidden='true'
+        />
+        <span className='truncate text-[12px] font-medium'>{t('activity.exporting')}</span>
+        <span className='pt-0.5 text-right text-[10px] tabular-nums'>
+          {written ? `${written.done}/${written.total}` : null}
+        </span>
+        <Button
+          size='icon-xs'
+          variant='ghost'
+          className='-mt-1'
+          aria-label={t('activity.stop')}
+          onClick={() => void call(commands.stopExport).catch(() => undefined)}
+        >
+          <Square className='size-2.5 fill-current' />
+        </Button>
+        <div className='col-start-2 col-end-4'>
+          <Progress value={percent} />
+        </div>
+      </div>
     </div>
   )
 }

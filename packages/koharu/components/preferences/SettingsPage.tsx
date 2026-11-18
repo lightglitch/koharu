@@ -1,10 +1,21 @@
 'use client'
 
-import { ArrowLeft, Cpu, KeyRound, Monitor, Moon, Palette, Sun, Type } from 'lucide-react'
+import {
+  ArrowLeft,
+  Cpu,
+  FileArchive,
+  KeyRound,
+  Monitor,
+  Moon,
+  Palette,
+  Sun,
+  Type,
+} from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ExportPreferences } from '@/components/preferences/ExportPreferences'
 import { PipelinePreferences } from '@/components/preferences/PipelinePreferences'
 import {
   PreferencePage,
@@ -32,6 +43,7 @@ const tabs = [
   ['pipeline', Cpu],
   ['providers', KeyRound],
   ['typesetting', Type],
+  ['export', FileArchive],
 ] as const
 type Tab = (typeof tabs)[number][0]
 
@@ -132,6 +144,12 @@ export function SettingsPage() {
                 value={draft.pipeline}
                 models={models}
                 onChange={(pipeline) => setDraft({ ...draft, pipeline })}
+              />
+            )}
+            {tab === 'export' && draft && (
+              <ExportPreferences
+                value={draft.export}
+                onChange={(exportConfig) => setDraft({ ...draft, export: exportConfig })}
               />
             )}
             {tab === 'providers' && draft && (

@@ -13,6 +13,7 @@
     "downloadingFiles": "جارٍ تنزيل {{count}} من الملفات",
     "downloadingFiles_one": "جارٍ تنزيل {{count}} ملف",
     "downloadingFiles_other": "جارٍ تنزيل {{count}} من الملفات",
+    "exporting": "جارٍ التصدير",
     "finishedWithFailures": "اكتمل مع فشل بعض الصفحات",
     "modelDownload": "تنزيل النموذج",
     "processing": "قيد المعالجة",
@@ -61,6 +62,21 @@
   "errors": {
     "fatalTitle": "تعذّر على Koharu المتابعة",
     "tryAgain": "أعد المحاولة"
+  },
+  "export": {
+    "cbzDescription": "اختر طريقة ترميز الصفحات داخل الأرشيف.",
+    "cbzTitle": "تصدير CBZ",
+    "format": {
+      "jpeg": "JPEG",
+      "png": "PNG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "jpeg": "أصغر حجم للملفات. تُدمج الشفافية على خلفية بيضاء.",
+      "png": "بدون فقدان. أكبر حجم للملفات.",
+      "webp": "أصغر من PNG ويحافظ على الشفافية."
+    },
+    "start": "تصدير"
   },
   "feedback": {
     "addScreenshot": "إضافة لقطة شاشة",
@@ -344,6 +360,16 @@
       "title": "المظهر"
     },
     "backToEditor": "العودة إلى المحرّر",
+    "export": {
+      "description": "تحكّم في طريقة ترميز الصفحات عند تصدير أرشيف.",
+      "jpegQuality": "جودة JPEG",
+      "quality": "جودة الأرشيف",
+      "qualityDescription": "تنطبق على الصيغ المُفقِدة عند تصدير CBZ. يبقى PNG دائمًا بدون فقدان.",
+      "qualityHint": "1-100. القيمة الأعلى تحافظ على نقاء الترام وتكبّر الملفات.",
+      "qualityLabel": "الجودة",
+      "title": "التصدير",
+      "webpQuality": "جودة WebP"
+    },
     "loading": "جارٍ تحميل التفضيلات…",
     "pipeline": {
       "description": "اختر النماذج والخيارات المستخدمة لمعالجة كل صفحة.",
@@ -410,6 +436,7 @@
     },
     "tabs": {
       "appearance": "المظهر",
+      "export": "التصدير",
       "pipeline": "خط المعالجة",
       "providers": "المزوّدون",
       "typesetting": "محرك العرض"

@@ -13,6 +13,7 @@
     "downloadingFiles": "{{count}}개 파일 다운로드 중",
     "downloadingFiles_one": "{{count}}개 파일 다운로드 중",
     "downloadingFiles_other": "{{count}}개 파일 다운로드 중",
+    "exporting": "내보내는 중",
     "finishedWithFailures": "일부 페이지가 실패한 채 완료됨",
     "modelDownload": "모델 다운로드",
     "processing": "처리 중",
@@ -61,6 +62,21 @@
   "errors": {
     "fatalTitle": "Koharu를 계속 실행할 수 없습니다",
     "tryAgain": "다시 시도"
+  },
+  "export": {
+    "cbzDescription": "아카이브 안의 페이지를 어떤 형식으로 저장할지 선택하세요.",
+    "cbzTitle": "CBZ 내보내기",
+    "format": {
+      "jpeg": "JPEG",
+      "png": "PNG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "jpeg": "파일이 가장 작습니다. 투명도는 흰색으로 합성됩니다.",
+      "png": "무손실. 파일이 가장 큽니다.",
+      "webp": "PNG보다 작고 투명도를 유지합니다."
+    },
+    "start": "내보내기"
   },
   "feedback": {
     "addScreenshot": "스크린샷 추가",
@@ -344,6 +360,16 @@
       "title": "모양"
     },
     "backToEditor": "편집기로 돌아가기",
+    "export": {
+      "description": "아카이브를 내보낼 때 페이지를 인코딩하는 방식을 설정합니다.",
+      "jpegQuality": "JPEG 품질",
+      "quality": "아카이브 품질",
+      "qualityDescription": "CBZ 내보내기의 손실 형식에 적용됩니다. PNG는 항상 무손실입니다.",
+      "qualityHint": "1~100. 높을수록 스크린톤이 깨끗하고 파일이 커집니다.",
+      "qualityLabel": "품질",
+      "title": "내보내기",
+      "webpQuality": "WebP 품질"
+    },
     "loading": "환경 설정 불러오는 중…",
     "pipeline": {
       "description": "각 페이지 처리에 사용할 모델과 옵션을 선택합니다.",
@@ -410,6 +436,7 @@
     },
     "tabs": {
       "appearance": "모양",
+      "export": "내보내기",
       "pipeline": "파이프라인",
       "providers": "제공자",
       "typesetting": "렌더러"

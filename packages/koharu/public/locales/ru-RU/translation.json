@@ -13,6 +13,7 @@
     "downloadingFiles": "Скачивание файлов: {{count}}",
     "downloadingFiles_one": "Скачивание файлов: {{count}}",
     "downloadingFiles_other": "Скачивание файлов: {{count}}",
+    "exporting": "Экспорт",
     "finishedWithFailures": "Завершено, некоторые страницы с ошибками",
     "modelDownload": "Скачивание модели",
     "processing": "Обработка",
@@ -61,6 +62,21 @@
   "errors": {
     "fatalTitle": "Koharu не может продолжить работу",
     "tryAgain": "Повторить"
+  },
+  "export": {
+    "cbzDescription": "Выберите, как кодировать страницы внутри архива.",
+    "cbzTitle": "Экспорт CBZ",
+    "format": {
+      "jpeg": "JPEG",
+      "png": "PNG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "jpeg": "Самые маленькие файлы. Прозрачность сводится на белый.",
+      "png": "Без потерь. Самые большие файлы.",
+      "webp": "Меньше PNG и сохраняет прозрачность."
+    },
+    "start": "Экспорт"
   },
   "feedback": {
     "addScreenshot": "Добавить снимок экрана",
@@ -344,6 +360,16 @@
       "title": "Оформление"
     },
     "backToEditor": "Вернуться в редактор",
+    "export": {
+      "description": "Настройте кодирование страниц при экспорте архива.",
+      "jpegQuality": "Качество JPEG",
+      "quality": "Качество архива",
+      "qualityDescription": "Применяется к форматам с потерями при экспорте CBZ. PNG всегда без потерь.",
+      "qualityHint": "1-100. Выше — чище растр и больше файл.",
+      "qualityLabel": "Качество",
+      "title": "Экспорт",
+      "webpQuality": "Качество WebP"
+    },
     "loading": "Загрузка настроек…",
     "pipeline": {
       "description": "Выберите модели и параметры обработки каждой страницы.",
@@ -410,6 +436,7 @@
     },
     "tabs": {
       "appearance": "Оформление",
+      "export": "Экспорт",
       "pipeline": "Конвейер",
       "providers": "Провайдеры",
       "typesetting": "Рендерер"

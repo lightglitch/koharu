@@ -13,6 +13,7 @@
     "downloadingFiles": "{{count}} dosya indiriliyor",
     "downloadingFiles_one": "{{count}} dosya indiriliyor",
     "downloadingFiles_other": "{{count}} dosya indiriliyor",
+    "exporting": "Dışa aktarılıyor",
     "finishedWithFailures": "Bazı sayfalar başarısız olarak tamamlandı",
     "modelDownload": "Model indirme",
     "processing": "İşleniyor",
@@ -61,6 +62,21 @@
   "errors": {
     "fatalTitle": "Koharu devam edemedi",
     "tryAgain": "Tekrar dene"
+  },
+  "export": {
+    "cbzDescription": "Arşivdeki sayfaların nasıl kodlanacağını seçin.",
+    "cbzTitle": "CBZ Dışa Aktar",
+    "format": {
+      "jpeg": "JPEG",
+      "png": "PNG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "jpeg": "En küçük dosyalar. Saydamlık beyaz üzerine düzleştirilir.",
+      "png": "Kayıpsız. En büyük dosyalar.",
+      "webp": "PNG'den küçük ve saydamlığı korur."
+    },
+    "start": "Dışa Aktar"
   },
   "feedback": {
     "addScreenshot": "Ekran görüntüsü ekle",
@@ -344,6 +360,16 @@
       "title": "Görünüm"
     },
     "backToEditor": "Düzenleyiciye dön",
+    "export": {
+      "description": "Bir arşivi dışa aktarırken sayfaların nasıl kodlanacağını denetleyin.",
+      "jpegQuality": "JPEG kalitesi",
+      "quality": "Arşiv kalitesi",
+      "qualityDescription": "CBZ dışa aktarımındaki kayıplı biçimler için geçerlidir. PNG her zaman kayıpsızdır.",
+      "qualityHint": "1-100. Yüksek değer tramları korur ve dosyayı büyütür.",
+      "qualityLabel": "Kalite",
+      "title": "Dışa Aktarma",
+      "webpQuality": "WebP kalitesi"
+    },
     "loading": "Tercihler yükleniyor…",
     "pipeline": {
       "description": "Her sayfayı işlemek için kullanılan modelleri ve seçenekleri seçin.",
@@ -410,6 +436,7 @@
     },
     "tabs": {
       "appearance": "Görünüm",
+      "export": "Dışa Aktarma",
       "pipeline": "İşlem hattı",
       "providers": "Sağlayıcılar",
       "typesetting": "Oluşturucu"

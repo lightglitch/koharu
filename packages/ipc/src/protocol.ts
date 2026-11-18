@@ -268,7 +268,22 @@ export type Event =
   | { type: 'tool_started'; tool: string; arguments: Value }
   | { type: 'tool_finished'; tool: string; error: string | null }
 
+/**
+ *  `[export]`: the lossy encodings' quality, from 1 to 100. A quality out of
+ *  that range fails to parse.
+ */
+export type ExportConfig = {
+  jpeg_quality?: number
+  webp_quality?: number
+}
+
 export type ExportFormat = 'png' | 'psd' | 'cbz'
+
+/**  The pages written so far, of `total`. */
+export type ExportProgress = {
+  done: number
+  total: number
+}
 
 export type FillRule = 'non_zero' | 'even_odd'
 
@@ -612,6 +627,12 @@ export type PageChanges = {
   changed: PageId[]
 }
 
+/**
+ *  How a CBZ's pages are encoded. JPEG has no alpha, so its pages are
+ *  flattened onto white.
+ */
+export type PageEncoding = 'png' | 'jpeg' | 'webp'
+
 /**  A page whose stage failed, which the run gave up on. */
 export type PageFailure = {
   page: PageId
@@ -677,6 +698,7 @@ export type Preferences = {
   renderer: RendererConfig
   agent: AgentConfig
   providers: Providers
+  export: ExportConfig
 }
 
 export type ProjectAnswer = {
@@ -1031,9 +1053,15 @@ export const commands = {
     invoke<ArrayBuffer>('get_font_preview', { family }, { headers: headers() }),
   /** Picks files or a folder and adds their pages after the project's last: the files in name order, numbers by value, an archive's or a PDF's own pages in theirs. */
   import: (source: ImportSource) => invoke<null>('import', { source }, { headers: headers() }),
-  /** Picks where the open project's pages go, and writes them there. `labels` names a PSD's layers the scene names nothing, in the interface's language. */
-  export: (format: ExportFormat, labels: Labels) =>
-    invoke<null>('export', { format, labels }, { headers: headers() }),
+  /** Picks where the open project's pages go, and writes them there. `labels` names a PSD's layers the scene names nothing, in the interface's language; `encoding` is a CBZ's pages'. `on_progress` hears each page written. */
+  export: (
+    format: ExportFormat,
+    labels: Labels,
+    encoding: PageEncoding,
+    onProgress: Channel<ExportProgress>,
+  ) => invoke<null>('export', { format, labels, encoding, onProgress }, { headers: headers() }),
+  /** Stops the export going on before its next page; a CBZ it leaves unfinished is deleted. */
+  stopExport: () => invoke<null>('stop_export', {}, { headers: headers() }),
   /** The canvas element's rectangle, in CSS pixels from the window's corner. */
   setViewport: (x: number, y: number, width: number, height: number) =>
     invoke<null>('set_viewport', { x, y, width, height }, { headers: headers() }),

@@ -13,6 +13,7 @@
     "downloadingFiles": "来勒下载 {{count}} 个文件",
     "downloadingFiles_one": "来勒下载 {{count}} 个文件",
     "downloadingFiles_other": "来勒下载 {{count}} 个文件",
+    "exporting": "正在导出",
     "finishedWithFailures": "做好哉，有眼页面失败哉",
     "modelDownload": "模型下载",
     "processing": "来勒处理",
@@ -61,6 +62,21 @@
   "errors": {
     "fatalTitle": "Koharu 运行弗下去哉",
     "tryAgain": "再试一趟"
+  },
+  "export": {
+    "cbzDescription": "拣一拣存档里向页面个编码方式。",
+    "cbzTitle": "导出 CBZ",
+    "format": {
+      "jpeg": "JPEG",
+      "png": "PNG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "jpeg": "文件顶小。透明个地方会合到白底浪。",
+      "png": "无损。文件顶大。",
+      "webp": "比 PNG 小，透明度也保牢。"
+    },
+    "start": "导出"
   },
   "feedback": {
     "addScreenshot": "加一张截图",
@@ -344,6 +360,16 @@
       "title": "外观"
     },
     "backToEditor": "返回编辑器",
+    "export": {
+      "description": "控制导出存档个辰光页面个编码方式。",
+      "jpegQuality": "JPEG 质量",
+      "quality": "存档质量",
+      "qualityDescription": "用勒导出 CBZ 辰光个有损格式浪。PNG 一直是无损个。",
+      "qualityHint": "1-100。数值越高网点越清爽，文件越大。",
+      "qualityLabel": "质量",
+      "title": "导出",
+      "webpQuality": "WebP 质量"
+    },
     "loading": "来勒加载偏好设置…",
     "pipeline": {
       "description": "选好每一页处理个辰光要用个模型搭选项。",
@@ -410,6 +436,7 @@
     },
     "tabs": {
       "appearance": "外观",
+      "export": "导出",
       "pipeline": "处理流程",
       "providers": "提供商",
       "typesetting": "渲染器"

@@ -13,6 +13,7 @@
     "downloadingFiles": "Baixando {{count}} arquivos",
     "downloadingFiles_one": "Baixando {{count}} arquivos",
     "downloadingFiles_other": "Baixando {{count}} arquivos",
+    "exporting": "Exportando",
     "finishedWithFailures": "Concluído com páginas com falha",
     "modelDownload": "Download do modelo",
     "processing": "Processando",
@@ -61,6 +62,21 @@
   "errors": {
     "fatalTitle": "O Koharu não pôde continuar",
     "tryAgain": "Tentar novamente"
+  },
+  "export": {
+    "cbzDescription": "Escolha como as páginas dentro do arquivo são codificadas.",
+    "cbzTitle": "Exportar CBZ",
+    "format": {
+      "jpeg": "JPEG",
+      "png": "PNG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "jpeg": "Arquivos menores. A transparência é achatada sobre branco.",
+      "png": "Sem perdas. Arquivos maiores.",
+      "webp": "Menor que PNG e mantém a transparência."
+    },
+    "start": "Exportar"
   },
   "feedback": {
     "addScreenshot": "Adicionar captura de tela",
@@ -344,6 +360,16 @@
       "title": "Aparência"
     },
     "backToEditor": "Voltar ao editor",
+    "export": {
+      "description": "Controle como as páginas são codificadas ao exportar um arquivo.",
+      "jpegQuality": "Qualidade JPEG",
+      "quality": "Qualidade do arquivo",
+      "qualityDescription": "Vale para os formatos com perdas ao exportar um CBZ. PNG é sempre sem perdas.",
+      "qualityHint": "1-100. Valores altos preservam melhor as retículas e aumentam o tamanho.",
+      "qualityLabel": "Qualidade",
+      "title": "Exportação",
+      "webpQuality": "Qualidade WebP"
+    },
     "loading": "Carregando preferências…",
     "pipeline": {
       "description": "Escolha os modelos e opções usados para processar cada página.",
@@ -410,6 +436,7 @@
     },
     "tabs": {
       "appearance": "Aparência",
+      "export": "Exportação",
       "pipeline": "Pipeline",
       "providers": "Provedores",
       "typesetting": "Renderizador"

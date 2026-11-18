@@ -13,6 +13,7 @@
     "downloadingFiles": "Downloading {{count}} files",
     "downloadingFiles_one": "Downloading {{count}} file",
     "downloadingFiles_other": "Downloading {{count}} files",
+    "exporting": "Exporting",
     "finishedWithFailures": "Finished with failed pages",
     "modelDownload": "Model download",
     "processing": "Processing",
@@ -61,6 +62,21 @@
   "errors": {
     "fatalTitle": "Koharu could not continue",
     "tryAgain": "Try again"
+  },
+  "export": {
+    "cbzDescription": "Choose how the pages inside the archive are encoded.",
+    "cbzTitle": "Export CBZ",
+    "format": {
+      "jpeg": "JPEG",
+      "png": "PNG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "jpeg": "Smallest files. Transparency is flattened onto white.",
+      "png": "Lossless. Largest files.",
+      "webp": "Smaller than PNG and keeps transparency."
+    },
+    "start": "Export"
   },
   "feedback": {
     "addScreenshot": "Add a screenshot",
@@ -344,6 +360,16 @@
       "title": "Appearance"
     },
     "backToEditor": "Back to editor",
+    "export": {
+      "description": "Control how pages are encoded when you export an archive.",
+      "jpegQuality": "JPEG quality",
+      "quality": "Archive quality",
+      "qualityDescription": "Applies to the lossy formats offered when exporting a CBZ. PNG is always lossless.",
+      "qualityHint": "1-100. Higher keeps screentone cleaner and files larger.",
+      "qualityLabel": "Quality",
+      "title": "Export",
+      "webpQuality": "WebP quality"
+    },
     "loading": "Loading preferences…",
     "pipeline": {
       "description": "Choose the models and options used to process each page.",
@@ -410,6 +436,7 @@
     },
     "tabs": {
       "appearance": "Appearance",
+      "export": "Export",
       "pipeline": "Pipeline",
       "providers": "Providers",
       "typesetting": "Renderer"

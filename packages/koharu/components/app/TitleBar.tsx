@@ -8,8 +8,10 @@ import { useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { AboutDialog } from '@/components/app/AboutDialog'
+import { ExportCbzDialog } from '@/components/app/ExportCbzDialog'
 import { useMacOS, WindowControls } from '@/components/app/WindowChrome'
 import { call, dispatch } from '@/lib/backend'
+import { exportProgressChannel } from '@/lib/exportProgress'
 import { useCommand, useImportPages, usePage, useProject } from '@/lib/queries'
 import { deleteSelection } from '@/lib/scene'
 import { useKoharuStore } from '@/lib/store'
@@ -32,6 +34,7 @@ import { cn } from '@koharu/ui/lib/utils'
 export function TitleBar() {
   const { t } = useTranslation()
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [cbzOpen, setCbzOpen] = useState(false)
   const macOS = useMacOS()
   const project = useProject().data
   const pageQuery = usePage(Boolean(project))
@@ -151,7 +154,11 @@ export function TitleBar() {
                     <MenubarItem
                       key={format}
                       disabled={exporting}
-                      onClick={() => exportProject(format, psdLabels)}
+                      onClick={() =>
+                        format === 'cbz'
+                          ? setCbzOpen(true)
+                          : exportProject(format, psdLabels, 'png', exportProgressChannel())
+                      }
                     >
                       {format.toUpperCase()}…
                     </MenubarItem>
@@ -272,6 +279,11 @@ export function TitleBar() {
 
         {!macOS && <WindowControls />}
       </header>
+      <ExportCbzDialog
+        open={cbzOpen}
+        onOpenChange={setCbzOpen}
+        onConfirm={(encoding) => exportProject('cbz', psdLabels, encoding, exportProgressChannel())}
+      />
       <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
     </>
   )

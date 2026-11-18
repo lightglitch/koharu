@@ -13,6 +13,7 @@
     "downloadingFiles": "{{count}}件のファイルをダウンロード中",
     "downloadingFiles_one": "{{count}}件のファイルをダウンロード中",
     "downloadingFiles_other": "{{count}}件のファイルをダウンロード中",
+    "exporting": "書き出し中",
     "finishedWithFailures": "一部のページが失敗して完了しました",
     "modelDownload": "モデルのダウンロード",
     "processing": "処理中",
@@ -61,6 +62,21 @@
   "errors": {
     "fatalTitle": "Koharuを続行できませんでした",
     "tryAgain": "再試行"
+  },
+  "export": {
+    "cbzDescription": "アーカイブ内のページの形式を選択します。",
+    "cbzTitle": "CBZを書き出す",
+    "format": {
+      "jpeg": "JPEG",
+      "png": "PNG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "jpeg": "ファイルは最小です。透明部分は白で塗り潰されます。",
+      "png": "可逆圧縮。ファイルは最大です。",
+      "webp": "PNGより小さく、透明部分を保持します。"
+    },
+    "start": "書き出す"
   },
   "feedback": {
     "addScreenshot": "スクリーンショットを追加",
@@ -344,6 +360,16 @@
       "title": "外観"
     },
     "backToEditor": "エディターに戻る",
+    "export": {
+      "description": "アーカイブを書き出すときのページの符号化方法を設定します。",
+      "jpegQuality": "JPEG品質",
+      "quality": "アーカイブの品質",
+      "qualityDescription": "CBZ書き出し時の非可逆形式に適用されます。PNGは常に可逆です。",
+      "qualityHint": "1〜100。高いほどスクリーントーンが綺麗になり、ファイルは大きくなります。",
+      "qualityLabel": "品質",
+      "title": "書き出し",
+      "webpQuality": "WebP品質"
+    },
     "loading": "設定を読み込み中…",
     "pipeline": {
       "description": "各ページの処理に使用するモデルとオプションを選択します。",
@@ -410,6 +436,7 @@
     },
     "tabs": {
       "appearance": "外観",
+      "export": "書き出し",
       "pipeline": "パイプライン",
       "providers": "プロバイダー",
       "typesetting": "レンダラー"

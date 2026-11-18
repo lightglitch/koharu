@@ -26,6 +26,7 @@ const preferences: Preferences = {
   renderer: { font_families: ['CCWildWords'] },
   agent: {},
   providers: {},
+  export: {},
 }
 
 /** The desktop with `open` as its open project, empty. */
