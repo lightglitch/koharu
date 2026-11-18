@@ -226,6 +226,10 @@
   },
   "layers": {
     "delete": "حذف {{name}}",
+    "deleteAllText": "حذف كل طبقات النص",
+    "deleteAllTextAction": "حذف الكل",
+    "deleteAllTextDescription": "سيؤدي هذا إلى حذف كل طبقات النص ({{count}}) من هذه الصفحة. يمكنك التراجع عن ذلك من قائمة تحرير.",
+    "deleteAllTextTitle": "حذف كل طبقات النص؟",
     "edit": "تعديل {{name}}",
     "empty": "لا توجد طبقات في هذه الصفحة.",
     "hide": "إخفاء {{name}}",

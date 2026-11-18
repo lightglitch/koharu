@@ -226,6 +226,10 @@
   },
   "layers": {
     "delete": "删除 {{name}}",
+    "deleteAllText": "删除所有文字图层",
+    "deleteAllTextAction": "全部删除",
+    "deleteAllTextDescription": "迭个会从迭页删除全部 {{count}} 个文字图层。可以勒“编辑”菜单里撤销。",
+    "deleteAllTextTitle": "删除所有文字图层？",
     "edit": "编辑 {{name}}",
     "empty": "箇页浪呒没图层。",
     "hide": "囥脱 {{name}}",

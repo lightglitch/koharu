@@ -226,6 +226,10 @@
   },
   "layers": {
     "delete": "Supprimer {{name}}",
+    "deleteAllText": "Supprimer tous les calques de texte",
+    "deleteAllTextAction": "Tout supprimer",
+    "deleteAllTextDescription": "Cela supprime les {{count}} calques de texte de cette page. Vous pouvez l’annuler depuis le menu Édition.",
+    "deleteAllTextTitle": "Supprimer tous les calques de texte ?",
     "edit": "Modifier {{name}}",
     "empty": "Aucun calque sur cette page.",
     "hide": "Masquer {{name}}",
