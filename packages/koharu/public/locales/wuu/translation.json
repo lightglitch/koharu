@@ -249,6 +249,8 @@
       "pick": "{{name}}个{{part}}",
       "toggle": "揿牢 Shift 点一记显示或者隐藏"
     },
+    "process": "处理 {{name}}",
+    "processLayer": "处理图层",
     "show": "显示 {{name}}",
     "sourceLabel": "{{name}} 个原文",
     "textLabel": "{{name}} 个文本",

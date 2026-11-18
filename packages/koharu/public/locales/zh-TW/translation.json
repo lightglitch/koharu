@@ -249,6 +249,8 @@
       "pick": "{{name}}的{{part}}",
       "toggle": "按住 Shift 並按一下以顯示或隱藏"
     },
+    "process": "處理 {{name}}",
+    "processLayer": "處理圖層",
     "show": "顯示 {{name}}",
     "sourceLabel": "{{name}} 的原文",
     "textLabel": "{{name}} 的文字",

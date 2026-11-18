@@ -249,6 +249,8 @@
       "pick": "{{name}}의 {{part}}",
       "toggle": "Shift+클릭하여 표시하거나 숨기기"
     },
+    "process": "{{name}} 처리",
+    "processLayer": "레이어 처리",
     "show": "{{name}} 표시",
     "sourceLabel": "{{name}} 원문",
     "textLabel": "{{name}} 텍스트",

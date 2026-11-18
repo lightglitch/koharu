@@ -249,6 +249,8 @@
       "pick": "{{name}} {{part}}",
       "toggle": "Göstermek veya gizlemek için Shift+tıklayın"
     },
+    "process": "{{name}} işle",
+    "processLayer": "Katmanı işle",
     "show": "{{name}} öğesini göster",
     "sourceLabel": "{{name}} kaynak metni",
     "textLabel": "{{name}} metni",

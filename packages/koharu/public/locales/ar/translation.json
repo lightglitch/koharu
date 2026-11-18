@@ -249,6 +249,8 @@
       "pick": "{{part}} {{name}}",
       "toggle": "Shift+نقر للإظهار أو الإخفاء"
     },
+    "process": "معالجة {{name}}",
+    "processLayer": "معالجة الطبقة",
     "show": "إظهار {{name}}",
     "sourceLabel": "النص المصدر لـ {{name}}",
     "textLabel": "نص {{name}}",

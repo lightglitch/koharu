@@ -32,6 +32,7 @@ import {
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ReprocessLayerButton } from '@/components/editor/ReprocessLayerButton'
 import { call, dispatch } from '@/lib/backend'
 import {
   dropMoves,
@@ -338,6 +339,7 @@ function LayerRow({
                 onPick={(toggle) => onPick(part, toggle)}
               />
             ))}
+          {block && <ReprocessLayerButton block={block} name={name} locked={!movable} />}
           <Tooltip>
             <TooltipTrigger
               render={

@@ -249,6 +249,8 @@
       "pick": "{{part}} of {{name}}",
       "toggle": "Shift-click to show or hide"
     },
+    "process": "Process {{name}}",
+    "processLayer": "Process layer",
     "show": "Show {{name}}",
     "sourceLabel": "{{name}} source text",
     "textLabel": "{{name}} text",

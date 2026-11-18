@@ -249,6 +249,8 @@
       "pick": "{{part}} de {{name}}",
       "toggle": "Shift+clique para mostrar ou ocultar"
     },
+    "process": "Processar {{name}}",
+    "processLayer": "Processar camada",
     "show": "Mostrar {{name}}",
     "sourceLabel": "Texto de origem de {{name}}",
     "textLabel": "Texto de {{name}}",

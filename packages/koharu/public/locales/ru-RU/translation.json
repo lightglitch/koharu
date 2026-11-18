@@ -249,6 +249,8 @@
       "pick": "{{part}}: {{name}}",
       "toggle": "Shift+щелчок — показать или скрыть"
     },
+    "process": "Обработать {{name}}",
+    "processLayer": "Обработать слой",
     "show": "Показать {{name}}",
     "sourceLabel": "Исходный текст {{name}}",
     "textLabel": "Текст {{name}}",

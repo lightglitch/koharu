@@ -249,6 +249,8 @@
       "pick": "{{part}} de {{name}}",
       "toggle": "Maj+clic pour afficher ou masquer"
     },
+    "process": "Traiter {{name}}",
+    "processLayer": "Traiter le calque",
     "show": "Afficher {{name}}",
     "sourceLabel": "Texte source de {{name}}",
     "textLabel": "Texte de {{name}}",
