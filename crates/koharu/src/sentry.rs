@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use sentry::{ClientOptions, IntoDsn, User, integrations::minidump::MinidumpIntegration};
+use sentry::{ClientOptions, User, integrations::minidump::MinidumpIntegration};
 
 /// Starts Sentry with everything on: every error and trace, logs, native
 /// crash dumps, release health, and the interface's events through
@@ -25,10 +25,11 @@ pub fn initialize() -> sentry::ClientInitGuard {
         })
         .transport(koharu_sentry::Transport)
         .add_integration(koharu_sentry::Sentry::default());
-    options.integrations.push(minidump.clone());
-    options.dsn = option_env!("SENTRY_DSN")
-        .into_dsn()
-        .expect("invalid SENTRY_DSN environment variable");
+    // Fork divergence: Sentry is off on this fork. The client starts, as the
+    // Sentry plugin needs one, but without a DSN it sends nothing whatever
+    // `SENTRY_DSN` a build has, and without the minidump integration no crash
+    // reporter process starts.
+    options.dsn = None;
     let guard = sentry::init(options);
 
     let user = User {
