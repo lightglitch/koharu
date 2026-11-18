@@ -83,6 +83,19 @@ export function PageRail() {
       ),
   })
 
+  // Story can show a page scrolled out of the rail's sight, so reveal it. Tracking what was last
+  // revealed keeps this to one scroll per change of page: the rail re-renders on every thumbnail
+  // during a run, and those must not pull the list away from where the reader left it.
+  const revealed = useRef<string | null>(null)
+  useEffect(() => {
+    if (!active || revealed.current === active) return
+    const index = pages.findIndex((page) => page.id === active)
+    if (index < 0) return
+    revealed.current = active
+    // Leaves an already-visible page exactly where it is.
+    pageVirtualizer.scrollToIndex(index, { align: 'auto' })
+  }, [active, pages, pageVirtualizer])
+
   const select = (index: number, additive: boolean, range: boolean) => {
     const page = pages[index]
     if (!page) return
