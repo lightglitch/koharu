@@ -92,6 +92,32 @@ describe('Tauri runtime', () => {
     view.unmount()
   })
 
+  it('suppresses the browser context menu except over editable or selectable text', async () => {
+    const view = render(createElement(Providers, null, createElement('div')))
+    await waitFor(() => expect(commands.getPipelineEvents).toHaveBeenCalledTimes(1))
+    const opensMenu = (element: Element) =>
+      element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+
+    const surface = document.createElement('div')
+    const field = document.createElement('input')
+    const selectable = document.createElement('p')
+    selectable.className = 'select-text'
+    const inside = document.createElement('strong')
+    selectable.append(inside)
+    document.body.append(surface, field, selectable)
+
+    expect(opensMenu(surface)).toBe(false)
+    expect(opensMenu(field)).toBe(true)
+    expect(opensMenu(inside)).toBe(true)
+
+    view.unmount()
+    // The listener must not outlive the provider.
+    expect(opensMenu(surface)).toBe(true)
+    surface.remove()
+    field.remove()
+    selectable.remove()
+  })
+
   it('passes the managed project name to open', async () => {
     const open = vi.spyOn(commands, 'open').mockResolvedValue(null)
     await expect(call(commands.open, 'Volume 1')).resolves.toBeNull()

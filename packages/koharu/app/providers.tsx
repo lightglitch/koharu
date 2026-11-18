@@ -103,6 +103,27 @@ export function Providers({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('wheel', preventViewportScaling, { capture: true })
   }, [])
 
+  // CEF's own context menu offers browser actions that mean nothing in the editor, so it is kept
+  // only where native Copy, Paste and spelling apply: fields, editable content, and the text the
+  // app marks selectable. The listener bubbles on the document and never stops propagation, so the
+  // app's own context menus open first and still work. Development keeps the menu for Inspect.
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') return
+    const suppress = (event: MouseEvent) => {
+      const target = event.target
+      if (
+        target instanceof Element &&
+        ((target instanceof HTMLElement && target.isContentEditable) ||
+          target.closest('input, textarea, .select-text'))
+      ) {
+        return
+      }
+      event.preventDefault()
+    }
+    document.addEventListener('contextmenu', suppress)
+    return () => document.removeEventListener('contextmenu', suppress)
+  }, [])
+
   return (
     <QueryClientProvider client={queryClient}>
       <I18nextProvider i18n={i18n}>
