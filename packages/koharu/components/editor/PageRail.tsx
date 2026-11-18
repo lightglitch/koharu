@@ -101,6 +101,13 @@ export function PageRail() {
     pageVirtualizer.scrollToIndex(index, { align: 'auto' })
   }, [active, pages, pageVirtualizer])
 
+  // Keyboard navigation selects a page from outside the rail; a later Shift+click ranges from it.
+  useEffect(() => {
+    if (selected.length !== 1) return
+    const index = pages.findIndex((page) => page.id === selected[0])
+    if (index >= 0) anchor.current = index
+  }, [selected, pages])
+
   const select = (index: number, additive: boolean, range: boolean) => {
     const page = pages[index]
     if (!page) return

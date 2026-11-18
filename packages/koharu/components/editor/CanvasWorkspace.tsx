@@ -11,6 +11,7 @@ import { StatusBar } from '@/components/editor/StatusBar'
 import { ToolBar } from '@/components/editor/ToolBar'
 import { TypeBar } from '@/components/editor/TypeBar'
 import { dispatch } from '@/lib/backend'
+import { navigatePages } from '@/lib/pages'
 import { usePage } from '@/lib/queries'
 import { deleteSelection } from '@/lib/scene'
 import { hexToRgba, toolKeys, useKoharuStore, type CanvasTool } from '@/lib/store'
@@ -104,6 +105,7 @@ export function CanvasWorkspace() {
         return
       }
       if (editable(event.target)) return
+      if (navigatePages(event)) return
       const state = useKoharuStore.getState()
       if (event.code === 'Space') {
         event.preventDefault()
