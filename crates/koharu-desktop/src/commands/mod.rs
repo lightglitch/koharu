@@ -2,6 +2,7 @@
 
 mod agent;
 mod canvas;
+mod clipboard;
 #[cfg(debug_assertions)]
 mod debug;
 mod export;
@@ -99,6 +100,7 @@ pub fn handler() -> impl Fn(Invoke<CefRuntime>) -> bool + Send + Sync + 'static 
         canvas::select,
         processing::fill,
         canvas::deselect,
+        clipboard::copy_text,
         #[cfg(debug_assertions)]
         debug::capture,
         #[cfg(debug_assertions)]
@@ -170,5 +172,6 @@ pub fn bindings(types: &mut Types) -> Vec<Function> {
         canvas::select,
         processing::fill,
         canvas::deselect,
+        clipboard::copy_text,
     ](types)
 }

@@ -11,6 +11,8 @@ import { commands, type PageFailure, type PageId, type Transfer } from '@koharu/
 import { Button } from '@koharu/ui/components/button'
 import { ScrollArea } from '@koharu/ui/components/scroll-area'
 
+import { CopyButton } from './CopyButton'
+
 export function ActivityCenter() {
   const { t } = useTranslation()
   const jobs = useKoharuStore((state) => state.jobs)
@@ -119,13 +121,18 @@ function JobItem({ job }: { job: Job }) {
     ...failure,
     label: pageLabel(failure.page),
   }))
+  // Each failure on its own line, naming its page once the text has left the panel.
+  const report = failures
+    .map((failure) => (failure.label ? `${failure.label}: ${failure.reason}` : failure.reason))
+    .join('\n')
   if (job.state === 'failed') {
     return (
       <div className='grid grid-cols-[1rem_minmax(0,1fr)_2.25rem_1.5rem] items-start gap-x-2.5 border-b p-3 text-[11px] last:border-b-0'>
         <CircleAlert className='mt-0.5 size-3.5 justify-self-center text-destructive' />
-        <p className='col-start-2 col-end-4 min-w-0 font-medium text-destructive'>
-          {t('activity.finishedWithFailures')}
-        </p>
+        <p className='min-w-0 font-medium text-destructive'>{t('activity.finishedWithFailures')}</p>
+        <span className='justify-self-end'>
+          <CopyButton text={report} />
+        </span>
         <Button
           size='icon-xs'
           variant='ghost'
@@ -195,6 +202,9 @@ function PageFailures({ failures }: { failures: (PageFailure & { label?: string 
             ) : null}
             <span className='text-muted-foreground'>{failure.reason}</span>
           </span>
+          <CopyButton
+            text={failure.label ? `${failure.label}: ${failure.reason}` : failure.reason}
+          />
         </li>
       ))}
     </ul>
@@ -237,9 +247,12 @@ function Failure({ message, onDismiss }: { message: string; onDismiss: () => voi
   return (
     <div className='grid grid-cols-[1rem_minmax(0,1fr)_2.25rem_1.5rem] items-start gap-x-2.5 border-b p-3 text-[11px] last:border-b-0'>
       <CircleAlert className='mt-0.5 size-3.5 justify-self-center text-destructive' />
-      <div className='col-start-2 col-end-4 min-w-0'>
+      <div className='min-w-0'>
         <p className='text-destructive'>{message}</p>
       </div>
+      <span className='justify-self-end'>
+        <CopyButton text={message} />
+      </span>
       <Button
         size='icon-xs'
         variant='ghost'

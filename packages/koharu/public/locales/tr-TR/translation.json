@@ -6,6 +6,8 @@
     "version": "Sürüm"
   },
   "activity": {
+    "copied": "Kopyalandı",
+    "copyError": "Hatayı kopyala",
     "dismiss": "Kapat",
     "downloadFailed": "İndirme başarısız oldu.",
     "downloadingFiles": "{{count}} dosya indiriliyor",

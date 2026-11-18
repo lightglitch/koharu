@@ -1056,6 +1056,8 @@ export const commands = {
     invoke<RunId | null>('fill', { prompt, model }, { headers: headers() }),
   /** Drops the area the marquee and the lasso marked, as Photoshop's Deselect does. */
   deselect: () => invoke<null>('deselect', {}, { headers: headers() }),
+  /** Puts `text` on the system clipboard. */
+  copyText: (text: string) => invoke<null>('copy_text', { text }, { headers: headers() }),
 }
 
 export const events = {

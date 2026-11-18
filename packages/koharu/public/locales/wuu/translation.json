@@ -6,6 +6,8 @@
     "version": "版本"
   },
   "activity": {
+    "copied": "复制好哉",
+    "copyError": "复制错误",
     "dismiss": "关闭",
     "downloadFailed": "下载失败哉。",
     "downloadingFiles": "来勒下载 {{count}} 个文件",

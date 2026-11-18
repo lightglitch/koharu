@@ -6,6 +6,8 @@
     "version": "Version"
   },
   "activity": {
+    "copied": "Copié",
+    "copyError": "Copier l'erreur",
     "dismiss": "Ignorer",
     "downloadFailed": "Échec du téléchargement.",
     "downloadingFiles": "Téléchargement de {{count}} fichiers",

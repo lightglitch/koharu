@@ -6,6 +6,8 @@
     "version": "バージョン"
   },
   "activity": {
+    "copied": "コピーしました",
+    "copyError": "エラーをコピー",
     "dismiss": "閉じる",
     "downloadFailed": "ダウンロードに失敗しました。",
     "downloadingFiles": "{{count}}件のファイルをダウンロード中",

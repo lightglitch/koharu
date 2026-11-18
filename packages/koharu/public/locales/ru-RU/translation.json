@@ -6,6 +6,8 @@
     "version": "Версия"
   },
   "activity": {
+    "copied": "Скопировано",
+    "copyError": "Скопировать ошибку",
     "dismiss": "Закрыть",
     "downloadFailed": "Не удалось скачать.",
     "downloadingFiles": "Скачивание файлов: {{count}}",
