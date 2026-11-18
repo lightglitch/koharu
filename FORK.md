@@ -101,6 +101,15 @@ Code: `components/editor/LayersHeader.tsx` and
   scroll under the title past a fixed height, so many failures don't grow the
   panel over the canvas.
 
+### Sentry is off
+
+- `crates/koharu/src/sentry.rs` starts the Sentry client without a DSN and
+  without the minidump integration, so nothing is reported and no crash reporter
+  runs, whatever `SENTRY_DSN` a build has. Upstream reports everything to its
+  Sentry project.
+- The interface's Send Feedback menu item still opens its form, but the report goes
+  nowhere.
+
 ### Pipeline, Activity and translation (Rust)
 
 - **Keep running when a page fails** (`crates/koharu-pipeline`: `scheduler/mod.rs`
