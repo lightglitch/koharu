@@ -308,6 +308,8 @@
     "pageNumber": "Página {{number}}",
     "pages": "Páginas",
     "processPage": "Processar {{page}}",
+    "processProject": "Processar projeto",
+    "processSelection": "Processar {{count}} páginas selecionadas",
     "run": {
       "detect": "Detectar",
       "inpaint": "Preencher",

@@ -308,6 +308,8 @@
     "pageNumber": "{{number}}페이지",
     "pages": "페이지",
     "processPage": "{{page}} 처리",
+    "processProject": "프로젝트 처리",
+    "processSelection": "선택한 {{count}}페이지 처리",
     "run": {
       "detect": "감지",
       "inpaint": "인페인팅",

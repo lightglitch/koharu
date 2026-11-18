@@ -308,6 +308,8 @@
     "pageNumber": "{{number}}ページ目",
     "pages": "ページ",
     "processPage": "{{page}}を処理",
+    "processProject": "プロジェクトを処理",
+    "processSelection": "選択中の{{count}}ページを処理",
     "run": {
       "detect": "検出",
       "inpaint": "インペイント",

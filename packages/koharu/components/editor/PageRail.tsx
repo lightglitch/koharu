@@ -15,7 +15,7 @@ import { FilePlus2, FolderOpen, LoaderCircle, MoreHorizontal, Settings } from 'l
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { RunPageButton } from '@/components/editor/PageRailActions'
+import { RailHeaderActions, RunPageButton } from '@/components/editor/PageRailActions'
 import { call, dispatch } from '@/lib/backend'
 import { useImportPages, usePage, useProject } from '@/lib/queries'
 import { deletePages, movePage } from '@/lib/scene'
@@ -161,6 +161,7 @@ export function PageRail() {
               {t('navigator.selected', { count: selected.length })}
             </span>
           )}
+          <RailHeaderActions pages={pages.length} selected={selected} />
         </header>
 
         {pages.length === 0 ? (

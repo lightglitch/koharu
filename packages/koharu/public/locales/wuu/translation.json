@@ -308,6 +308,8 @@
     "pageNumber": "第 {{number}} 页",
     "pages": "页面",
     "processPage": "处理 {{page}}",
+    "processProject": "处理项目",
+    "processSelection": "处理拣中个 {{count}} 页",
     "run": {
       "detect": "检测",
       "inpaint": "修补",

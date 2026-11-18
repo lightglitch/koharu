@@ -308,6 +308,8 @@
     "pageNumber": "الصفحة {{number}}",
     "pages": "الصفحات",
     "processPage": "معالجة {{page}}",
+    "processProject": "معالجة المشروع",
+    "processSelection": "معالجة الصفحات المحددة: {{count}}",
     "run": {
       "detect": "كشف",
       "inpaint": "ترميم",

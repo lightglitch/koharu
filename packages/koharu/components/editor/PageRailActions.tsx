@@ -8,6 +8,7 @@ import { pipelineStages, useKoharuStore } from '@/lib/store'
 import { commands, type PageId, type Target } from '@koharu/ipc/protocol'
 import { Button } from '@koharu/ui/components/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@koharu/ui/components/tooltip'
+import { cn } from '@koharu/ui/lib/utils'
 
 /** Whether a pipeline run is in flight: the backend refuses a second one, so the rail's run
  * controls stand down rather than raise an error toast. */
@@ -17,6 +18,51 @@ function useRunActive(): boolean {
 
 function runPipeline(target: Target) {
   void call(commands.runPipeline, target, [...pipelineStages]).catch(() => undefined)
+}
+
+/** The rail header's controls: they act on a multi-selection when there is one, and on the
+ * whole project otherwise. A single selected page is just the shown one, which a plain click
+ * always leaves, so following it would make the whole project unreachable. */
+export function RailHeaderActions({ pages, selected }: { pages: number; selected: PageId[] }) {
+  const selection = selected.length > 1
+  return (
+    <div className={cn('flex shrink-0 items-center gap-0.5', selection ? 'ml-1.5' : 'ml-auto')}>
+      <RunPagesButton disabled={pages === 0} selection={selection ? selected : null} />
+    </div>
+  )
+}
+
+function RunPagesButton({
+  disabled,
+  selection,
+}: {
+  disabled: boolean
+  selection: PageId[] | null
+}) {
+  const { t } = useTranslation()
+  const running = useRunActive()
+  const label = selection
+    ? t('navigator.processSelection', { count: selection.length })
+    : t('navigator.processProject')
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant='ghost'
+            size='icon-xs'
+            disabled={disabled || running}
+            aria-label={label}
+            className='shadow-none'
+            onClick={() => runPipeline(selection ? { pages: selection } : 'project')}
+          />
+        }
+      >
+        <RefreshCcwDot />
+      </TooltipTrigger>
+      <TooltipContent side='bottom'>{label}</TooltipContent>
+    </Tooltip>
+  )
 }
 
 /** Runs every stage on the page its row stands for, revealed while the row is hovered. */

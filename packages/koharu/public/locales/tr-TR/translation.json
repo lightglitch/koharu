@@ -308,6 +308,8 @@
     "pageNumber": "Sayfa {{number}}",
     "pages": "Sayfalar",
     "processPage": "{{page}} sayfasını işle",
+    "processProject": "Projeyi işle",
+    "processSelection": "Seçili {{count}} sayfayı işle",
     "run": {
       "detect": "Algıla",
       "inpaint": "Doldur",

@@ -308,6 +308,8 @@
     "pageNumber": "Page {{number}}",
     "pages": "Pages",
     "processPage": "Process {{page}}",
+    "processProject": "Process project",
+    "processSelection": "Process {{count}} selected pages",
     "run": {
       "detect": "Detect",
       "inpaint": "Inpaint",

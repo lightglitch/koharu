@@ -308,6 +308,8 @@
     "pageNumber": "Страница {{number}}",
     "pages": "Страницы",
     "processPage": "Обработать {{page}}",
+    "processProject": "Обработать проект",
+    "processSelection": "Обработать выбранные страницы: {{count}}",
     "run": {
       "detect": "Обнаружить",
       "inpaint": "Восстановить",

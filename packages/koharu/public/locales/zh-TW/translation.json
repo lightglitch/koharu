@@ -308,6 +308,8 @@
     "pageNumber": "第 {{number}} 頁",
     "pages": "頁面",
     "processPage": "處理 {{page}}",
+    "processProject": "處理專案",
+    "processSelection": "處理選取的 {{count}} 頁",
     "run": {
       "detect": "偵測",
       "inpaint": "修補",
