@@ -14,7 +14,7 @@ use koharu_llm::rig::{
 use serde_json::{Map, Value, json};
 use tokio_util::sync::CancellationToken;
 
-use super::Conversation;
+use super::{Conversation, repair};
 
 pub(super) struct Turn<'a> {
     system: String,
@@ -115,12 +115,71 @@ impl<'a> Turn<'a> {
             response = request.into_future() => response?,
             () = self.cancel.cancelled() => return Ok(None),
         };
-        let translations = answers(&response.output(), &self.keys)?;
+        let (translations, repaired) = self.read(&response.output())?;
         let usage = response
             .completion_calls
             .last()
             .map_or_else(Usage::default, |call| call.usage);
-        Ok(Some((translations, response.messages, usage)))
+        let mut messages = response.messages;
+        // A repaired answer enters the history as the clean JSON of the texts
+        // it did give, so later turns copy no broken JSON nor learn to answer
+        // with the source; the page counts as answered, as its translated
+        // texts are worth carrying to the next page.
+        if let Some(answered) = repaired
+            && let Some(answer) = messages
+                .iter_mut()
+                .rev()
+                .find(|message| matches!(message, Message::Assistant(_)))
+        {
+            *answer = Message::assistant(answered);
+        }
+        Ok(Some((translations, messages, usage)))
+    }
+
+    /// The page's translations in `answer`, and when it had to be repaired,
+    /// the answer as the history keeps it.
+    fn read(&self, answer: &str) -> Result<(Vec<String>, Option<String>)> {
+        let strict = match answers(answer, &self.keys) {
+            Ok(translations) => return Ok((translations, None)),
+            Err(error) => error,
+        };
+        // Fork divergence: upstream fails the page here. A text the answer
+        // misses or garbles keeps its source, and only an answer with none
+        // of the page's texts fails it.
+        let found = repair::answers(answer, &self.keys).with_context(|| {
+            format!(
+                "{strict:#}, nor could it be repaired; the answer was: {}",
+                repair::snippet(answer)
+            )
+        })?;
+        let missing: Vec<&str> = self
+            .keys
+            .iter()
+            .zip(&found)
+            .filter(|(_, text)| text.is_none())
+            .map(|(key, _)| key.as_str())
+            .collect();
+        match missing.is_empty() {
+            true => tracing::warn!(error = %format!("{strict:#}"), "repaired the answer"),
+            false => tracing::warn!(
+                error = %format!("{strict:#}"),
+                ?missing,
+                "repaired the answer; the texts it lacks keep their source",
+            ),
+        }
+        let (keys, texts): (Vec<String>, Vec<&str>) = self
+            .keys
+            .iter()
+            .zip(&found)
+            .filter_map(|(key, text)| Some((key.clone(), text.as_deref()?)))
+            .unzip();
+        let answered = numbered(&keys, texts.into_iter());
+        let translations = found
+            .into_iter()
+            .zip(self.texts)
+            .map(|(found, text)| found.unwrap_or_else(|| text.clone()))
+            .collect();
+        Ok((translations, Some(answered)))
     }
 
     /// Whether `translations` repeat the `last` page's, in order, for at least
@@ -243,6 +302,33 @@ mod tests {
                 Message::user("{\"01\": \"やあ\"}"),
                 Message::assistant("{\"01\": \"Hi\"}"),
             ]
+        );
+    }
+
+    #[test]
+    fn a_repaired_answer_keeps_the_source_where_it_lacks_a_text() {
+        let texts = ["やあ", "元気？", "!?"].map(str::to_owned);
+        let cancel = CancellationToken::new();
+        let turn = Turn::new(String::new(), &texts, None, None, &cancel);
+        let (translations, history) = turn
+            .read("```json\n{\"1\": \"Hi\", \"3\": \"!?\"}\n```")
+            .expect("a repaired answer");
+        assert_eq!(translations, ["Hi", "元気？", "!?"]);
+        assert_eq!(
+            history.as_deref(),
+            Some("{\n  \"1\": \"Hi\",\n  \"3\": \"!?\"\n}")
+        );
+        let strict = turn
+            .read(r#"{"1": "Hi", "2": "Fine?", "3": "!?"}"#)
+            .expect("an answer");
+        assert_eq!(
+            strict,
+            (vec!["Hi".into(), "Fine?".into(), "!?".into()], None)
+        );
+        let error = turn.read("no\nJSON").expect_err("nothing to repair");
+        assert!(
+            format!("{error:#}").contains(r"the answer was: no\nJSON"),
+            "{error:#}"
         );
     }
 

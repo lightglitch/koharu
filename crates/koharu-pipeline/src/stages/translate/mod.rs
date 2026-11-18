@@ -1,8 +1,10 @@
 //! Translation: one conversation per open project, kept in memory, a turn per
 //! page in page order. Changing the model, the target, or the prompt starts a
 //! new one. A page is its texts as a JSON object numbered in reading order, and
-//! its answer must keep the keys, held to a schema; a page that fails never
-//! enters the history, and an answer echoing the page before's is asked again
+//! its answer must keep the keys, held to a schema; an answer that breaks it
+//! is repaired where it can be, a text it lacks keeping its source, and enters
+//! the history as the texts it gave. A page that fails never enters the
+//! history, and an answer echoing the page before's is asked again
 //! without the history it copied. A text given back unchanged, such as a
 //! copyright line or a "!?", is in the target's script already, so it keeps
 //! its own lettering.
@@ -10,6 +12,7 @@
 mod conversation;
 mod model;
 mod placement;
+mod repair;
 mod turn;
 
 use anyhow::{Context as _, Result, ensure};
