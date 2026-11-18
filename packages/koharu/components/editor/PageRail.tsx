@@ -15,7 +15,11 @@ import { FilePlus2, FolderOpen, LoaderCircle, MoreHorizontal, Settings } from 'l
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { RailHeaderActions, RunPageButton } from '@/components/editor/PageRailActions'
+import {
+  deleteWithSelection,
+  RailHeaderActions,
+  RunPageButton,
+} from '@/components/editor/PageRailActions'
 import { call, dispatch } from '@/lib/backend'
 import { useImportPages, usePage, useProject } from '@/lib/queries'
 import { deletePages, movePage } from '@/lib/scene'
@@ -161,7 +165,7 @@ export function PageRail() {
               {t('navigator.selected', { count: selected.length })}
             </span>
           )}
-          <RailHeaderActions pages={pages.length} selected={selected} />
+          <RailHeaderActions pages={pages} selected={selected} />
         </header>
 
         {pages.length === 0 ? (
@@ -228,6 +232,7 @@ export function PageRail() {
                           )
                         }
                         onDelete={() => {
+                          if (deleteWithSelection(page.id, selected)) return
                           setPageToDelete({ page: page.id, number: index + 1 })
                           setConfirmingDelete(true)
                         }}
