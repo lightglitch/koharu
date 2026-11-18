@@ -9,6 +9,7 @@ import { usePages } from '@/lib/queries'
 import { useKoharuStore, type Job } from '@/lib/store'
 import { commands, type Transfer } from '@koharu/ipc/protocol'
 import { Button } from '@koharu/ui/components/button'
+import { ScrollArea } from '@koharu/ui/components/scroll-area'
 
 export function ActivityCenter() {
   const { t } = useTranslation()
@@ -44,30 +45,34 @@ export function ActivityCenter() {
           {t('activity.title')}
         </span>
       </div>
-      {activities.map((activity) => (
-        <div
-          key={activity.id}
-          role='status'
-          className='grid grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2.5 border-b p-3 last:border-b-0'
-        >
-          <LoaderCircle
-            className='size-3.5 animate-spin justify-self-center text-primary motion-reduce:animate-none'
-            aria-hidden='true'
-          />
-          <span className='truncate text-[12px] font-medium'>{t(activity.label)}</span>
-        </div>
-      ))}
-      {runningDownloads.length > 1 ? (
-        <DownloadGroup downloads={runningDownloads} />
-      ) : (
-        runningDownloads.map((download) => <DownloadItem key={download.id} download={download} />)
-      )}
-      {failedDownloads.map((download) => (
-        <DownloadItem key={download.id} download={download} />
-      ))}
-      {visibleJobs.map((job) => (
-        <JobItem key={job.id} job={job} />
-      ))}
+      {/* Failed runs stay until dismissed, so the rows scroll under the title past a few rather
+          than grow the panel up over the canvas. */}
+      <ScrollArea viewportClassName='max-h-80'>
+        {activities.map((activity) => (
+          <div
+            key={activity.id}
+            role='status'
+            className='grid grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2.5 border-b p-3 last:border-b-0'
+          >
+            <LoaderCircle
+              className='size-3.5 animate-spin justify-self-center text-primary motion-reduce:animate-none'
+              aria-hidden='true'
+            />
+            <span className='truncate text-[12px] font-medium'>{t(activity.label)}</span>
+          </div>
+        ))}
+        {runningDownloads.length > 1 ? (
+          <DownloadGroup downloads={runningDownloads} />
+        ) : (
+          runningDownloads.map((download) => <DownloadItem key={download.id} download={download} />)
+        )}
+        {failedDownloads.map((download) => (
+          <DownloadItem key={download.id} download={download} />
+        ))}
+        {visibleJobs.map((job) => (
+          <JobItem key={job.id} job={job} />
+        ))}
+      </ScrollArea>
     </aside>
   )
 }
