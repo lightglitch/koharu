@@ -11,9 +11,9 @@
     "downloadingFiles": "{{count}}개 파일 다운로드 중",
     "downloadingFiles_one": "{{count}}개 파일 다운로드 중",
     "downloadingFiles_other": "{{count}}개 파일 다운로드 중",
+    "finishedWithFailures": "일부 페이지가 실패한 채 완료됨",
     "modelDownload": "모델 다운로드",
     "processing": "처리 중",
-    "processingFailed": "처리에 실패했습니다.",
     "stop": "중지",
     "title": "활동"
   },

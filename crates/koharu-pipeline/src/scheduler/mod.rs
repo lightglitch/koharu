@@ -12,7 +12,7 @@ use std::{
     time::Duration,
 };
 
-use koharu_scene::{PageId, ProjectId};
+use koharu_scene::ProjectId;
 use parking_lot::RwLock;
 use petgraph::{Direction::Incoming, stable_graph::NodeIndex};
 use tokio::{
@@ -24,7 +24,7 @@ use tokio::{
 
 pub(crate) use self::run::{Plan, Run};
 use crate::{
-    Event, Outcome, PipelineConfig, RunId, Stage,
+    Event, Outcome, PageFailure, PipelineConfig, RunId, Stage,
     event::Events,
     gpu::{Gpu, Key, Turn},
     stages::{self, Inputs, Member, Task, translate::Conversations},
@@ -76,11 +76,10 @@ struct Candidate {
     priority: Priority,
 }
 
-/// A running task's stage, its jobs, and the page it fails on.
+/// A running task's stage and its jobs.
 struct Running {
     stage: Stage,
     jobs: Vec<(RunId, NodeIndex)>,
-    page: PageId,
 }
 
 pub(crate) struct Scheduler {
@@ -182,7 +181,7 @@ impl Scheduler {
             Ok((id, _)) => *id,
             Err(error) => error.id(),
         };
-        let Running { stage, jobs, page } = self
+        let Running { stage, jobs } = self
             .running
             .remove(&id)
             .expect("every task is recorded when it starts");
@@ -190,50 +189,60 @@ impl Scheduler {
             Ok((_, result)) => result,
             Err(error) => Err(format!("{stage} failed: {error}")),
         };
-        let runs = std::mem::take(&mut self.runs);
         let mut ended = false;
-        match result {
-            Ok(()) => {
-                for mut run in runs {
-                    for &(id, job) in &jobs {
-                        if id == run.id
-                            && let Some(job) = run.graph.remove_node(job)
-                        {
-                            self.emit(Event::Finished {
-                                run: id,
-                                page: job.page,
-                                stage: job.stage,
-                            });
-                        }
-                    }
-                    if run.graph.node_count() == 0 {
-                        ended = true;
-                        self.emit(Event::Ended {
-                            run: run.id,
-                            outcome: Outcome::Done,
+        for mut run in std::mem::take(&mut self.runs) {
+            for &(id, job) in &jobs {
+                // A job gone from the graph was on a page given up on.
+                if id != run.id || !run.graph.contains_node(job) {
+                    continue;
+                }
+                let page = run.graph[job].page;
+                match &result {
+                    Ok(()) => {
+                        run.graph.remove_node(job);
+                        self.emit(Event::Finished {
+                            run: id,
+                            page,
+                            stage,
                         });
-                    } else {
-                        self.runs.push(run);
+                    }
+                    // Fork divergence: upstream ends the run here; the
+                    // failure is the page's alone, and the run goes on.
+                    Err(reason) => {
+                        run.abandon(page);
+                        run.failures.push(PageFailure {
+                            page,
+                            stage,
+                            reason: reason.clone(),
+                        });
+                        self.emit(Event::Failed {
+                            run: id,
+                            page,
+                            stage,
+                            reason: reason.clone(),
+                        });
                     }
                 }
             }
-            Err(reason) => {
-                for run in runs {
-                    if jobs.iter().any(|&(id, _)| id == run.id) {
-                        ended = true;
-                        run.cancel.cancel();
-                        self.emit(Event::Ended {
-                            run: run.id,
-                            outcome: Outcome::Failed {
-                                page,
-                                stage,
-                                reason: reason.clone(),
-                            },
-                        });
-                    } else {
-                        self.runs.push(run);
-                    }
-                }
+            // A page given up on may still have a stage in flight, whose
+            // result still lands; the run ends once it does, so its end
+            // comes after every write and a stop still reaches it.
+            let flying = self
+                .running
+                .values()
+                .any(|running| running.jobs.iter().any(|&(id, _)| id == run.id));
+            if run.graph.node_count() == 0 && !flying {
+                ended = true;
+                let outcome = match std::mem::take(&mut run.failures) {
+                    failures if failures.is_empty() => Outcome::Done,
+                    failures => Outcome::Failed { failures },
+                };
+                self.emit(Event::Ended {
+                    run: run.id,
+                    outcome,
+                });
+            } else {
+                self.runs.push(run);
             }
         }
         if ended {
@@ -360,7 +369,6 @@ impl Scheduler {
                 .iter()
                 .map(|member| (member.run, member.job))
                 .collect(),
-            page: members[0].page,
         };
         let task = Task {
             stage: first.stage,

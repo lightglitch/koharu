@@ -11,11 +11,16 @@ use std::{
 
 use koharu_scene::{Content, LayerId, PageId, Project, ProjectId, Session};
 use parking_lot::Mutex;
-use petgraph::stable_graph::{NodeIndex, StableDiGraph};
+use petgraph::{
+    Direction::{Incoming, Outgoing},
+    stable_graph::{NodeIndex, StableDiGraph},
+};
 use tokio_util::sync::CancellationToken;
 
 use super::Mode;
-use crate::{Error, PipelineConfig, Result, RunId, Stage, Target, stages::inpaint::AreaWork};
+use crate::{
+    Error, PageFailure, PipelineConfig, Result, RunId, Stage, Target, stages::inpaint::AreaWork,
+};
 
 pub(crate) struct Run {
     pub(super) id: RunId,
@@ -26,6 +31,8 @@ pub(crate) struct Run {
     pub(super) area: Option<Arc<AreaWork>>,
     pub(super) graph: StableDiGraph<Job, ()>,
     pub(super) cancel: CancellationToken,
+    /// The pages given up on so far, which the run ends naming.
+    pub(super) failures: Vec<PageFailure>,
 }
 
 pub(super) struct Job {
@@ -178,6 +185,37 @@ impl Run {
             area: plan.area,
             graph,
             cancel: CancellationToken::new(),
+            failures: Vec::new(),
+        }
+    }
+
+    /// Drops every job left on `page`, a running one too, whose result is
+    /// then neither told nor failed again. The translation chain is bridged
+    /// over the page, so the next page's translation still waits for the
+    /// one before it rather than starting at once.
+    // Fork divergence: upstream ends the run at its first failure instead.
+    pub(super) fn abandon(&mut self, page: PageId) {
+        let jobs: Vec<NodeIndex> = self
+            .graph
+            .node_indices()
+            .filter(|&job| self.graph[job].page == page)
+            .collect();
+        let translations = |direction| {
+            jobs.iter()
+                .filter(|&&job| self.graph[job].stage == Stage::Translate)
+                .flat_map(|&job| self.graph.neighbors_directed(job, direction))
+                .filter(|&other| self.graph[other].stage == Stage::Translate)
+                .collect::<Vec<_>>()
+        };
+        let before = translations(Incoming);
+        let after = translations(Outgoing);
+        for job in jobs {
+            self.graph.remove_node(job);
+        }
+        for &before in &before {
+            for &after in &after {
+                self.graph.add_edge(before, after, ());
+            }
         }
     }
 }
@@ -185,7 +223,6 @@ impl Run {
 #[cfg(test)]
 mod tests {
     use koharu_scene::{Created, Edit, Rect};
-    use petgraph::Direction::Incoming;
     use serde_json::json;
 
     use super::*;
@@ -295,6 +332,40 @@ mod tests {
         assert_eq!(ready(&run), [(0, Stage::Translate)]);
         finish(&mut run, 0, Stage::Translate);
         assert_eq!(ready(&run), [(1, Stage::Translate)]);
+        Ok(())
+    }
+
+    #[test]
+    fn a_failed_page_leaves_the_next_translation_waiting_for_the_one_before() -> anyhow::Result<()>
+    {
+        let (_dir, mut session, ..) = project()?;
+        session.apply(Edit {
+            label: "test".to_owned(),
+            ops: vec![serde_json::from_value(json!({
+                "op": "add_page", "index": 2, "size": {"width": 100, "height": 100},
+            }))?],
+        })?;
+        let project = session.project();
+        let pages: Vec<PageId> = project.pages().map(|page| page.id).collect();
+        let stages = stages(&[Stage::Recognize, Stage::Translate]);
+        let plan = Plan::new(&project, &Target::Project, &stages)?;
+        let mut run = Run::new(
+            RunId(0),
+            Arc::new(Mutex::new(session)),
+            project.id(),
+            PipelineConfig::default(),
+            plan,
+            &stages,
+        );
+        run.abandon(pages[1]);
+        assert_eq!(ready(&run), [(0, Stage::Recognize), (2, Stage::Recognize)]);
+        finish(&mut run, 0, Stage::Recognize);
+        finish(&mut run, 2, Stage::Recognize);
+        assert_eq!(ready(&run), [(0, Stage::Translate)]);
+        finish(&mut run, 0, Stage::Translate);
+        assert_eq!(ready(&run), [(2, Stage::Translate)]);
+        finish(&mut run, 2, Stage::Translate);
+        assert_eq!(run.graph.node_count(), 0);
         Ok(())
     }
 }

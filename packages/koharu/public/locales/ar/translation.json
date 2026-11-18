@@ -11,9 +11,9 @@
     "downloadingFiles": "جارٍ تنزيل {{count}} من الملفات",
     "downloadingFiles_one": "جارٍ تنزيل {{count}} ملف",
     "downloadingFiles_other": "جارٍ تنزيل {{count}} من الملفات",
+    "finishedWithFailures": "اكتمل مع فشل بعض الصفحات",
     "modelDownload": "تنزيل النموذج",
     "processing": "قيد المعالجة",
-    "processingFailed": "فشلت المعالجة.",
     "stop": "إيقاف",
     "title": "النشاط"
   },

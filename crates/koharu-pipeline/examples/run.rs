@@ -140,13 +140,24 @@ async fn main() -> Result<()> {
             Event::Finished { page, stage, .. } => {
                 println!("{elapsed:7.1}s page {} {stage} finished", number(page))
             }
+            Event::Failed {
+                page,
+                stage,
+                reason,
+                ..
+            } => {
+                println!(
+                    "{elapsed:7.1}s page {} {stage} failed: {reason}",
+                    number(page)
+                )
+            }
             Event::Ended {
                 run: ended,
                 outcome,
             } if ended == run => {
                 println!("{elapsed:7.1}s ended: {outcome:?}");
-                if let Outcome::Failed { reason, .. } = outcome {
-                    bail!(reason);
+                if let Outcome::Failed { failures } = outcome {
+                    bail!("{} pages failed", failures.len());
                 }
                 break;
             }

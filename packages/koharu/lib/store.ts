@@ -6,6 +6,7 @@ import type {
   Bounds,
   LayerId,
   Model,
+  PageFailure,
   PageId,
   PipelineEvent,
   Preferences,
@@ -64,6 +65,7 @@ export const pipelineStages: readonly Stage[] = ['detect', 'recognize', 'inpaint
 /** A pipeline run as the activity center shows it, from the pipeline's events. */
 export interface Job {
   id: RunId
+  /** `failed` is a run that went through every page but gave up on some of them. */
   state: 'running' | 'done' | 'failed' | 'stopped'
   /** The page stages done, of `total`. */
   completed: number
@@ -71,7 +73,13 @@ export interface Job {
   /** The stage started last, and its page. */
   stage: Stage | null
   page: PageId | null
-  error: string | null
+  /** The pages given up on so far, in the order they failed; the run goes on without them. */
+  failures: PageFailure[]
+}
+
+/** The pages the runs still shown gave up on, for marking them where pages are listed. */
+export function failedPages(jobs: Record<string, Job>): Set<PageId> {
+  return new Set(Object.values(jobs).flatMap((job) => job.failures.map((failure) => failure.page)))
 }
 
 interface KoharuStore {
@@ -186,7 +194,7 @@ function fold(job: Job | undefined, event: PipelineEvent): Job {
     total: 0,
     stage: null,
     page: null,
-    error: null,
+    failures: [],
   }
   switch (event.kind) {
     case 'queued':
@@ -195,17 +203,15 @@ function fold(job: Job | undefined, event: PipelineEvent): Job {
       return { ...current, stage: event.stage, page: event.page }
     case 'finished':
       return { ...current, completed: current.completed + 1 }
+    case 'failed': {
+      const { page, stage, reason } = event
+      return { ...current, failures: [...current.failures, { page, stage, reason }] }
+    }
     case 'ended':
-      // A failure names its own page and stage: the last started may be another page in flight.
+      // The outcome's list is the whole of it, so a history replayed in part still ends right.
       return event.outcome.kind === 'failed'
-        ? {
-            ...current,
-            state: 'failed',
-            stage: event.outcome.stage,
-            page: event.outcome.page,
-            error: event.outcome.reason,
-          }
-        : { ...current, state: event.outcome.kind, error: null }
+        ? { ...current, state: 'failed', failures: event.outcome.failures }
+        : { ...current, state: event.outcome.kind }
   }
 }
 

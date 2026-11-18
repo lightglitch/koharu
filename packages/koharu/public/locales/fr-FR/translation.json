@@ -11,9 +11,9 @@
     "downloadingFiles": "Téléchargement de {{count}} fichiers",
     "downloadingFiles_one": "Téléchargement de {{count}} fichier",
     "downloadingFiles_other": "Téléchargement de {{count}} fichiers",
+    "finishedWithFailures": "Terminé avec des pages en échec",
     "modelDownload": "Téléchargement du modèle",
     "processing": "Traitement",
-    "processingFailed": "Échec du traitement.",
     "stop": "Arrêter",
     "title": "Activité"
   },

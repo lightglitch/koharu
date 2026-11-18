@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { call } from '@/lib/backend'
 import { usePages } from '@/lib/queries'
 import { useKoharuStore, type Job } from '@/lib/store'
-import { commands, type Transfer } from '@koharu/ipc/protocol'
+import { commands, type PageFailure, type PageId, type Transfer } from '@koharu/ipc/protocol'
 import { Button } from '@koharu/ui/components/button'
 import { ScrollArea } from '@koharu/ui/components/scroll-area'
 
@@ -110,20 +110,37 @@ function JobItem({ job }: { job: Job }) {
   const { t } = useTranslation()
   const dismiss = useKoharuStore((state) => state.dismissJob)
   // Numbered by position in the rail, so the row says where in the run this is.
-  const pages = usePages(job.page !== null).data
-  const pageIndex = job.page ? (pages?.findIndex((page) => page.id === job.page) ?? -1) : -1
-  const pageLabel =
-    pageIndex >= 0 ? t('navigator.pageNumber', { number: pageIndex + 1 }) : undefined
+  const pages = usePages(job.page !== null || job.failures.length > 0).data
+  const pageLabel = (id: PageId) => {
+    const index = pages?.findIndex((page) => page.id === id) ?? -1
+    return index >= 0 ? t('navigator.pageNumber', { number: index + 1 }) : undefined
+  }
+  const failures = job.failures.map((failure) => ({
+    ...failure,
+    label: pageLabel(failure.page),
+  }))
   if (job.state === 'failed') {
     return (
-      <Failure
-        message={job.error || t('activity.processingFailed')}
-        detail={pageLabel}
-        onDismiss={() => dismiss(String(job.id))}
-      />
+      <div className='grid grid-cols-[1rem_minmax(0,1fr)_2.25rem_1.5rem] items-start gap-x-2.5 border-b p-3 text-[11px] last:border-b-0'>
+        <CircleAlert className='mt-0.5 size-3.5 justify-self-center text-destructive' />
+        <p className='col-start-2 col-end-4 min-w-0 font-medium text-destructive'>
+          {t('activity.finishedWithFailures')}
+        </p>
+        <Button
+          size='icon-xs'
+          variant='ghost'
+          className='-mt-1'
+          aria-label={t('activity.dismiss')}
+          onClick={() => dismiss(String(job.id))}
+        >
+          <X />
+        </Button>
+        <PageFailures failures={failures} />
+      </div>
     )
   }
   const percent = progress(job.completed, job.total)
+  const current = job.page ? pageLabel(job.page) : undefined
   return (
     <div className='border-b p-3 last:border-b-0'>
       <div className='grid grid-cols-[1rem_minmax(0,1fr)_2.25rem_1.5rem] items-start gap-x-2.5'>
@@ -147,16 +164,40 @@ function JobItem({ job }: { job: Job }) {
         >
           <Square className='size-2.5 fill-current' />
         </Button>
-        {pageLabel ? (
+        {current ? (
           <p className='col-start-2 col-end-4 mt-0.5 truncate text-[10px] text-muted-foreground'>
-            {pageLabel}
+            {current}
           </p>
         ) : null}
         <div className='col-start-2 col-end-4'>
           <Progress value={percent} />
         </div>
+        {failures.length > 0 ? <PageFailures failures={failures} /> : null}
       </div>
     </div>
+  )
+}
+
+/** The pages a run gave up on, each with why, as they come in while it goes on. A reason, which
+ * can quote a model's whole answer, is cut at a few lines inside the panel's scrolling rows. */
+function PageFailures({ failures }: { failures: (PageFailure & { label?: string })[] }) {
+  return (
+    <ul className='col-start-2 col-end-5 mt-2 grid gap-1'>
+      {failures.map((failure) => (
+        <li key={`${failure.page}:${failure.stage}`} className='flex items-start gap-1.5'>
+          <CircleAlert className='mt-px size-3 shrink-0 text-destructive' />
+          <span
+            className='line-clamp-4 min-w-0 flex-1 text-[10px] leading-4 break-words'
+            title={failure.reason}
+          >
+            {failure.label ? (
+              <span className='mr-1 font-medium text-destructive'>{failure.label}</span>
+            ) : null}
+            <span className='text-muted-foreground'>{failure.reason}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -190,25 +231,14 @@ function DownloadItem({ download }: { download: Transfer }) {
   )
 }
 
-/** A failure's row: why, and under it where, as a running row names its page. */
-function Failure({
-  message,
-  detail,
-  onDismiss,
-}: {
-  message: string
-  detail?: string
-  onDismiss: () => void
-}) {
+/** A failure's row: why. */
+function Failure({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   const { t } = useTranslation()
   return (
     <div className='grid grid-cols-[1rem_minmax(0,1fr)_2.25rem_1.5rem] items-start gap-x-2.5 border-b p-3 text-[11px] last:border-b-0'>
       <CircleAlert className='mt-0.5 size-3.5 justify-self-center text-destructive' />
       <div className='col-start-2 col-end-4 min-w-0'>
         <p className='text-destructive'>{message}</p>
-        {detail ? (
-          <p className='mt-0.5 truncate text-[10px] text-muted-foreground'>{detail}</p>
-        ) : null}
       </div>
       <Button
         size='icon-xs'

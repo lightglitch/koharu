@@ -11,9 +11,9 @@
     "downloadingFiles": "Downloading {{count}} files",
     "downloadingFiles_one": "Downloading {{count}} file",
     "downloadingFiles_other": "Downloading {{count}} files",
+    "finishedWithFailures": "Finished with failed pages",
     "modelDownload": "Model download",
     "processing": "Processing",
-    "processingFailed": "Processing failed.",
     "stop": "Stop",
     "title": "Activity"
   },

@@ -586,8 +586,11 @@ export type Opacity = number
 
 export type Outcome =
   | { kind: 'done' }
-  /**  The first failure ends the run; what it finished stays. */
-  | { kind: 'failed'; page: PageId; stage: Stage; reason: string }
+  /**
+   *  Every page was worked on, but these failed, in the order they did.
+   *  What the run finished, on them too, stays.
+   */
+  | { kind: 'failed'; failures: PageFailure[] }
   | { kind: 'stopped' }
 
 /**
@@ -607,6 +610,13 @@ export type PageChanges = {
   removed: PageId[]
   reordered: boolean
   changed: PageId[]
+}
+
+/**  A page whose stage failed, which the run gave up on. */
+export type PageFailure = {
+  page: PageId
+  stage: Stage
+  reason: string
 }
 
 /**  A page; stored, so it survives undo. */
@@ -655,6 +665,11 @@ export type PipelineEvent =
   | { kind: 'queued'; run: RunId; steps: number }
   | { kind: 'started'; run: RunId; page: PageId; stage: Stage }
   | { kind: 'finished'; run: RunId; page: PageId; stage: Stage }
+  /**
+   *  A page's stage failed: the page's other stages are dropped and the
+   *  run goes on, so the app hears it before the run ends.
+   */
+  | { kind: 'failed'; run: RunId; page: PageId; stage: Stage; reason: string }
   | { kind: 'ended'; run: RunId; outcome: Outcome }
 
 export type Preferences = {

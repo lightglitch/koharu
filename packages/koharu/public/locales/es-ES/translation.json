@@ -11,9 +11,9 @@
     "downloadingFiles": "Descargando {{count}} archivos",
     "downloadingFiles_one": "Descargando {{count}} archivos",
     "downloadingFiles_other": "Descargando {{count}} archivos",
+    "finishedWithFailures": "Terminado con páginas fallidas",
     "modelDownload": "Descarga del modelo",
     "processing": "Procesando",
-    "processingFailed": "Error de procesamiento.",
     "stop": "Detener",
     "title": "Actividad"
   },

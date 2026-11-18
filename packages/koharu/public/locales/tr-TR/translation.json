@@ -11,9 +11,9 @@
     "downloadingFiles": "{{count}} dosya indiriliyor",
     "downloadingFiles_one": "{{count}} dosya indiriliyor",
     "downloadingFiles_other": "{{count}} dosya indiriliyor",
+    "finishedWithFailures": "Bazı sayfalar başarısız olarak tamamlandı",
     "modelDownload": "Model indirme",
     "processing": "İşleniyor",
-    "processingFailed": "İşleme başarısız oldu.",
     "stop": "Durdur",
     "title": "Etkinlik"
   },

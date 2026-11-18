@@ -11,9 +11,9 @@
     "downloadingFiles": "Скачивание файлов: {{count}}",
     "downloadingFiles_one": "Скачивание файлов: {{count}}",
     "downloadingFiles_other": "Скачивание файлов: {{count}}",
+    "finishedWithFailures": "Завершено, некоторые страницы с ошибками",
     "modelDownload": "Скачивание модели",
     "processing": "Обработка",
-    "processingFailed": "Ошибка обработки.",
     "stop": "Остановить",
     "title": "Активность"
   },

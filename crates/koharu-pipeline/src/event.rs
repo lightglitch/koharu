@@ -53,6 +53,14 @@ pub enum Event {
         page: PageId,
         stage: Stage,
     },
+    /// A page's stage failed: the page's other stages are dropped and the
+    /// run goes on, so the app hears it before the run ends.
+    Failed {
+        run: RunId,
+        page: PageId,
+        stage: Stage,
+        reason: String,
+    },
     Ended {
         run: RunId,
         outcome: Outcome,
@@ -63,13 +71,21 @@ pub enum Event {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Outcome {
     Done,
-    /// The first failure ends the run; what it finished stays.
+    /// Every page was worked on, but these failed, in the order they did.
+    /// What the run finished, on them too, stays.
+    // Fork divergence: upstream ends a run at its first failure.
     Failed {
-        page: PageId,
-        stage: Stage,
-        reason: String,
+        failures: Vec<PageFailure>,
     },
     Stopped,
+}
+
+/// A page whose stage failed, which the run gave up on.
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
+pub struct PageFailure {
+    pub page: PageId,
+    pub stage: Stage,
+    pub reason: String,
 }
 
 /// Where events go: every run's history and spans, then whoever listens.
@@ -107,6 +123,7 @@ impl Events {
         let (Event::Queued { run, .. }
         | Event::Started { run, .. }
         | Event::Finished { run, .. }
+        | Event::Failed { run, .. }
         | Event::Ended { run, .. }) = &event;
         {
             let mut runs = self.runs.lock();
@@ -134,7 +151,7 @@ impl Events {
                         record.stages.insert((*page, *stage), stage_span);
                     }
                 }
-                Event::Finished { page, stage, .. } => {
+                Event::Finished { page, stage, .. } | Event::Failed { page, stage, .. } => {
                     record.stages.remove(&(*page, *stage));
                 }
                 Event::Ended { outcome, .. } => {

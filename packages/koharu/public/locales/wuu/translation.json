@@ -11,9 +11,9 @@
     "downloadingFiles": "来勒下载 {{count}} 个文件",
     "downloadingFiles_one": "来勒下载 {{count}} 个文件",
     "downloadingFiles_other": "来勒下载 {{count}} 个文件",
+    "finishedWithFailures": "做好哉，有眼页面失败哉",
     "modelDownload": "模型下载",
     "processing": "来勒处理",
-    "processingFailed": "处理失败哉。",
     "stop": "停止",
     "title": "活动"
   },

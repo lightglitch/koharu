@@ -153,9 +153,14 @@ model, the target, or the instructions starts a new one.
   pages in the order they came, so an interactive run goes ahead at its next
   model call. Recognition takes up to eight pages waiting for the same model at
   once.
-- **Failure.** The first failure ends its run, naming the page, the stage, and
-  the reason, a panic included. What it finished stays. Stopping is the same
-  without the error, for every run.
+- **Failure.** A failure, a panic included, is its page's alone: the page's
+  stages not yet started are dropped, one already running still finishes, it is
+  told at once naming the page, the stage, and
+  the reason, and the run goes on with its other pages. The next page's
+  translation then waits for the translation before the failed page. A run
+  with failures ends naming each failed page. What it finished stays, on the
+  failed pages too. Stopping ends every run without an error. (This fork keeps
+  going where upstream ends the run at its first failure.)
 
 ## 6. Settings
 

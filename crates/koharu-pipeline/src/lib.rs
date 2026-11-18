@@ -13,7 +13,7 @@ mod stages;
 
 pub use config::PipelineConfig;
 pub use error::{Error, Result};
-pub use event::{Event, Outcome, RunId};
+pub use event::{Event, Outcome, PageFailure, RunId};
 pub use pipeline::Pipeline;
 pub use request::{Area, Request, Stage, Target};
 pub use stages::{
