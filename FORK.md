@@ -237,10 +237,10 @@ vcpkg plus the variables above on Windows.
   and copies `koharu.exe` and the CEF runtime beside it into `release/`
   (ignored by Git). `target` stays as the build cache, so the next build only
   compiles what changed.
-- `target` grows with every build. Prune it now and then with
-  `cargo sweep --time 14` (after `cargo install cargo-sweep`), which deletes
-  build files untouched for 14 days, or empty it with `cargo clean` while no
-  dev Koharu runs.
+- It then runs `cargo sweep --time 14`, which deletes build files untouched
+  for 14 days, so `target` doesn't grow without end. Install it once with
+  `cargo install cargo-sweep`; without it the script only warns. `cargo clean`
+  empties `target` completely, while no dev Koharu runs.
 - A Windows release build keeps its projects and models in `projects` and
   `store` beside the executable, not in `%LOCALAPPDATA%` as the dev build does.
   The script never touches those two folders, so rebuilding keeps them.

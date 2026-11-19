@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 // Fork only (see FORK.md): builds the Windows release, copies the app into
 // `release/`. `target` stays as the build cache, so the next build only
-// compiles what changed. A Windows release build keeps its
+// compiles what changed; build files untouched for 14 days are swept from
+// it, so it doesn't grow without end. A Windows release build keeps its
 // `projects` and `store` beside the executable, so those folders in
 // `release/` are the user's and are never touched here.
 // bun run local-release
@@ -33,3 +34,9 @@ try {
   throw new Error(`couldn't copy into ${out}; close Koharu if it runs from there`, { cause: error })
 }
 console.log(`Koharu is in ${out}`)
+
+// cargo-sweep isn't part of Rust; a build without it only keeps more cache.
+const sweep = await $`cargo sweep --time 14`.cwd(root).nothrow()
+if (sweep.exitCode !== 0) {
+  console.error('target was not swept: install cargo-sweep with `cargo install cargo-sweep`')
+}
