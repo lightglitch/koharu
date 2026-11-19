@@ -11,12 +11,33 @@ use imageproc::{
     filter::gaussian_blur_f32,
     gradients::{horizontal_sobel, vertical_sobel},
     morphology::{close, dilate},
-    region_labelling::{Connectivity, connected_components},
+    region_labelling::Connectivity,
 };
 use koharu_leptonica::{color_segment, find_stroke_width, otsu_adaptive_threshold};
 use serde::Serialize;
 
 use super::{Lettering, Mask};
+
+/// imageproc 0.27's `connected_components`, but safe on any image. Its
+/// disjoint-set forest has one entry per pixel while labels start at 1, so an
+/// image whose every pixel starts a part, such as a lone foreground pixel,
+/// asks for an entry past the end and panics (`union_find.rs`: `i <
+/// self.count`). A border of `background`, which is never labelled, gives the
+/// forest room; the border is cropped off, so the labels are the same.
+// Fork fix: upstream calls `connected_components` directly and crashed the
+// app on such a crop.
+fn components(
+    image: &GrayImage,
+    connectivity: Connectivity,
+    background: Luma<u8>,
+) -> ImageBuffer<Luma<u32>, Vec<u32>> {
+    let (width, height) = image.dimensions();
+    let mut padded = GrayImage::from_pixel(width + 2, height + 2, background);
+    imageops::replace(&mut padded, image, 1, 1);
+    let labels =
+        imageproc::region_labelling::connected_components(&padded, connectivity, background);
+    imageops::crop_imm(&labels, 1, 1, width, height).to_image()
+}
 
 /// What a detection's lettering shows.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -72,7 +93,7 @@ impl Lettering {
         // neighbour's mask is no line.
         let shape = GrayImage::from_raw(width, height, block.pixels.clone())
             .expect("a mask holds a byte a pixel");
-        let parts = connected_components(&shape, Connectivity::Eight, Luma([0]));
+        let parts = components(&shape, Connectivity::Eight, Luma([0]));
         let mut sizes = HashMap::<u32, u32>::new();
         for part in parts.pixels().filter(|part| part.0[0] != 0) {
             *sizes.entry(part.0[0]).or_default() += 1;
@@ -305,7 +326,7 @@ pub(super) fn glyph_mask(mask: &Mask, bbox: [f32; 4], page: &RgbImage) -> Mask {
     // box is a speck of other lettering too, such as a balloon's glyph above
     // a tall sound effect, whose clean-up would cover that balloon's
     // translation; a glyph of its own that the box cuts off reaches into it.
-    let parts = connected_components(&clipped, Connectivity::Eight, Luma([0]));
+    let parts = components(&clipped, Connectivity::Eight, Luma([0]));
     let labels = parts.pixels().map(|part| part.0[0]).max().unwrap_or(0) as usize;
     // Part 0 is the background, never near.
     let mut near = vec![false; labels + 1];
@@ -612,7 +633,7 @@ fn ink(
             },
         ])
     });
-    let parts = connected_components(&ring, Connectivity::Eight, Luma([0]));
+    let parts = components(&ring, Connectivity::Eight, Luma([0]));
     // A flag for each part, by label: connected_components numbers them from
     // 1 up.
     let labels = |parts: &ImageBuffer<Luma<u32>, Vec<u32>>| {
@@ -648,7 +669,7 @@ fn ink(
     let all_ink = GrayImage::from_fn(width, height, |x, y| {
         Luma([if is_ink(x, y) { 255 } else { 0 }])
     });
-    let pieces = connected_components(&all_ink, Connectivity::Eight, Luma([0]));
+    let pieces = components(&all_ink, Connectivity::Eight, Luma([0]));
     let mut lettering = vec![false; labels(&pieces)];
     if let (Some(boxed), Some(lined)) = (boxed, lined) {
         let within = |[box_left, box_top, box_right, box_bottom]: [u32; 4], x: u32, y: u32| {
@@ -701,7 +722,7 @@ fn ink(
                 .saturating_sub(box_left)
                 .min(box_bottom.saturating_sub(box_top));
             // The paper's parts, and the one covering most of the box.
-            let paper = connected_components(&all_ink, Connectivity::Four, Luma([255]));
+            let paper = components(&all_ink, Connectivity::Four, Luma([255]));
             let mut covering = vec![0usize; labels(&paper)];
             for (x, y, part) in paper.enumerate_pixels() {
                 if within(boxed, x, y) {
@@ -959,5 +980,32 @@ mod tests {
         // On white paper the band never ends.
         let on_paper = outline(&page(Rgb([255; 3])), &glyphs, [60, 60], 20.0, Some([0; 3]));
         assert_eq!(on_paper, None);
+    }
+}
+
+#[cfg(test)]
+mod components_tests {
+    use super::*;
+
+    /// A lone foreground pixel panicked in imageproc's own function.
+    #[test]
+    fn a_lone_pixel_is_one_part() {
+        let pixel = GrayImage::from_pixel(1, 1, Luma([255]));
+        let labels = components(&pixel, Connectivity::Eight, Luma([0]));
+        assert_eq!(labels.get_pixel(0, 0).0, [1]);
+    }
+
+    /// The border changes no label.
+    #[test]
+    fn labels_match_imageproc_where_it_works() {
+        let image = GrayImage::from_fn(9, 7, |x, y| {
+            Luma([if (x / 3 + y / 2) % 2 == 0 { 255 } else { 0 }])
+        });
+        for connectivity in [Connectivity::Four, Connectivity::Eight] {
+            assert_eq!(
+                components(&image, connectivity, Luma([0])),
+                imageproc::region_labelling::connected_components(&image, connectivity, Luma([0])),
+            );
+        }
     }
 }

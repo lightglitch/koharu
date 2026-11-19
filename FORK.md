@@ -109,6 +109,15 @@ Code: `components/editor/LayersHeader.tsx` and
   only, so it reached the interface as a digit, and laptops whose Page Up and
   Page Down live on the numpad couldn't page.
 
+### Detection no longer crashes on tiny regions
+
+- `crates/koharu-ml/src/koharu_layout_highres/measure.rs` calls imageproc's
+  `connected_components` through `components`, which adds a one-pixel
+  background border. imageproc 0.27 sizes its forest one entry short, so a
+  region whose every pixel starts a part, such as a single pixel, panicked
+  (`union_find.rs`: `i < self.count`) and closed the app. Drop the wrapper once
+  imageproc fixes it.
+
 ### Sentry is off
 
 - `crates/koharu/src/sentry.rs` starts the Sentry client without a DSN and
