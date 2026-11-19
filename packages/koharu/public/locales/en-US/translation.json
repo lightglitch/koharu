@@ -552,6 +552,11 @@
     "retry": "Retry",
     "update": "Update"
   },
+  "wheel": {
+    "brush": "Brush size",
+    "pages": "Pages",
+    "zoom": "Canvas zoom"
+  },
   "window": {
     "close": "Close",
     "maximize": "Maximize",

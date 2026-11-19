@@ -12,6 +12,8 @@ use specta::{Type, Types, datatype::DataType};
 use tauri::{AppHandle, Emitter as _};
 use tauri_runtime_cef::CefRuntime;
 
+use crate::wheel::WheelInput;
+
 /// An event's name, typed by what it carries, so a send and the bindings
 /// agree.
 pub struct Event<T> {
@@ -67,6 +69,9 @@ pub const NOTICE: Event<Notice> = Event::new("notice");
 pub const PIPELINE: Event<PipelineEvent> = Event::new("pipeline");
 /// A model or font file's download, as it goes.
 pub const DOWNLOAD: Event<Transfer> = Event::new("download");
+/// A turn or press of one of Koharu's tools on the Windows wheel.
+// Fork addition: upstream has no wheel tools.
+pub const WHEEL: Event<WheelInput> = Event::new("wheel");
 
 /// Every event's name and payload, for the bindings.
 pub fn bindings(types: &mut Types) -> Vec<(&'static str, DataType)> {
@@ -84,5 +89,6 @@ pub fn bindings(types: &mut Types) -> Vec<(&'static str, DataType)> {
         NOTICE.binding(types),
         PIPELINE.binding(types),
         DOWNLOAD.binding(types),
+        WHEEL.binding(types),
     ]
 }

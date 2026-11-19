@@ -13,6 +13,7 @@ mod preferences;
 mod processing;
 mod project;
 mod scene;
+mod wheel;
 
 use serde::Serialize;
 use specta::{
@@ -102,6 +103,7 @@ pub fn handler() -> impl Fn(Invoke<CefRuntime>) -> bool + Send + Sync + 'static 
         processing::fill,
         canvas::deselect,
         clipboard::copy_text,
+        wheel::show_wheel_tools,
         #[cfg(debug_assertions)]
         debug::capture,
         #[cfg(debug_assertions)]
@@ -175,5 +177,6 @@ pub fn bindings(types: &mut Types) -> Vec<Function> {
         processing::fill,
         canvas::deselect,
         clipboard::copy_text,
+        wheel::show_wheel_tools,
     ](types)
 }

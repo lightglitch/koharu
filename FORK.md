@@ -101,6 +101,23 @@ Code: `components/editor/LayersHeader.tsx` and
   scroll under the title past a fixed height, so many failures don't grow the
   panel over the canvas.
 
+### Windows wheel tools
+
+- `crates/koharu-desktop/src/wheel.rs` adds Koharu's own tools to the Windows
+  wheel's menu (a Surface Dial, or a laptop dial such as the ASUS Dial, which
+  shows up to Windows as a system multi-axis controller), next to Windows'
+  scroll, volume and zoom. It uses `RadialController` through
+  `IRadialControllerInterop::CreateForWindow` on the main window, made on the
+  main thread, with a haptic click every 15°.
+- The interface names the tools in its language through the `show_wheel_tools`
+  command and acts on the `wheel` event (`components/editor/WheelTools.tsx`):
+  - **Pages:** turn for the previous or next page, press for Go to page.
+  - **Canvas zoom:** turn to zoom by 10% a notch, press to fit the page.
+  - **Brush size:** turn to resize the brush by 10% a notch, press to swap
+    Brush and Eraser.
+- Needs the `windows` crate's `Foundation`, `Foundation_Collections`,
+  `UI_Input` and `Win32_UI_Input_Radial` features on `koharu-desktop` only.
+
 ### Numpad navigation keys
 
 - `crates/koharu-desktop/src/screen/keys.rs` `windows_key_code` sends a numpad

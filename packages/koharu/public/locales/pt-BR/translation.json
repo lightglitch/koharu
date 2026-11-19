@@ -552,6 +552,11 @@
     "retry": "Tentar novamente",
     "update": "Atualizar"
   },
+  "wheel": {
+    "brush": "Tamanho do pincel",
+    "pages": "Páginas",
+    "zoom": "Zoom da tela"
+  },
   "window": {
     "close": "Fechar",
     "maximize": "Maximizar",

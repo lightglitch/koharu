@@ -552,6 +552,11 @@
     "retry": "다시 시도",
     "update": "업데이트"
   },
+  "wheel": {
+    "brush": "브러시 크기",
+    "pages": "페이지",
+    "zoom": "캔버스 확대/축소"
+  },
   "window": {
     "close": "닫기",
     "maximize": "최대화",

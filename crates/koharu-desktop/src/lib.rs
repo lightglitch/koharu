@@ -6,6 +6,7 @@ mod commands;
 mod events;
 mod library;
 mod screen;
+mod wheel;
 
 use std::sync::Arc;
 

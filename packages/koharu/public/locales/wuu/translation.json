@@ -552,6 +552,11 @@
     "retry": "再试一趟",
     "update": "更新"
   },
+  "wheel": {
+    "brush": "画笔大小",
+    "pages": "页面",
+    "zoom": "画布缩放"
+  },
   "window": {
     "close": "关闭",
     "maximize": "最大化",

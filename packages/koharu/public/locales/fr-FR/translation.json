@@ -552,6 +552,11 @@
     "retry": "Réessayer",
     "update": "Mettre à jour"
   },
+  "wheel": {
+    "brush": "Taille du pinceau",
+    "pages": "Pages",
+    "zoom": "Zoom du canevas"
+  },
   "window": {
     "close": "Fermer",
     "maximize": "Agrandir",

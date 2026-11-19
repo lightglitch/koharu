@@ -552,6 +552,11 @@
     "retry": "Tekrar dene",
     "update": "Güncelle"
   },
+  "wheel": {
+    "brush": "Fırça boyutu",
+    "pages": "Sayfalar",
+    "zoom": "Tuval yakınlaştırma"
+  },
   "window": {
     "close": "Kapat",
     "maximize": "Ekranı kapla",

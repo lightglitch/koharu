@@ -67,4 +67,10 @@ wgpu = { workspace = true }
 zip = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-windows = { workspace = true }
+# Fork addition: the Windows wheel's tools (`src/wheel.rs`).
+windows = { workspace = true, features = [
+    "Foundation",
+    "Foundation_Collections",
+    "UI_Input",
+    "Win32_UI_Input_Radial",
+] }

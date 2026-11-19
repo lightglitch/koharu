@@ -552,6 +552,11 @@
     "retry": "再試行",
     "update": "更新"
   },
+  "wheel": {
+    "brush": "ブラシサイズ",
+    "pages": "ページ",
+    "zoom": "キャンバスのズーム"
+  },
   "window": {
     "close": "閉じる",
     "maximize": "最大化",

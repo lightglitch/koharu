@@ -990,6 +990,30 @@ export type Vendor = {
   connected: boolean
 }
 
+/**
+ *  What the chosen tool did: a turn of `steps` notches, clockwise positive,
+ *  or a press.
+ */
+export type WheelInput =
+  | { kind: 'turn'; tool: WheelTool; steps: number }
+  | { kind: 'press'; tool: WheelTool }
+
+/**  Each tool's name in the wheel's menu, in the interface's language. */
+export type WheelLabels = {
+  pages: string
+  zoom: string
+  brush: string
+}
+
+/**  A tool in the wheel's menu. */
+export type WheelTool =
+  /**  Turns through the pages; a press asks for one to go to. */
+  | 'pages'
+  /**  Zooms the canvas; a press fits the page. */
+  | 'zoom'
+  /**  Sizes the brush; a press swaps the Brush and the Eraser. */
+  | 'brush'
+
 export const commands = {
   listProjects: () => invoke<string[]>('list_projects', {}, { headers: headers() }),
   /** Creates a project and opens it. */
@@ -1086,6 +1110,9 @@ export const commands = {
   deselect: () => invoke<null>('deselect', {}, { headers: headers() }),
   /** Puts `text` on the system clipboard. */
   copyText: (text: string) => invoke<null>('copy_text', { text }, { headers: headers() }),
+  /** Puts Koharu's tools in the Windows wheel's menu, named `labels` in the interface's language; where there's no wheel, the menu is never shown. */
+  showWheelTools: (labels: WheelLabels) =>
+    invoke<null>('show_wheel_tools', { labels }, { headers: headers() }),
 }
 
 export const events = {
@@ -1115,4 +1142,6 @@ export const events = {
     listen<PipelineEvent>('pipeline', (event) => handler(event.payload)),
   download: (handler: (payload: Transfer) => void): Promise<UnlistenFn> =>
     listen<Transfer>('download', (event) => handler(event.payload)),
+  wheel: (handler: (payload: WheelInput) => void): Promise<UnlistenFn> =>
+    listen<WheelInput>('wheel', (event) => handler(event.payload)),
 }

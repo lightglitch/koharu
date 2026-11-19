@@ -6,6 +6,7 @@ import { CanvasWorkspace } from '@/components/editor/CanvasWorkspace'
 import { GoToPageDialog } from '@/components/editor/GoToPageDialog'
 import { PageRail } from '@/components/editor/PageRail'
 import { RightSidebar } from '@/components/editor/RightSidebar'
+import { WheelTools } from '@/components/editor/WheelTools'
 import {
   ResizableHandle,
   ResizablePanel,
@@ -27,6 +28,7 @@ export function Editor() {
       <div className='relative min-h-0 flex-1 bg-transparent'>
         <ActivityCenter />
         <GoToPageDialog />
+        <WheelTools />
         <ResizablePanelGroup
           id='editor'
           orientation='horizontal'

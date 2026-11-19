@@ -552,6 +552,11 @@
     "retry": "Reintentar",
     "update": "Actualizar"
   },
+  "wheel": {
+    "brush": "Tamaño del pincel",
+    "pages": "Páginas",
+    "zoom": "Zoom del lienzo"
+  },
   "window": {
     "close": "Cerrar",
     "maximize": "Maximizar",

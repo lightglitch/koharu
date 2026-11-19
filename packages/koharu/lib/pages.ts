@@ -107,3 +107,15 @@ export function navigatePages(event: KeyboardEvent): boolean {
   if (next !== undefined) showPage(next)
   return true
 }
+
+/** Shows the page `steps` from the shown one, stopping at the first and the last, as a turn of the
+ * wheel's Pages tool asks: a fast turn past either end stays there. */
+export function showPageBy(steps: number): void {
+  const project = queryClient.getQueryData<ProjectView | null>(projectKey)
+  if (!project || project.pages.length === 0) return
+  const { pages, page: shown } = project
+  const index = pages.findIndex((page) => page.id === shown)
+  const from = index < 0 ? (steps > 0 ? -1 : pages.length) : index
+  const next = pages[Math.min(pages.length - 1, Math.max(0, from + steps))]
+  if (next && next.id !== shown) showPage(next.id)
+}
