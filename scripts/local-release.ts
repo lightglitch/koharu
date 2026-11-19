@@ -33,4 +33,9 @@ try {
 }
 console.log(`Koharu is in ${out}`)
 
-await $`cargo clean`.cwd(root)
+// The dev app locks its CEF files in target/debug while it runs.
+const clean = await $`cargo clean`.cwd(root).nothrow()
+if (clean.exitCode !== 0) {
+  console.error('target was not cleaned: close the dev Koharu, then run `cargo clean`')
+  process.exitCode = 1
+}
