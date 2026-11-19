@@ -5708,6 +5708,7 @@ dependencies = [
  "anyhow",
  "arboard",
  "cef",
+ "clap",
  "dirs 7.0.0",
  "fs-err",
  "futures",

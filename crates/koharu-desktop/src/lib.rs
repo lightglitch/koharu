@@ -3,6 +3,7 @@
 
 mod app;
 mod commands;
+pub mod convert;
 mod events;
 mod library;
 mod screen;

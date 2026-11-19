@@ -13,7 +13,11 @@ use tracing_subscriber::{Layer as _, filter::LevelFilter, layer::SubscriberExt a
 
 #[derive(clap::Parser)]
 #[command(version, about)]
-struct Cli {}
+struct Cli {
+    // Fork addition: translating a book without the window.
+    #[command(flatten)]
+    convert: koharu_desktop::convert::Args,
+}
 
 #[tauri_runtime_cef::cef_entry_point]
 fn main() {
@@ -29,7 +33,7 @@ fn main() {
 
     // First, before the runtime and the arguments: see `sentry::initialize`.
     let _guard = sentry::initialize();
-    let _cli = Cli::parse();
+    let cli = Cli::parse();
     panic::install();
     tracing::subscriber::set_global_default(
         tracing_subscriber::registry()
@@ -67,5 +71,16 @@ fn main() {
         .build()
         .expect("failed to start the async runtime");
     let _runtime = runtime.enter();
+    if cli.convert.input.is_some() {
+        let code = match runtime.block_on(koharu_desktop::convert::run(cli.convert)) {
+            Ok(true) => 0,
+            Ok(false) => 1,
+            Err(error) => {
+                eprintln!("error: {error:#}");
+                1
+            }
+        };
+        std::process::exit(code);
+    }
     koharu_desktop::run(tauri::generate_context!()).expect("failed to run the desktop application");
 }

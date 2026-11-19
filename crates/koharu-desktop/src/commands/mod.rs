@@ -5,9 +5,9 @@ mod canvas;
 mod clipboard;
 #[cfg(debug_assertions)]
 mod debug;
-mod export;
+pub(crate) mod export;
 mod fonts;
-mod import;
+pub(crate) mod import;
 mod pages;
 mod preferences;
 mod processing;

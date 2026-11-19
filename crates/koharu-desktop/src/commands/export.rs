@@ -14,8 +14,9 @@ use anyhow::Context as _;
 use fs_err::File;
 use image::{ImageFormat, RgbImage, RgbaImage, codecs::jpeg::JpegEncoder};
 use koharu_psd::Labels;
-use koharu_renderer::Frame;
-use koharu_scene::PageId;
+use koharu_renderer::{Frame, Renderer};
+use koharu_scene::{PageId, Session};
+use parking_lot::Mutex;
 use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 use specta::Type;
 use tauri::{State, Window, ipc::Channel};
@@ -149,15 +150,18 @@ pub async fn export(
         let progress = |done, total| {
             let _ = on_progress.send(ExportProgress { done, total });
         };
-        let written = write(
-            &app,
-            format,
-            &labels,
-            encoding,
-            &config,
-            &destination,
-            progress,
-        );
+        let written = app.session().and_then(|session| {
+            write(
+                &session,
+                &app.renderer,
+                format,
+                &labels,
+                encoding,
+                &config,
+                &destination,
+                progress,
+            )
+        });
         // A CBZ left unfinished, stopped or failed, is no archive anyone
         // could read; a folder export's files stay as written.
         if format == ExportFormat::Cbz && !matches!(written, Ok(true)) {
@@ -169,8 +173,10 @@ pub async fn export(
 }
 
 /// Writes every page; `false` when stopped first.
-fn write(
-    app: &App,
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn write(
+    session: &Mutex<Session>,
+    renderer: &Renderer,
     format: ExportFormat,
     labels: &Labels,
     encoding: PageEncoding,
@@ -178,7 +184,6 @@ fn write(
     destination: &Path,
     progress: impl Fn(u32, u32),
 ) -> anyhow::Result<bool> {
-    let session = app.session()?;
     let pages: Vec<PageId> = session
         .lock()
         .project()
@@ -197,10 +202,10 @@ fn write(
             return Ok(false);
         }
         let number = format!("{:0digits$}", index + 1);
-        let frame = app.renderer.render(&session.lock(), page)?;
+        let frame = renderer.render(&session.lock(), page)?;
         match (format, &mut archive) {
             (ExportFormat::Psd, _) => {
-                let psd = koharu_psd::export(&session.lock(), &app.renderer, page, labels)?;
+                let psd = koharu_psd::export(&session.lock(), renderer, page, labels)?;
                 fs_err::write(destination.join(format!("{number}.psd")), psd)?;
             }
             (_, Some(archive)) => {

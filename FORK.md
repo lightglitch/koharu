@@ -147,6 +147,25 @@ Code: `components/editor/LayersHeader.tsx` and
   only.
 - Upstream's marked area only feeds Generative Fill.
 
+### Translate a book from the command line
+
+- `koharu --input x.cbz --output y.cbz [--format png|jpeg|webp]
+  [--stages detect,ocr,inpaint,translate]` translates a book without the
+  window (`crates/koharu-desktop/src/convert.rs`, flattened into the `Cli` in
+  `crates/koharu/src/main.rs`).
+  - It reads the input as the import does (`commands/import.rs` `pages`).
+  - It runs the pipeline on every page with the saved settings, in a project in
+    the temporary folder that is deleted afterwards.
+  - It writes the CBZ as the export does (`commands/export.rs` `write`), at the
+    quality in Settings.
+- `--stages` defaults to all four. `ocr` also answers to `recognize`, and
+  `inpaint` to `clean`.
+- A failed page is reported, the CBZ is still written, and the exit code is 1.
+- Windows starts `koharu.exe` as a windowed app, so PowerShell doesn't wait
+  for it. Use `koharu.exe ... | Out-Null`.
+- Run it from the release build in `release/`, which has the models in
+  `release\store`. It loads models into the same GPU memory as an open app.
+
 ### Sentry is off
 
 - `crates/koharu/src/sentry.rs` starts the Sentry client without a DSN and

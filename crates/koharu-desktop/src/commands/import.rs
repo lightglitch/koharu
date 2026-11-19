@@ -124,38 +124,42 @@ pub async fn import(
     });
     let app = Arc::clone(&app);
     Ok(tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
-        let pages: Vec<Vec<u8>> = paths
-            .into_par_iter()
-            .map(|path| {
-                let read = reader(&path).with_context(|| {
-                    format!("{} isn't an image, an archive, or a PDF", path.display())
-                })?;
-                read(&path)
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?
-            .into_iter()
-            .flatten()
-            .collect();
-        let session = app.session()?;
-        let start = session.lock().project().pages().count();
-        let mut ops = Vec::with_capacity(pages.len() * 2);
-        for (index, bytes) in pages.into_iter().enumerate() {
-            let background = Some(Hash::of(&bytes));
-            ops.push(Op::AddFile { bytes });
-            ops.push(Op::AddPage {
-                id: None,
-                index: start + index,
-                size: None,
-                background,
-            });
-        }
-        app.edit(Edit {
-            label: "import".to_owned(),
-            ops,
-        })?;
+        let start = app.session()?.lock().project().pages().count();
+        app.edit(pages(&paths, start)?)?;
         Ok(())
     })
     .await??)
+}
+
+/// The edit that adds the pages `paths` hold, in order, from page `start`.
+pub(crate) fn pages(paths: &[PathBuf], start: usize) -> anyhow::Result<Edit> {
+    let pages: Vec<Vec<u8>> = paths
+        .par_iter()
+        .map(|path| {
+            let read = reader(path).with_context(|| {
+                format!("{} isn't an image, an archive, or a PDF", path.display())
+            })?;
+            read(path)
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect();
+    let mut ops = Vec::with_capacity(pages.len() * 2);
+    for (index, bytes) in pages.into_iter().enumerate() {
+        let background = Some(Hash::of(&bytes));
+        ops.push(Op::AddFile { bytes });
+        ops.push(Op::AddPage {
+            id: None,
+            index: start + index,
+            size: None,
+            background,
+        });
+    }
+    Ok(Edit {
+        label: "import".to_owned(),
+        ops,
+    })
 }
 
 /// An archive's images in name order, numbers by value.
