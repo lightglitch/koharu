@@ -923,7 +923,12 @@ pub fn on_window_event(app: &Arc<App>, label: &str, window: Arc<dyn Window>, eve
     match event {
         // The surface holds the window, which must go before the runtime
         // lets it go, and CEF's browser goes before CEF does.
-        WindowEvent::Destroyed => drop(WINDOW.take()),
+        WindowEvent::Destroyed => {
+            // Fork addition: the wheel's controller goes while COM still
+            // answers; see `wheel::close`.
+            crate::wheel::close();
+            drop(WINDOW.take());
+        }
         WindowEvent::RedrawRequested => {
             with(|main| main.present(&window));
         }

@@ -117,6 +117,12 @@ Code: `components/editor/LayersHeader.tsx` and
     Brush and Eraser.
 - Needs the `windows` crate's `Foundation`, `Foundation_Collections`,
   `UI_Input` and `Win32_UI_Input_Radial` features on `koharu-desktop` only.
+- The controller is released when the main window closes (`wheel::close`,
+  called from `WindowEvent::Destroyed` in `screen/mod.rs`), and never by the
+  thread-local cleanup at exit. That cleanup runs after the process has
+  stopped the threads that answer COM, so releasing it there waited forever,
+  and `koharu.exe` stayed in Task Manager after every close of an open
+  project, holding its files.
 
 ### Numpad navigation keys
 

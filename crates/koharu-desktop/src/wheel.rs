@@ -38,7 +38,7 @@ pub struct WheelLabels {
 }
 
 #[cfg(windows)]
-pub use self::radial::show;
+pub use self::radial::{close, show};
 
 /// Nothing to show where Windows' wheel isn't.
 #[cfg(not(windows))]
@@ -49,10 +49,15 @@ pub fn show(
     Ok(())
 }
 
+/// Nothing to let go where Windows' wheel isn't.
+#[cfg(not(windows))]
+pub fn close() {}
+
 #[cfg(windows)]
 mod radial {
     use std::{
         cell::RefCell,
+        mem::ManuallyDrop,
         sync::{
             Arc,
             atomic::{AtomicU8, Ordering},
@@ -90,19 +95,31 @@ mod radial {
     }
 
     thread_local! {
-        static CONTROLLER: RefCell<Option<Wheel>> = const { RefCell::new(None) };
+        // Never dropped as the thread ends: by then the process is exiting
+        // and has stopped the threads that answer COM, so releasing the
+        // controller waits forever for the shell's reply and the process
+        // never finishes exiting. `close` lets it go while they still run;
+        // past that, the process's end releases it.
+        static CONTROLLER: ManuallyDrop<RefCell<Option<Wheel>>> =
+            const { ManuallyDrop::new(RefCell::new(None)) };
     }
 
     /// Puts Koharu's tools in the wheel's menu, named `labels`, in place of
     /// those put there before. Runs on the main thread.
     pub fn show(handle: &AppHandle<CefRuntime>, labels: &WheelLabels) -> Result<()> {
-        CONTROLLER.with_borrow_mut(|wheel| {
-            let wheel = match wheel {
-                Some(wheel) => wheel,
-                None => wheel.insert(Wheel::new(handle)?),
-            };
-            wheel.menu(labels)
+        CONTROLLER.with(|wheel| {
+            let mut wheel = wheel.borrow_mut();
+            if wheel.is_none() {
+                *wheel = Some(Wheel::new(handle)?);
+            }
+            wheel.as_ref().map_or(Ok(()), |wheel| wheel.menu(labels))
         })
+    }
+
+    /// Lets the controller go, which takes Koharu's tools out of the menu.
+    /// Runs on the main thread as the main window closes.
+    pub fn close() {
+        drop(CONTROLLER.with(|wheel| wheel.borrow_mut().take()));
     }
 
     impl Wheel {
