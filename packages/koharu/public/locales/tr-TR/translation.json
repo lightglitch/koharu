@@ -41,6 +41,11 @@
     "using": "{{tool}} kullanılıyor",
     "working": "Çalışıyor…"
   },
+  "area": {
+    "addText": "Metin ekle",
+    "addTextHint": "Buraya metin ekle: Koharu işaretli alanı yeni bir metin olarak okur, temizler ve çevirir",
+    "addTextStep": "Alandan metin ekle"
+  },
   "canvas": {
     "empty": "Başlamak için bir sayfa seçin.",
     "notice": {

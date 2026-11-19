@@ -4,6 +4,7 @@ import { Sparkles, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { AddTextButton } from '@/components/editor/AddTextButton'
 import { ContextBar } from '@/components/editor/ContextBar'
 import { inpainters } from '@/components/preferences/models'
 import { dispatch, savePreferences } from '@/lib/backend'
@@ -95,6 +96,7 @@ export function FillBar() {
         <Sparkles />
         {t('fill.generate')}
       </Button>
+      <AddTextButton />
       <Tooltip>
         <TooltipTrigger
           render={

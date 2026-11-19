@@ -41,6 +41,11 @@
     "using": "Usando {{tool}}",
     "working": "Trabalhando…"
   },
+  "area": {
+    "addText": "Adicionar texto",
+    "addTextHint": "Adicionar texto aqui: o Koharu lê, limpa e traduz a área marcada como um novo texto",
+    "addTextStep": "Adicionar texto da área"
+  },
   "canvas": {
     "empty": "Selecione uma página para começar.",
     "notice": {

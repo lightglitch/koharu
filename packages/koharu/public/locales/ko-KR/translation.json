@@ -41,6 +41,11 @@
     "using": "{{tool}} 사용 중",
     "working": "작업 중…"
   },
+  "area": {
+    "addText": "텍스트 추가",
+    "addTextHint": "여기에 텍스트 추가: 표시한 영역을 새 텍스트로 읽고, 지우고, 번역합니다",
+    "addTextStep": "영역에서 텍스트 추가"
+  },
   "canvas": {
     "empty": "시작할 페이지를 선택하세요.",
     "notice": {

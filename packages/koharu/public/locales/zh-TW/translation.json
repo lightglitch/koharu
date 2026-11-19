@@ -41,6 +41,11 @@
     "using": "正在使用 {{tool}}",
     "working": "正在工作…"
   },
+  "area": {
+    "addText": "新增文字",
+    "addTextHint": "在此新增文字：Koharu 會將選取區域當作新文字進行辨識、清理和翻譯",
+    "addTextStep": "從區域新增文字"
+  },
   "canvas": {
     "empty": "請選擇頁面以開始。",
     "notice": {

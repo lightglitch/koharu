@@ -135,6 +135,18 @@ Code: `components/editor/LayersHeader.tsx` and
   (`union_find.rs`: `i < self.count`) and closed the app. Drop the wrapper once
   imageproc fixes it.
 
+### Add text from a marked area
+
+- When detection misses text, select it with the Marquee or the Lasso and click
+  **Add text** in the area bar (`components/editor/AddTextButton.tsx`, next to
+  Generative Fill).
+- The `add_text_from_area` command (`commands/text_area.rs`) adds a block
+  whose source is the area's box and whose mask is the area, as one undo step.
+- The interface then runs the Run control's ticked stages after detection
+  (OCR, clean-up, translation; all three when none is ticked) on that block
+  only.
+- Upstream's marked area only feeds Generative Fill.
+
 ### Sentry is off
 
 - `crates/koharu/src/sentry.rs` starts the Sentry client without a DSN and

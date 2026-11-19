@@ -13,6 +13,7 @@ mod preferences;
 mod processing;
 mod project;
 mod scene;
+mod text_area;
 mod wheel;
 
 use serde::Serialize;
@@ -101,6 +102,7 @@ pub fn handler() -> impl Fn(Invoke<CefRuntime>) -> bool + Send + Sync + 'static 
         canvas::set_zoom,
         canvas::select,
         processing::fill,
+        text_area::add_text_from_area,
         canvas::deselect,
         clipboard::copy_text,
         wheel::show_wheel_tools,
@@ -175,6 +177,7 @@ pub fn bindings(types: &mut Types) -> Vec<Function> {
         canvas::set_zoom,
         canvas::select,
         processing::fill,
+        text_area::add_text_from_area,
         canvas::deselect,
         clipboard::copy_text,
         wheel::show_wheel_tools,

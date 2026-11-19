@@ -1106,6 +1106,9 @@ export const commands = {
   /** Fills the area the marquee and the lasso marked with `model` after `prompt`, or the inpainter's own prompt when there's none, as Photoshop's Generative Fill does with the model its bar shows; `None` while no area is marked. The model is this run's only, in the settings' place. */
   fill: (prompt: string | null, model: Inpainter) =>
     invoke<RunId | null>('fill', { prompt, model }, { headers: headers() }),
+  /** Makes the area the marquee and the lasso marked a new text block, as if detection had found text there: its source is the area's box, its mask the area, drawn above the page's other layers. `label` is the undo step's name, in the interface's language. Answers the block, which the interface then runs the pipeline's later stages on, or `None` while no area is marked. The area is dropped, as Photoshop drops a selection a command used. */
+  addTextFromArea: (label: string) =>
+    invoke<LayerId | null>('add_text_from_area', { label }, { headers: headers() }),
   /** Drops the area the marquee and the lasso marked, as Photoshop's Deselect does. */
   deselect: () => invoke<null>('deselect', {}, { headers: headers() }),
   /** Puts `text` on the system clipboard. */

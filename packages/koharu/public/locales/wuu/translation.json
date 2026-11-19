@@ -41,6 +41,11 @@
     "using": "正在用 {{tool}}",
     "working": "来勒处理任务…"
   },
+  "area": {
+    "addText": "添加文本",
+    "addTextHint": "勒此地添加文本：Koharu 拿选牢个区域当新文本来识别、清爽搭翻译",
+    "addTextStep": "从区域添加文本"
+  },
   "canvas": {
     "empty": "先选一页，就好开始。",
     "notice": {
