@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // Fork only (see FORK.md): builds the Windows release, copies the app into
-// `release/` and empties `target`. A Windows release build keeps its
+// `release/`. `target` stays as the build cache, so the next build only
+// compiles what changed. A Windows release build keeps its
 // `projects` and `store` beside the executable, so those folders in
 // `release/` are the user's and are never touched here.
 // bun run local-release
@@ -32,10 +33,3 @@ try {
   throw new Error(`couldn't copy into ${out}; close Koharu if it runs from there`, { cause: error })
 }
 console.log(`Koharu is in ${out}`)
-
-// The dev app locks its CEF files in target/debug while it runs.
-const clean = await $`cargo clean`.cwd(root).nothrow()
-if (clean.exitCode !== 0) {
-  console.error('target was not cleaned: close the dev Koharu, then run `cargo clean`')
-  process.exitCode = 1
-}
