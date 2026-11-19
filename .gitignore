@@ -57,3 +57,6 @@ test-results/
 # Local documentation output
 /packages/docs/.mintlify/
 /packages/docs/site/
+
+# Fork: the local release build (bun run local-release)
+/release/

@@ -231,6 +231,19 @@ The fork's CI workflows are disabled. Any workflow that builds `koharu-desktop`
 would need dav1d installed first: the apt step on Linux, Homebrew on macOS, and
 vcpkg plus the variables above on Windows.
 
+### Local release build (Windows)
+
+- `bun run local-release` (`scripts/local-release.ts`) runs `bun run build`,
+  copies `koharu.exe` and the CEF runtime beside it into `release/` (ignored by
+  Git), and runs `cargo clean`.
+- A Windows release build keeps its projects and models in `projects` and
+  `store` beside the executable, not in `%LOCALAPPDATA%` as the dev build does.
+  The script never touches those two folders, so rebuilding keeps them.
+- Close a Koharu started from `release/` before running it; the copy fails
+  otherwise. `cargo clean` also needs the dev app closed.
+- Its update prompt offers upstream's release, without the fork features.
+  Decline it.
+
 ### Already upstream (nothing to carry)
 
 These went upstream from the fork or were made unnecessary by upstream:
