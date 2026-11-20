@@ -2,8 +2,16 @@
 //! without the window. It reads the input as the import does, runs the
 //! pipeline on every page with the saved settings, and writes a CBZ as the
 //! export does, in a project in the temporary folder that goes once done.
+//! `koharu --project name` runs the stages on one of the app's projects
+//! instead, which keeps what they did, as the app does, and writes a CBZ
+//! when given `--output`; with `--input`, it makes that project of the book
+//! first, which mustn't exist yet.
 
-use std::{collections::BTreeSet, path::PathBuf, sync::Arc};
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::{Context as _, Result};
 use koharu_pipeline::{Event, Outcome, Pipeline, PipelineConfig, Request, Stage, Target};
@@ -12,19 +20,27 @@ use koharu_scene::Session;
 use parking_lot::Mutex;
 use tokio::sync::broadcast::error::RecvError;
 
-use crate::commands::{
-    export::{ExportConfig, ExportFormat, PageEncoding, write},
-    import::pages,
+use crate::{
+    commands::{
+        export::{ExportConfig, ExportFormat, PageEncoding, write},
+        import::pages,
+    },
+    library::Library,
 };
 
 #[derive(clap::Args, Debug)]
 pub struct Args {
     /// Translate this book (an image, ZIP, CBZ, RAR, CBR, or PDF) without
-    /// opening the window.
-    #[arg(long, requires = "output")]
+    /// opening the window; with --project, into that new project.
+    #[arg(long)]
     pub input: Option<PathBuf>,
-    /// The CBZ to write.
-    #[arg(long, requires = "input")]
+    /// Run the stages on this project of the app's, by name, keeping what
+    /// they do, as validating a book translated in the app does; with
+    /// --input, a new project made of the book.
+    #[arg(long)]
+    pub project: Option<String>,
+    /// The CBZ to write: required with --input, optional with --project.
+    #[arg(long)]
     pub output: Option<PathBuf>,
     /// The CBZ's page format; JPEG and WebP use the quality in Settings.
     #[arg(long, value_enum, default_value = "png")]
@@ -58,12 +74,11 @@ pub enum Step {
     Validate,
 }
 
-/// Translates `args.input` into `args.output`; `false` when a page failed,
-/// whose stages left it as they found it, and the CBZ is written anyway.
-pub async fn run(args: Args) -> Result<bool> {
-    let (Some(input), Some(output)) = (args.input, args.output) else {
-        anyhow::bail!("--input and --output go together");
-    };
+/// Runs `args.stages` on `args.input` into `args.output`, or on the project
+/// `args.project` names among the app's, `identifier`'s; `false` when a page
+/// failed, whose stages left it as they found it, and the CBZ is written
+/// anyway.
+pub async fn run(args: Args, identifier: &str) -> Result<bool> {
     let encoding = match args.format {
         Format::Png => PageEncoding::Png,
         Format::Jpeg => PageEncoding::Jpeg,
@@ -84,7 +99,36 @@ pub async fn run(args: Args) -> Result<bool> {
     let renderer = Renderer::get().clone();
     renderer.set_config(koharu_config::get::<RendererConfig>()?);
     let pipeline = Pipeline::new(koharu_config::get::<PipelineConfig>()?);
+    let output = args.output.as_deref().map(|path| (path, encoding, &export));
 
+    if let Some(name) = args.project {
+        let library = Library::new(crate::projects(identifier)?)?;
+        let session = match &args.input {
+            // A book's pages go in once, into a project of their own.
+            Some(input) => {
+                anyhow::ensure!(
+                    !library.list()?.contains(&name),
+                    "a project named {name:?} already exists; drop --input to run on it"
+                );
+                let mut session = library.create(&name)?;
+                session.apply(pages(std::slice::from_ref(input), 0)?)?;
+                eprintln!("made the project {name:?} of {}", input.display());
+                session
+            }
+            None => library.open(&name)?,
+        };
+        let session = Arc::new(Mutex::new(session));
+        let result = process(&pipeline, &renderer, &session, stages, output).await;
+        pipeline.close(session.lock().id());
+        return result;
+    }
+    let Some(input) = args.input else {
+        anyhow::bail!("give --project, or --input with --output");
+    };
+    anyhow::ensure!(
+        output.is_some(),
+        "--input without --project needs --output, or its work is lost"
+    );
     let path = std::env::temp_dir().join(format!(
         "koharu-convert-{}.{}",
         std::process::id(),
@@ -93,10 +137,10 @@ pub async fn run(args: Args) -> Result<bool> {
     let session = Arc::new(Mutex::new(Session::create(&path).with_context(|| {
         format!("failed to create a project in {}", path.display())
     })?));
-    let result = translate(
-        &pipeline, &renderer, &session, input, &output, stages, encoding, &export,
-    )
-    .await;
+    let result = match pages(&[input], 0).and_then(|edit| Ok(session.lock().apply(edit)?)) {
+        Ok(_) => process(&pipeline, &renderer, &session, stages, output).await,
+        Err(error) => Err(error),
+    };
     pipeline.close(session.lock().id());
     drop(session);
     if let Err(error) = Session::remove(&path) {
@@ -105,18 +149,15 @@ pub async fn run(args: Args) -> Result<bool> {
     result
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn translate(
+/// Runs `stages` on every page `session` holds, then writes it to `output`
+/// as a CBZ of pages in its encoding, when there is one.
+async fn process(
     pipeline: &Pipeline,
     renderer: &Renderer,
     session: &Arc<Mutex<Session>>,
-    input: PathBuf,
-    output: &std::path::Path,
     stages: BTreeSet<Stage>,
-    encoding: PageEncoding,
-    export: &ExportConfig,
+    output: Option<(&Path, PageEncoding, &ExportConfig)>,
 ) -> Result<bool> {
-    session.lock().apply(pages(&[input], 0)?)?;
     let order: Vec<_> = session
         .lock()
         .project()
@@ -185,6 +226,9 @@ async fn translate(
     if outcome == Outcome::Stopped {
         anyhow::bail!("the run was stopped");
     }
+    let Some((output, encoding, export)) = output else {
+        return Ok(matches!(outcome, Outcome::Done));
+    };
 
     eprintln!("writing {}", output.display());
     let session = Arc::clone(session);

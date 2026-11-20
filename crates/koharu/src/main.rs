@@ -71,8 +71,10 @@ fn main() {
         .build()
         .expect("failed to start the async runtime");
     let _runtime = runtime.enter();
-    if cli.convert.input.is_some() {
-        let code = match runtime.block_on(koharu_desktop::convert::run(cli.convert)) {
+    let context = tauri::generate_context!();
+    if cli.convert.input.is_some() || cli.convert.project.is_some() {
+        let identifier = context.config().identifier.clone();
+        let code = match runtime.block_on(koharu_desktop::convert::run(cli.convert, &identifier)) {
             Ok(true) => 0,
             Ok(false) => 1,
             Err(error) => {
@@ -82,5 +84,5 @@ fn main() {
         };
         std::process::exit(code);
     }
-    koharu_desktop::run(tauri::generate_context!()).expect("failed to run the desktop application");
+    koharu_desktop::run(context).expect("failed to run the desktop application");
 }

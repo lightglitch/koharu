@@ -23,22 +23,26 @@ use tauri_runtime_cef::{Cef, CefRuntime};
 use crate::{app::App, library::Library};
 pub use crate::{commands::bindings, events::bindings as event_bindings};
 
+/// The projects folder of the app `identifier` names: beside the store in
+/// Koharu's root, and in the app's local data folder otherwise, which is a
+/// per-user install's folder too. That is Tauri's `app_local_data_dir`, which
+/// needs the app this builds.
+pub(crate) fn projects(identifier: &str) -> Result<std::path::PathBuf> {
+    Ok(match koharu_runtime::root() {
+        Some(folder) => folder.join("projects"),
+        None => dirs::data_local_dir()
+            .context("the user's local data folder is unknown")?
+            .join(identifier)
+            .join("projects"),
+    })
+}
+
 pub fn run(context: tauri::Context<CefRuntime>) -> Result<()> {
     // One Tokio runtime: async commands run on the one the pipeline's
     // scheduler runs on.
     tauri::async_runtime::set(tokio::runtime::Handle::current());
 
-    // Beside the store in Koharu's root, and in the app's local data folder
-    // otherwise, which is a per-user install's folder too. That is Tauri's
-    // `app_local_data_dir`, which needs the app this builds.
-    let projects = match koharu_runtime::root() {
-        Some(folder) => folder.join("projects"),
-        None => dirs::data_local_dir()
-            .context("the user's local data folder is unknown")?
-            .join(&context.config().identifier)
-            .join("projects"),
-    };
-    let library = Library::new(projects)?;
+    let library = Library::new(projects(&context.config().identifier)?)?;
 
     // The process's, which the pipeline draws a painted area's page with.
     let renderer = Renderer::get().clone();

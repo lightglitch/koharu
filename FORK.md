@@ -155,8 +155,17 @@ Code: `components/editor/LayersHeader.tsx` and
     the temporary folder that is deleted afterwards.
   - It writes the CBZ as the export does (`commands/export.rs` `write`), at the
     quality in Settings.
-- `--stages` defaults to all four. `ocr` also answers to `recognize`, and
-  `inpaint` to `clean`.
+- `--project NAME` works on one of the app's projects instead, in the same
+  projects folder (`projects()` in `lib.rs`), and keeps what the stages did,
+  as the app does. `--output` is optional with it.
+  - With `--input`, it makes that project of the book first; the project
+    mustn't exist yet.
+  - Without, the project must exist, and mustn't be open in the app, which
+    locks it.
+  - `--project NAME --stages validate` validates a book translated in the app.
+    An exported CBZ can't be validated: its pages are flat images.
+- `--stages` defaults to all but `validate`. `ocr` also answers to
+  `recognize`, and `inpaint` to `clean`.
 - A failed page is reported, the CBZ is still written, and the exit code is 1.
 - Windows starts `koharu.exe` as a windowed app, so PowerShell doesn't wait
   for it. Use `koharu.exe ... | Out-Null`.
@@ -166,7 +175,7 @@ Code: `components/editor/LayersHeader.tsx` and
 ### Validation stage
 
 - A fifth pipeline stage, **Validate**, after Translate
-  (`crates/koharu-pipeline/src/stages/validate.rs`). It measures each visible
+  (`crates/koharu-pipeline/src/stages/validate/`). It measures each visible
   translation as the renderer draws it and flags:
   - text too small (under `min_size` of the page height, or dialogue under
     `small` × the page's median dialogue size) or too big (dialogue over
