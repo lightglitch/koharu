@@ -572,7 +572,8 @@
     "off_page": "Sayfanın dışına taşıyor",
     "outside_balloon": "Balonunun dışına taşıyor",
     "low_contrast": "Okunması zor (kontrast {{contrast}}:1); kontur gerekebilir",
-    "busy_background": "Kalabalık bir çizimin üzerinde; kontur gerekebilir"
+    "busy_background": "Kalabalık bir çizimin üzerinde; kontur gerekebilir",
+    "runaway": "Çeviri kendini tekrar ediyor; yeniden çevirin"
   },
   "wheel": {
     "brush": "Fırça boyutu",

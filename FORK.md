@@ -176,6 +176,9 @@ Code: `components/editor/LayersHeader.tsx` and
     each line's letters, not the boxes (`ResolvedText::strips` in
     `koharu-renderer/src/text/arrange.rs`), turned with the text;
   - text off the page or out of its balloon;
+  - a runaway translation: a word repeated 8 times in a row, or a long text
+    ten times its source's length. Only retranslating fixes it, so the model
+    never sees it;
   - text without an outline in low contrast with what's behind its letters,
     or with art as dark (or light) as itself under or within 3 pixels of
     its letters (`busy`, 1% by default; a clean balloon measures 0). The
@@ -194,6 +197,12 @@ Code: `components/editor/LayersHeader.tsx` and
   - All of a round's fixes are one undo step, labelled `validate`. The page is
     then measured again. The model keeps the page's earlier rounds, without
     their images, so it tries something else when a fix didn't help.
+  - **A fix never makes a text worse.** When the next measure finds a problem
+    a changed text, or a text it moved onto, didn't have, that text's fix is
+    undone (`Round::worse`, `undo`) and the model is told why. A fix that left
+    its text flagged as before is reported to the model as having no effect,
+    and a round that changed no flag ends the loop.
+  - A text in a balloon, dialogue or a sound effect, is kept inside it.
   - The model is `[pipeline.validation] model`, or the translator's when
     empty, with the translator's reasoning. It must read images and be
     hosted. With a model of Koharu's own, validation only measures.

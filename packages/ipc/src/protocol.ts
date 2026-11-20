@@ -341,6 +341,11 @@ export type FlagKind =
   | 'outside_balloon'
   | 'low_contrast'
   | 'busy_background'
+  /**
+   *  Its translation repeats a word over and over, or runs many times its
+   *  source's length: the model looped. Only retranslating fixes it.
+   */
+  | 'runaway'
 
 /**  One of a family's faces, by the weight and slant a text asks for. */
 export type FontFace = {
@@ -1060,8 +1065,9 @@ export type ValidationConfig = {
   contrast?: number
   /**
    *  A text without an outline needs one when more than this share of
-   *  what's behind its letters, their soft edges left out, is nearly as
-   *  dark as the text, or as light: the lines of artwork, not a balloon.
+   *  the page under and right around its letters, its translations left
+   *  out, is nearly as dark as the text, or as light: art through or
+   *  against the letters. A clean balloon measures 0.
    */
   busy?: number
 }

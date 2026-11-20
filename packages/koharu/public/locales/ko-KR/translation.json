@@ -572,7 +572,8 @@
     "off_page": "페이지 밖으로 나감",
     "outside_balloon": "말풍선 밖으로 나감",
     "low_contrast": "읽기 어려움(대비 {{contrast}}:1). 외곽선이 필요할 수 있음",
-    "busy_background": "복잡한 그림 위에 있음. 외곽선이 필요할 수 있음"
+    "busy_background": "복잡한 그림 위에 있음. 외곽선이 필요할 수 있음",
+    "runaway": "번역이 반복됩니다. 다시 번역하세요"
   },
   "wheel": {
     "brush": "브러시 크기",

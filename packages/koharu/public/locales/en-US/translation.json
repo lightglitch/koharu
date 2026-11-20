@@ -572,7 +572,8 @@
     "off_page": "Runs off the page",
     "outside_balloon": "Spills out of its balloon",
     "low_contrast": "Hard to read (contrast {{contrast}}:1); may need an outline",
-    "busy_background": "Over busy artwork; may need an outline"
+    "busy_background": "Over busy artwork; may need an outline",
+    "runaway": "The translation repeats itself; retranslate it"
   },
   "wheel": {
     "brush": "Brush size",

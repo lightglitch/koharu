@@ -14,9 +14,10 @@ use std::collections::HashSet;
 use base64::Engine as _;
 use image::{DynamicImage, ImageFormat, Rgba, RgbaImage, imageops};
 use koharu_renderer::{Frame as RendererFrame, Raster, Renderer};
-use koharu_scene::{Content, Frame, Layer, LayerId, Project, Role, Text};
+use koharu_scene::{Content, Frame, Layer, LayerId, Op, Project, Role, Text};
 use kurbo::{Affine, BezPath, Point, Rect, Shape as _};
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use tracing::info_span;
 
 use self::fix::Holder;
@@ -92,6 +93,9 @@ pub enum FlagKind {
     OutsideBalloon,
     LowContrast,
     BusyBackground,
+    /// Its translation repeats a word over and over, or runs many times its
+    /// source's length: the model looped. Only retranslating fixes it.
+    Runaway,
 }
 
 /// A text validation flagged, with what it measured.
@@ -140,6 +144,8 @@ pub(crate) struct Measured {
     behind: Option<Behind>,
     /// Its whole text, for the model.
     full: String,
+    /// Its source's whole text, which a runaway translation outgrows.
+    source: String,
     /// The frame it may fill, on the page.
     room: Option<Rect>,
     holder: Holder,
@@ -169,6 +175,10 @@ pub(crate) async fn validate(task: &Task, config: &PipelineConfig) -> anyhow::Re
     let mut model = None;
     // The page's rounds so far, so a fix that didn't help isn't tried again.
     let mut history = Vec::new();
+    // The round just written, which the next measure checks.
+    let mut last: Option<Round> = None;
+    // What the model hears first next round: the fixes undone.
+    let mut note: Option<String> = None;
     let mut round = 0;
     let mut remaining = loop {
         let fixing = !local && round < settings.max_iterations;
@@ -179,7 +189,44 @@ pub(crate) async fn validate(task: &Task, config: &PipelineConfig) -> anyhow::Re
             flags = ?flags.iter().map(|flag| (flag.kind, &flag.text)).collect::<Vec<_>>(),
             "validation measured"
         );
-        let Some(page) = page.filter(|_| !flags.is_empty()) else {
+        // A fix is kept only if it made nothing worse: one that brought a
+        // problem its text, or a text beside it, didn't have is undone.
+        if let Some(written) = last.take() {
+            let worse = written.worse(&flags);
+            if !worse.is_empty() {
+                note = Some(written.told(&worse));
+                let undo: Vec<Op> = written
+                    .undo
+                    .into_iter()
+                    .filter(|(block, _)| worse.iter().any(|(culprit, ..)| culprit == block))
+                    .map(|(_, op)| op)
+                    .collect();
+                tracing::info!(
+                    page = member.index + 1,
+                    round,
+                    undone = undo.len(),
+                    "validation undid fixes"
+                );
+                member.apply(Stage::Validate, move |_| Ok(undo)).await?;
+                continue;
+            }
+            // A round that changed no flag won't be helped by another: a
+            // balloon too small for its text stays so whatever's asked.
+            if written.same(&flags) {
+                break flags;
+            }
+            let idle = written.idle(&flags);
+            if !idle.is_empty() {
+                note = Some(written.idled(&idle));
+            }
+        }
+        // Only the model's to fix: a runaway translation needs retranslating.
+        let fixable: Vec<Flag> = flags
+            .iter()
+            .filter(|flag| flag.kind != FlagKind::Runaway)
+            .cloned()
+            .collect();
+        let Some(page) = page.filter(|_| !fixable.is_empty()) else {
             break flags;
         };
         let model = match &model {
@@ -189,7 +236,8 @@ pub(crate) async fn validate(task: &Task, config: &PipelineConfig) -> anyhow::Re
         let asked = fix::ask(
             model,
             &page,
-            &flags,
+            &fixable,
+            note.take().as_deref(),
             &mut history,
             config.translator.reasoning,
             &member.cancel,
@@ -203,7 +251,7 @@ pub(crate) async fn validate(task: &Task, config: &PipelineConfig) -> anyhow::Re
                 return Err(error);
             }
         };
-        let (ops, accepts) = fix::ops(&page, &fixes, &flags, &settings);
+        let (ops, accepts) = fix::ops(&page, &fixes, &fixable, &settings);
         tracing::info!(
             page = member.index + 1,
             round,
@@ -217,13 +265,165 @@ pub(crate) async fn validate(task: &Task, config: &PipelineConfig) -> anyhow::Re
             break flags;
         }
         if !ops.is_empty() {
-            member.apply(Stage::Validate, move |_| Ok(ops)).await?;
+            let changed: Vec<LayerId> = ops.iter().map(|(block, _)| *block).collect();
+            let undo = {
+                let project = member.session.lock().project();
+                changed
+                    .iter()
+                    .filter_map(|&block| Some((block, undo(&project, block)?)))
+                    .collect()
+            };
+            last = Some(Round {
+                flags,
+                undo,
+                keys: page
+                    .texts
+                    .iter()
+                    .map(|text| (text.block, text.key.clone()))
+                    .collect(),
+            });
+            member
+                .apply(Stage::Validate, move |_| {
+                    Ok(ops.into_iter().map(|(_, op)| op).collect())
+                })
+                .await?;
         }
         round += 1;
     };
     remaining.retain(|flag| !accepted.contains(&(flag.block, flag.kind)));
     report(task, &member, remaining);
     Ok(())
+}
+
+/// A round of fixes as written: the flags before it, and how to undo each
+/// changed text.
+struct Round {
+    flags: Vec<Flag>,
+    undo: Vec<(LayerId, Op)>,
+    /// Each text's key, as the model named it.
+    keys: Vec<(LayerId, String)>,
+}
+
+impl Round {
+    /// The changed texts that `now` shows made something worse: each with
+    /// the text the new problem is on and its kind.
+    fn worse(&self, now: &[Flag]) -> Vec<(LayerId, LayerId, FlagKind)> {
+        let changed = |block: &LayerId| self.undo.iter().any(|(changed, _)| changed == block);
+        now.iter()
+            .filter(|flag| {
+                !self
+                    .flags
+                    .iter()
+                    .any(|before| before.block == flag.block && before.kind == flag.kind)
+            })
+            .filter_map(|flag| {
+                let culprit = if changed(&flag.block) {
+                    flag.block
+                } else {
+                    flag.other.filter(changed)?
+                };
+                Some((culprit, flag.block, flag.kind))
+            })
+            .collect()
+    }
+
+    /// Whether `now` flags just what the round started with.
+    fn same(&self, now: &[Flag]) -> bool {
+        let kinds = |flags: &[Flag]| -> HashSet<(LayerId, FlagKind)> {
+            flags.iter().map(|flag| (flag.block, flag.kind)).collect()
+        };
+        kinds(&self.flags) == kinds(now)
+    }
+
+    /// The changed texts `now` flags just as before: fixes with no effect.
+    fn idle(&self, now: &[Flag]) -> Vec<LayerId> {
+        let kinds = |flags: &[Flag], block: LayerId| -> HashSet<FlagKind> {
+            flags
+                .iter()
+                .filter(|flag| flag.block == block)
+                .map(|flag| flag.kind)
+                .collect()
+        };
+        self.undo
+            .iter()
+            .map(|(block, _)| *block)
+            .filter(|&block| {
+                let before = kinds(&self.flags, block);
+                !before.is_empty() && before == kinds(now, block)
+            })
+            .collect()
+    }
+
+    /// What the model hears of the fixes with no effect on `idle`.
+    fn idled(&self, idle: &[LayerId]) -> String {
+        let keys: Vec<&str> = idle.iter().map(|block| self.key(block)).collect();
+        format!(
+            "Your fixes of {} changed nothing: accept them, or fix them another way.",
+            keys.join(", ")
+        )
+    }
+
+    fn key(&self, block: &LayerId) -> &str {
+        self.keys
+            .iter()
+            .find(|(text, _)| text == block)
+            .map_or("?", |(_, key)| key.as_str())
+    }
+
+    /// What the model hears of the fixes undone for `worse`.
+    fn told(&self, worse: &[(LayerId, LayerId, FlagKind)]) -> String {
+        let key = |block: &LayerId| self.key(block);
+        let undone: Vec<String> = worse
+            .iter()
+            .map(|(culprit, on, kind)| {
+                let kind = serde_json::to_value(kind)
+                    .ok()
+                    .and_then(|kind| kind.as_str().map(str::to_owned))
+                    .unwrap_or_default();
+                format!(
+                    "your fix of {} was undone: it caused {kind} on {}",
+                    key(culprit),
+                    key(on)
+                )
+            })
+            .collect();
+        format!(
+            "{}. Fix those texts another way, or accept them.",
+            undone.join("; ")
+        )
+    }
+}
+
+/// The op putting `block`'s translation's frame, transform, and the styles a
+/// fix sets back as `project` has them; `None` when it has none.
+fn undo(project: &Project, block: LayerId) -> Option<Op> {
+    let Content::Block(found) = &project.layer(block).ok()?.content else {
+        return None;
+    };
+    let old = serde_json::to_value(found.translation.as_ref()?).ok()?;
+    // A merge patch keeps what it doesn't name: the frame kind the fix wrote
+    // and the styles it added go by name.
+    let mut frame = old["frame"].clone();
+    if let Value::Object(kinds) = &mut frame {
+        for kind in ["box", "path"] {
+            kinds.entry(kind).or_insert(Value::Null);
+        }
+    }
+    let mut chars = match &old["style"]["chars"] {
+        Value::Object(chars) => chars.clone(),
+        _ => serde_json::Map::new(),
+    };
+    for style in ["size", "stroke", "stroke_width"] {
+        chars.entry(style).or_insert(Value::Null);
+    }
+    Some(Op::UpdateLayer {
+        layer: block.into(),
+        patch: json!({"translation": {
+            "frame": frame,
+            "transform": old["transform"],
+            "style": {"chars": chars},
+        }}),
+    })
 }
 
 /// Tells the app what's still flagged on `member`'s page.
@@ -332,6 +532,25 @@ fn letters(quads: &[[Point; 4]]) -> Rect {
             Some(bounds.map_or(Rect::from_points(corner, corner), |b| b.union_pt(corner)))
         })
         .unwrap_or(Rect::ZERO)
+}
+
+/// Whether `translation` ran away from `source`: a word said `REPEATS`
+/// times in a row, or a long text many times its source's length. A sound
+/// effect's few repeats, "clap clap clap", stay well under.
+fn runaway(translation: &str, source: &str) -> bool {
+    const REPEATS: usize = 8;
+    let words: Vec<String> = translation
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    let (mut run, mut longest) = (1, 1);
+    for pair in words.windows(2) {
+        run = if pair[0] == pair[1] { run + 1 } else { 1 };
+        longest = longest.max(run);
+    }
+    let length = translation.chars().count();
+    longest >= REPEATS || (length > 80 && length > source.chars().count().max(1) * 10)
 }
 
 /// The share of `quads` outside `outline`, sampled on a grid across each.
@@ -452,6 +671,7 @@ fn measure(
             role: block.role,
             text: excerpt(translation),
             full: whole(translation),
+            source: whole(&block.source),
             room: translation.bounds(),
             holder,
             transform,
@@ -497,6 +717,9 @@ pub(crate) fn flags(measured: &[Measured], page: Rect, config: &ValidationConfig
         }
         if text.overflowed {
             flags.push(flag(FlagKind::Overflow));
+        }
+        if runaway(&text.full, &text.source) {
+            flags.push(flag(FlagKind::Runaway));
         }
         let area: f64 = text.quads.iter().map(|quad| polygon_area(quad)).sum();
         if area > 0.0 {
@@ -753,6 +976,7 @@ mod tests {
             balloon: None,
             behind: None,
             full: String::new(),
+            source: String::new(),
             room: None,
             holder: Holder::Box,
             transform: Affine::IDENTITY,
@@ -869,5 +1093,134 @@ mod tests {
                 (id(2), FlagKind::BusyBackground)
             ]
         );
+    }
+
+    #[test]
+    fn a_looping_translation_runs_away_but_a_sound_effects_repeats_dont() {
+        let splat = format!("*{}splat*", "splat ".repeat(59));
+        assert!(runaway(&splat, "ぐちゅ"));
+        assert!(!runaway("*clap clap clap clap clap clap*", "パンパン"));
+        assert!(!runaway(
+            "Even if the person next to you isn't me,",
+            "隣にいるのが私じゃなくても"
+        ));
+        // A long answer to a word.
+        assert!(runaway(&"and then she said that ".repeat(5), "あ"));
+    }
+
+    #[test]
+    fn a_fix_is_worse_when_it_brings_its_text_or_a_neighbour_a_new_problem() {
+        let flag = |n: u64, kind, other: Option<u64>| Flag {
+            block: id(n),
+            kind,
+            text: String::new(),
+            size: 20.0,
+            typical: None,
+            other: other.map(id),
+            contrast: None,
+        };
+        let written = Round {
+            flags: vec![flag(1, FlagKind::TooSmall, None)],
+            undo: vec![(
+                id(1),
+                Op::UpdateLayer {
+                    layer: id(1).into(),
+                    patch: json!({}),
+                },
+            )],
+            keys: vec![(id(1), "t1".to_owned()), (id(2), "t2".to_owned())],
+        };
+        // Still too small isn't worse; busy behind it now is, and so is the
+        // text it moved onto.
+        assert!(
+            written
+                .worse(&[flag(1, FlagKind::TooSmall, None)])
+                .is_empty()
+        );
+        let worse = written.worse(&[
+            flag(1, FlagKind::BusyBackground, None),
+            flag(2, FlagKind::Overlap, Some(1)),
+            flag(2, FlagKind::TooBig, None),
+        ]);
+        assert_eq!(
+            worse,
+            [
+                (id(1), id(1), FlagKind::BusyBackground),
+                (id(1), id(2), FlagKind::Overlap)
+            ]
+        );
+        assert!(
+            written
+                .told(&worse)
+                .contains("t1 was undone: it caused overlap on t2")
+        );
+        // A fix that left its text flagged as before had no effect, and a
+        // round that changed no flag at all is the last.
+        let still = [flag(1, FlagKind::TooSmall, None)];
+        assert!(written.same(&still));
+        assert_eq!(written.idle(&still), [id(1)]);
+        assert!(!written.same(&[]));
+        assert!(written.idle(&[]).is_empty());
+    }
+
+    #[test]
+    fn an_undone_fix_puts_the_translation_back_as_it_was() -> anyhow::Result<()> {
+        use koharu_scene::{Created, Edit, Session};
+
+        let dir = tempfile::tempdir()?;
+        let mut session = Session::create(dir.path().join("test.khr"))?;
+        let block = json!({"kind": "block", "role": "text",
+        "source": {"frame": {"box": {"bounds": {"x": 10.0, "y": 10.0, "width": 40.0, "height": 120.0}}}},
+        "translation": {
+            "content": "Hey",
+            "frame": {"path": {"path": "M0,0 L100,0 L100,100 L0,100 Z", "fit": "best"}},
+            "style": {"chars": {"size": 20.0}},
+        }});
+        let change = session.apply(Edit {
+            label: "test".to_owned(),
+            ops: [
+                json!({"op": "add_page", "id": "$p", "index": 0, "size": {"width": 400, "height": 400}}),
+                json!({"op": "add_layer", "id": "$b", "page": "$p", "index": 0, "layer": block}),
+            ]
+            .into_iter()
+            .map(serde_json::from_value)
+            .collect::<Result<_, _>>()?,
+        })?;
+        let block = change
+            .created
+            .iter()
+            .find_map(|created| match created {
+                Created::Layer {
+                    id,
+                    label: Some(label),
+                } if label == "b" => Some(*id),
+                _ => None,
+            })
+            .expect("the block");
+        let translation =
+            |session: &Session| match &session.project().layer(block).expect("the block").content {
+                Content::Block(found) => found.translation.clone(),
+                _ => None,
+            };
+        let before = translation(&session);
+        let undo = undo(&session.project(), block).expect("an undo");
+        // Every kind of fix at once: a box, a size, and an outline.
+        session.apply(Edit {
+            label: "validate".to_owned(),
+            ops: vec![Op::UpdateLayer {
+                layer: block.into(),
+                patch: json!({"translation": {
+                    "frame": {"box": {"bounds": {"x": 5.0, "y": 5.0, "width": 90.0, "height": 50.0}, "fit": "shrink"}, "path": null},
+                    "style": {"chars": {"size": 30.0, "stroke": [1.0, 1.0, 1.0, 1.0], "stroke_width": 3.0}},
+                }}),
+            }],
+        })?;
+        assert_ne!(translation(&session), before);
+        session.apply(Edit {
+            label: "validate".to_owned(),
+            ops: vec![undo],
+        })?;
+        assert_eq!(translation(&session), before);
+        Ok(())
     }
 }

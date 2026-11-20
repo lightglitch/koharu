@@ -572,7 +572,8 @@
     "off_page": "超出页面",
     "outside_balloon": "超出对话框",
     "low_contrast": "看勿清爽（对比度 {{contrast}}:1），可能要描边",
-    "busy_background": "勒复杂画面浪向，可能要描边"
+    "busy_background": "勒复杂画面浪向，可能要描边",
+    "runaway": "译文勒重复，重新翻译一记"
   },
   "wheel": {
     "brush": "画笔大小",

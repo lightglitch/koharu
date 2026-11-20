@@ -572,7 +572,8 @@
     "off_page": "Dépasse de la page",
     "outside_balloon": "Déborde de sa bulle",
     "low_contrast": "Difficile à lire (contraste {{contrast}}:1) ; un contour peut aider",
-    "busy_background": "Sur un dessin chargé ; un contour peut aider"
+    "busy_background": "Sur un dessin chargé ; un contour peut aider",
+    "runaway": "La traduction se répète ; retraduisez-la"
   },
   "wheel": {
     "brush": "Taille du pinceau",

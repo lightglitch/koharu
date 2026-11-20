@@ -572,7 +572,8 @@
     "off_page": "Sai da página",
     "outside_balloon": "Sai do balão",
     "low_contrast": "Difícil de ler (contraste {{contrast}}:1); pode precisar de contorno",
-    "busy_background": "Sobre arte carregada; pode precisar de contorno"
+    "busy_background": "Sobre arte carregada; pode precisar de contorno",
+    "runaway": "A tradução se repete; traduza de novo"
   },
   "wheel": {
     "brush": "Tamanho do pincel",

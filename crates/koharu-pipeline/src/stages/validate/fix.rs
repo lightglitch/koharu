@@ -118,9 +118,9 @@ the area it may fill (\"room\"), and what measuring flagged, all in page pixels.
 For each flagged text, answer one fix in \"fixes\", naming the text by its \"key\", such as \"t1\":\n\
 - \"accept\" when it's right as it is: a shout, a title, or a sound effect may be big on purpose, and a whisper small.\n\
 - \"size\" with \"size\": the size in page pixels its letters should be drawn at.\n\
-- \"box\" with \"box\": [x, y, width, height], the area in page pixels it should fill: for dialogue, inside \
-its \"balloon\", the area its balloon safely holds text in, and off the other texts; anywhere on the art for a \
-sound effect.\n\
+- \"box\" with \"box\": [x, y, width, height], the area in page pixels it should fill: for a text in a \
+balloon, inside its \"balloon\", the area its balloon safely holds text in, and off the other texts; anywhere \
+on the art for a sound effect without one.\n\
 - \"outline\", for text hard to tell from the art behind it: it gets an outline unlike its letters.\n\
 A text shrinks to fit its room, so a bigger size only shows where its room holds it: \
 for small text in a tight spot, answer a bigger \"box\" instead. \
@@ -130,12 +130,13 @@ Fix only flagged texts. Keep dialogue near the page's typical size. \
 Don't cover faces or other texts. Set the fields an action doesn't use to null.";
 
 /// What the model answers for `page`'s `flags`, after the page's earlier
-/// rounds in `history`, which this round joins; `None` when the run stopped
-/// first.
+/// rounds in `history`, which this round joins, and `note`, what it hears of
+/// its last round first; `None` when the run stopped first.
 pub(super) async fn ask(
     model: &DynModel<Completion>,
     page: &Page,
     flags: &[Flag],
+    note: Option<&str>,
     history: &mut Vec<Message>,
     reasoning: Option<Reasoning>,
     cancel: &CancellationToken,
@@ -175,6 +176,9 @@ pub(super) async fn ask(
             detail: None,
             native: None,
         }));
+    }
+    if let Some(note) = note {
+        content.push(UserContent::text(note.to_owned()));
     }
     content.push(UserContent::text(brief.to_string()));
     let mut options = GenerationOptions::default();
@@ -245,14 +249,12 @@ fn rounded(rect: Rect) -> [f64; 4] {
     [rect.x0, rect.y0, rect.width(), rect.height()].map(f64::round)
 }
 
-/// The ops `fixes` make of `page`, each checked against it, one per text,
-/// and the flags they accept as they are.
-pub(super) fn ops(
-    page: &Page,
-    fixes: &[Fix],
-    flags: &[Flag],
-    config: &ValidationConfig,
-) -> (Vec<Op>, Vec<(LayerId, FlagKind)>) {
+/// A round's ops, each with the text it changes, and the flags it accepts.
+type Fixed = (Vec<(LayerId, Op)>, Vec<(LayerId, FlagKind)>);
+
+/// The ops `fixes` make of `page`, each checked against it, one per text
+/// with the text it changes, and the flags they accept as they are.
+pub(super) fn ops(page: &Page, fixes: &[Fix], flags: &[Flag], config: &ValidationConfig) -> Fixed {
     let mut patches: BTreeMap<LayerId, Map<String, Value>> = BTreeMap::new();
     let mut accepted = Vec::new();
     let bounds = Rect::new(0.0, 0.0, page.width, page.height);
@@ -304,9 +306,9 @@ pub(super) fn ops(
                     continue;
                 }
                 let mut area = Rect::new(x, y, x + width, y + height).intersect(bounds);
-                // Dialogue stays where its balloon holds it, whatever the
-                // model asked.
-                if let (Role::Text, Some(balloon)) = (text.role, text.balloon) {
+                // A text in a balloon, dialogue or a sound effect, stays
+                // where its balloon holds it, whatever the model asked.
+                if let Some(balloon) = text.balloon {
                     area = area.intersect(balloon);
                 }
                 if area.width() < 8.0 || area.height() < 8.0 {
@@ -348,9 +350,12 @@ pub(super) fn ops(
     let ops = patches
         .into_iter()
         .filter(|(_, patch)| !patch.is_empty())
-        .map(|(block, patch)| Op::UpdateLayer {
-            layer: block.into(),
-            patch: json!({"translation": Value::Object(patch)}),
+        .map(|(block, patch)| {
+            let op = Op::UpdateLayer {
+                layer: block.into(),
+                patch: json!({"translation": Value::Object(patch)}),
+            };
+            (block, op)
         })
         .collect();
     (ops, accepted)
@@ -432,7 +437,7 @@ mod tests {
         assert!(accepted.is_empty());
         let patches: Vec<Value> = ops
             .iter()
-            .map(|op| match op {
+            .map(|(_, op)| match op {
                 Op::UpdateLayer { patch, .. } => patch.clone(),
                 _ => panic!("an update"),
             })

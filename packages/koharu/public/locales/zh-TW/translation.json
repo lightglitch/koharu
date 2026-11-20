@@ -572,7 +572,8 @@
     "off_page": "超出頁面",
     "outside_balloon": "超出對話框",
     "low_contrast": "難以辨識（對比度 {{contrast}}:1），可能需要描邊",
-    "busy_background": "位於複雜畫面上，可能需要描邊"
+    "busy_background": "位於複雜畫面上，可能需要描邊",
+    "runaway": "譯文在重複，請重新翻譯"
   },
   "wheel": {
     "brush": "筆刷大小",
