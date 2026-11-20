@@ -1035,7 +1035,7 @@ export type ValidationConfig = {
   model?: string
   /**  How many times a page is fixed and measured again; 0 only measures. */
   max_iterations?: number
-  /**  The smallest any text may be drawn, as a share of the page's height. */
+  /**  The smallest dialogue may be drawn, as a share of the page's height. */
   min_size?: number
   /**
    *  Dialogue drawn below this share of the page's typical dialogue size
@@ -1044,7 +1044,8 @@ export type ValidationConfig = {
   small?: number
   /**
    *  Dialogue drawn above this share of the page's typical dialogue size
-   *  is too big; a sound effect never is.
+   *  is too big. A sound effect is never too small or too big; only one
+   *  over dialogue is flagged.
    */
   big?: number
   /**
