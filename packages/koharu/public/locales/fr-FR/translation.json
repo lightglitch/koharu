@@ -360,7 +360,7 @@
     "inpaint": "Reconstruire l’image derrière le texte supprimé.",
     "recognize": "Lire le texte de chaque zone.",
     "translate": "Convertir le texte source dans la langue cible.",
-    "validate": "Vérifie la page lettrée : taille, chevauchements et lisibilité."
+    "validate": "Vérifie et corrige le lettrage."
   },
   "psd": {
     "background": "Arrière-plan",

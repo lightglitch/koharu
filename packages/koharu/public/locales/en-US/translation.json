@@ -360,7 +360,7 @@
     "inpaint": "Rebuild the artwork behind removed text.",
     "recognize": "Read the text inside each region.",
     "translate": "Convert source text to the target language.",
-    "validate": "Check the lettered page for size, overlap, and legibility problems."
+    "validate": "Check and fix the lettering."
   },
   "psd": {
     "background": "Background",

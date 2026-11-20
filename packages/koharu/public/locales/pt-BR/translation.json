@@ -360,7 +360,7 @@
     "inpaint": "Reconstrói a arte após remover o texto.",
     "recognize": "Lê o texto dentro de cada região.",
     "translate": "Converte o texto original para o idioma de destino.",
-    "validate": "Verifica a página letreirada em busca de problemas de tamanho, sobreposição e legibilidade."
+    "validate": "Verifica e corrige o letreiramento."
   },
   "psd": {
     "background": "Plano de fundo",

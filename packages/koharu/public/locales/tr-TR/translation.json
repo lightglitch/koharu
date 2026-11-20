@@ -360,7 +360,7 @@
     "inpaint": "Metin kaldırıldıktan sonra çizimi yeniden oluşturur.",
     "recognize": "Her bölgenin içindeki metni okur.",
     "translate": "Kaynak metni hedef dile çevirir.",
-    "validate": "Harflendirilmiş sayfayı boyut, çakışma ve okunabilirlik sorunlarına karşı denetler."
+    "validate": "Harflendirmeyi denetler ve düzeltir."
   },
   "psd": {
     "background": "Arka plan",

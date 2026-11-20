@@ -360,7 +360,7 @@
     "inpaint": "Reconstruye el dibujo tras eliminar el texto.",
     "recognize": "Lee el texto dentro de cada región.",
     "translate": "Convierte el texto original al idioma de destino.",
-    "validate": "Revisa la página rotulada en busca de problemas de tamaño, solapamiento y legibilidad."
+    "validate": "Revisa y corrige la rotulación."
   },
   "psd": {
     "background": "Fondo",

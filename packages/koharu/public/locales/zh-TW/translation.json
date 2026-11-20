@@ -360,7 +360,7 @@
     "inpaint": "重建移除文字後的畫面。",
     "recognize": "讀取每個區域中的文字。",
     "translate": "將原文翻譯為目標語言。",
-    "validate": "檢查嵌字後的頁面是否有字級、重疊與可讀性問題。"
+    "validate": "檢查並修正嵌字。"
   },
   "psd": {
     "background": "背景",
