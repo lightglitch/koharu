@@ -39,13 +39,14 @@ pub struct ValidationConfig {
     pub model: String,
     /// How many times a page is fixed and measured again; 0 only measures.
     pub max_iterations: u32,
-    /// The smallest any text may be drawn, as a share of the page's height.
+    /// The smallest dialogue may be drawn, as a share of the page's height.
     pub min_size: f64,
     /// Dialogue drawn below this share of the page's typical dialogue size
     /// is too small.
     pub small: f64,
     /// Dialogue drawn above this share of the page's typical dialogue size
-    /// is too big; a sound effect never is.
+    /// is too big. A sound effect is never too small or too big; only one
+    /// over dialogue is flagged.
     pub big: f64,
     /// Two texts overlap when this share of the smaller one's lines lies
     /// under the other's.
@@ -460,11 +461,12 @@ pub(crate) fn flags(measured: &[Measured], page: Rect, config: &ValidationConfig
             other: None,
             contrast: None,
         };
+        // A sound effect's size is the artist's to choose, small or big;
+        // only one over dialogue is flagged, below.
         let dialogue = text.role == Role::Text;
-        let below_typical = dialogue
-            && typical
-                .is_some_and(|typical| f64::from(text.size) < f64::from(typical) * config.small);
-        if text.size < minimum || below_typical {
+        let below_typical =
+            typical.is_some_and(|typical| f64::from(text.size) < f64::from(typical) * config.small);
+        if dialogue && (text.size < minimum || below_typical) {
             flags.push(flag(FlagKind::TooSmall));
         }
         if dialogue
@@ -775,13 +777,15 @@ mod tests {
     const PAGE: Rect = Rect::new(0.0, 0.0, 1000.0, 1500.0);
 
     #[test]
-    fn dialogue_far_from_the_pages_size_is_flagged_but_a_sound_effect_isnt_too_big() {
+    fn dialogue_far_from_the_pages_size_is_flagged_but_a_sound_effect_never_is() {
         let texts = [
             text(1, Role::Text, 30.0, Rect::new(0.0, 0.0, 100.0, 40.0)),
             text(2, Role::Text, 30.0, Rect::new(0.0, 100.0, 100.0, 140.0)),
             text(3, Role::Text, 14.0, Rect::new(0.0, 200.0, 100.0, 240.0)),
             text(4, Role::Text, 60.0, Rect::new(0.0, 300.0, 100.0, 340.0)),
             text(5, Role::Sfx, 120.0, Rect::new(500.0, 300.0, 900.0, 500.0)),
+            // Below the page's smallest, which dialogue may not be.
+            text(6, Role::Sfx, 6.0, Rect::new(500.0, 600.0, 520.0, 606.0)),
         ];
         let flags = flags(&texts, PAGE, &ValidationConfig::default());
         assert_eq!(
