@@ -21,4 +21,5 @@ pub use stages::{
     inpaint::{Inpainter, InpainterConfig},
     recognize::{Recognizer, RecognizerConfig},
     translate::{TranslatorConfig, placement},
+    validate::{Flag, FlagKind, ValidationConfig},
 };

@@ -65,6 +65,7 @@ pub(super) fn arrange(
     let mut glyphs = Vec::new();
     let mut hyphens = Vec::new();
     let mut bounds: Option<Rect> = None;
+    let mut strips = Vec::new();
     let mut baseline = None;
     let mut lines = Vec::new();
     for line in &placed.lines {
@@ -90,6 +91,23 @@ pub(super) fn arrange(
             (&mut glyphs, &mut clusters),
         );
         baseline = baseline.or(first);
+        // Fork addition: where the line's characters actually are, which a
+        // short line's room isn't, for validation's overlap checks.
+        let along = clusters
+            .iter()
+            .fold(None, |extent: Option<(f32, f32)>, (_, along, _)| {
+                let (from, to) = (along.start.min(along.end), along.start.max(along.end));
+                Some(extent.map_or((from, to), |(a, b)| (a.min(from), b.max(to))))
+            });
+        if let Some((from, to)) = along {
+            strips.push(physical(
+                styled.vertical,
+                f64::from(from),
+                f64::from(line.top),
+                f64::from(to),
+                f64::from(line.top + line.pitch),
+            ));
+        }
         lines.push(LineMap::new(
             text.clone(),
             visible.end,
@@ -128,6 +146,10 @@ pub(super) fn arrange(
             rtl: shaped.rtl_at(0),
             line_height: styled.line_height,
             uncovered: shaped.uncovered.clone(),
+            strips: strips
+                .into_iter()
+                .map(|strip| strip.inflate(f64::from(stroke), f64::from(stroke)))
+                .collect(),
         },
         bounds: bounds
             .unwrap_or(placed.frame)
@@ -751,6 +773,48 @@ mod tests {
         let (ascent, descent) = font.extent(24.0);
         let centre = layout.resolved.baseline;
         assert!((a.x - (centre - (ascent - descent) * 0.5)).abs() < 1e-3);
+        Ok(())
+    }
+
+    #[test]
+    fn a_short_centred_line_covers_its_letters_not_its_box() -> Result<()> {
+        use koharu_scene::{Bounds, CharStyle, Text, TextStyle};
+
+        let font = styled("x").spans[0].fonts[0].clone();
+        let frame = Frame::Box {
+            bounds: Bounds {
+                x: 300.0,
+                y: 200.0,
+                width: 400.0,
+                height: 100.0,
+            },
+            fit: koharu_scene::Fit::None,
+            anchor: Default::default(),
+        };
+        let text = Text {
+            content: "Hi".into(),
+            style: TextStyle {
+                chars: CharStyle {
+                    size: Some(20.0),
+                    ..CharStyle::default()
+                },
+                align: Some(Align::Center),
+                ..TextStyle::default()
+            },
+            frame,
+            ..Text::default()
+        };
+        let laid = crate::text::layout(&text, |_, _| Ok(vec![font.clone()]))?.expect("a layout");
+        let [strip] = laid.resolved.strips[..] else {
+            panic!("one line, one strip: {:?}", laid.resolved.strips);
+        };
+        // Inside the box, about its centre, and far narrower than it.
+        assert!(
+            strip.x0 >= 300.0 && strip.x1 <= 700.0 && strip.y0 >= 199.0 && strip.y1 <= 301.0,
+            "{strip:?}"
+        );
+        assert!((strip.center().x - 500.0).abs() < 5.0, "{strip:?}");
+        assert!(strip.width() > 5.0 && strip.width() < 60.0, "{strip:?}");
         Ok(())
     }
 }

@@ -172,6 +172,31 @@ Code: `components/editor/LayersHeader.tsx` and
 - Run it from the release build in `release/`, which has the models in
   `release\store`. It loads models into the same GPU memory as an open app.
 
+### Validation stage
+
+- A fifth pipeline stage, **Validate**, after Translate
+  (`crates/koharu-pipeline/src/stages/validate.rs`). It measures each visible
+  translation as the renderer draws it and flags:
+  - text too small (under `min_size` of the page height, or dialogue under
+    `small` × the page's median dialogue size) or too big (dialogue over
+    `big` × the median; sound effects never);
+  - text that overflows its box;
+  - a sound effect over dialogue, or dialogue over dialogue, measured on
+    each line's letters, not the boxes (`ResolvedText::strips` in
+    `koharu-renderer/src/text/arrange.rs`), turned with the text;
+  - text off the page or out of its balloon;
+  - text without an outline in low contrast with what's behind its letters,
+    or over artwork as dark (or light) as itself.
+- It changes nothing yet: flags go out as `Event::Flagged` and stay in
+  Activity until dismissed (`FlaggedPages` in `ActivityCenter.tsx`). A click
+  shows the page with the text selected. The CLI prints them.
+- Thresholds are in `[pipeline.validation]` (`ValidationConfig`).
+- It's never part of a default run (`defaultStages` in `lib/store.ts`): tick
+  it in the Run control, use a page's Validate menu item, or pass
+  `--stages ...,validate` to the CLI.
+- Planned next: a model call per flagged page, with the page image, that
+  fixes or accepts each flag, looping up to a `max_iterations`.
+
 ### Sentry is off
 
 - `crates/koharu/src/sentry.rs` starts the Sentry client without a DSN and

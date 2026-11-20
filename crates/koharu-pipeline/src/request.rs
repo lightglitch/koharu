@@ -65,6 +65,9 @@ pub enum Stage {
     Recognize,
     Inpaint,
     Translate,
+    /// Fork addition: measures the drawn translations and flags what a
+    /// reader would trip on.
+    Validate,
 }
 
 /// A painted area of a page: a byte a pixel over `rect`, in page pixels,

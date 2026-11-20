@@ -66,6 +66,10 @@ pub struct ResolvedText {
     /// The characters no font of their span has, drawn as its first font's
     /// missing glyph, in code point order.
     pub uncovered: Vec<char>,
+    /// Fork addition: each line's characters, from the first to the last
+    /// along the line and its pitch across it, stroke included, in the
+    /// text's own coordinates.
+    pub strips: Vec<Rect>,
 }
 
 /// `text` laid out, each span set in the chain `fonts` gives for its

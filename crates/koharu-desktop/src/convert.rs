@@ -29,7 +29,7 @@ pub struct Args {
     /// The CBZ's page format; JPEG and WebP use the quality in Settings.
     #[arg(long, value_enum, default_value = "png")]
     pub format: Format,
-    /// The stages to run, comma-separated; all by default.
+    /// The stages to run, comma-separated; all but validation by default.
     #[arg(
         long,
         value_enum,
@@ -55,6 +55,7 @@ pub enum Step {
     #[value(alias = "clean")]
     Inpaint,
     Translate,
+    Validate,
 }
 
 /// Translates `args.input` into `args.output`; `false` when a page failed,
@@ -76,6 +77,7 @@ pub async fn run(args: Args) -> Result<bool> {
             Step::Ocr => Stage::Recognize,
             Step::Inpaint => Stage::Inpaint,
             Step::Translate => Stage::Translate,
+            Step::Validate => Stage::Validate,
         })
         .collect();
     let export: ExportConfig = koharu_config::get()?;
@@ -160,6 +162,21 @@ async fn translate(
                 stage,
                 reason,
             }) if id == run => eprintln!("page {} failed at {stage}: {reason}", number(page)),
+            Ok(Event::Flagged {
+                run: id,
+                page,
+                flags,
+            }) if id == run => {
+                for flag in flags {
+                    eprintln!(
+                        "page {} flagged: {:?}, {:.0} px \"{}\"",
+                        number(page),
+                        flag.kind,
+                        flag.size,
+                        flag.text
+                    );
+                }
+            }
             Ok(Event::Ended { run: id, outcome }) if id == run => break outcome,
             Ok(_) | Err(RecvError::Lagged(_)) => {}
             Err(RecvError::Closed) => anyhow::bail!("the pipeline stopped"),

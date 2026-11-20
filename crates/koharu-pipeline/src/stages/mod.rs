@@ -8,6 +8,7 @@ pub(crate) mod detect;
 pub(crate) mod inpaint;
 pub(crate) mod recognize;
 pub(crate) mod translate;
+pub(crate) mod validate;
 
 use std::{sync::Arc, time::Instant};
 
@@ -198,6 +199,7 @@ pub(crate) async fn run(task: Task, inputs: Inputs) -> Result<(), String> {
                 .expect("a translation holds its conversation");
             translate::translate(&task, config, conversation).await
         }
+        Stage::Validate => validate::validate(&task, config).await,
     };
     match result {
         Err(error) if !error.is::<Stopped>() => {
@@ -232,6 +234,8 @@ pub(crate) fn key(stage: Stage, config: &PipelineConfig) -> Option<Key> {
                 false => translator.model.clone(),
             }
         }
+        // Measuring loads no model.
+        Stage::Validate => return None,
     };
     Some(Key { stage, name })
 }

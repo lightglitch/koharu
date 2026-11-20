@@ -175,6 +175,15 @@ impl Run {
                     graph.add_edge(before, translate, ());
                 }
             }
+            // Fork addition: validation measures the page as it's drawn,
+            // so it waits for its translation and its clean-up.
+            if let Some(&validate) = jobs.get(&Stage::Validate) {
+                for stage in [Stage::Inpaint, Stage::Translate] {
+                    if let Some(&before) = jobs.get(&stage) {
+                        graph.add_edge(before, validate, ());
+                    }
+                }
+            }
         }
         Self {
             id,
