@@ -132,15 +132,6 @@ Code: `components/editor/LayersHeader.tsx` and
   only, so it reached the interface as a digit, and laptops whose Page Up and
   Page Down live on the numpad couldn't page.
 
-### Detection no longer crashes on tiny regions
-
-- `crates/koharu-ml/src/koharu_layout_highres/measure.rs` calls imageproc's
-  `connected_components` through `components`, which adds a one-pixel
-  background border. imageproc 0.27 sizes its forest one entry short, so a
-  region whose every pixel starts a part, such as a single pixel, panicked
-  (`union_find.rs`: `i < self.count`) and closed the app. Drop the wrapper once
-  imageproc fixes it.
-
 ### Add text from a marked area
 
 - When detection misses text, select it with the Marquee or the Lasso and click
@@ -321,6 +312,8 @@ These went upstream from the fork or were made unnecessary by upstream:
 - the CBZ export core (#1095);
 - the Activity page label (#1041, later trimmed to "Page N");
 - the translator's error diagnostics (#1022);
+- the detection crash on a region a pixel across (imageproc patched upstream
+  in 0.86.4, `daaa6b5e`; the fork's `connected_components` wrapper was dropped);
 - re-detecting a page whose text was deleted (detection now always replaces a
   page's blocks).
 

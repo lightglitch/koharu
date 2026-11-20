@@ -101,7 +101,7 @@ masked pixels come back.
 | Inpainter | Takes a prompt |
 |---|---|
 | LaMa | no |
-| FLUX.3 Klein, MOSS-Image, Qwen-Image 2.1 | yes: an area's own, or else the settings' |
+| FLUX.3 Klein, MOSS-Image, Qwen-Image 2.1 Turbo | yes: an area's own, or else the settings' |
 
 ## 4. Translation
 
@@ -159,8 +159,9 @@ model, the target, or the instructions starts a new one.
   the reason, and the run goes on with its other pages. The next page's
   translation then waits for the translation before the failed page. A run
   with failures ends naming each failed page. What it finished stays, on the
-  failed pages too. Stopping ends every run without an error. (This fork keeps
-  going where upstream ends the run at its first failure.)
+  failed pages too. Stopping ends every run without an error, and cuts short a
+  diffusion model's redraw under way. (This fork keeps going where upstream
+  ends the run at its first failure.)
 
 ## 6. Settings
 
