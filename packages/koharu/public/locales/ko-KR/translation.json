@@ -463,7 +463,10 @@
       "signOutLabel": "{{provider}}에서 로그아웃",
       "signingIn": "로그인 대기 중…",
       "subscription": "구독",
-      "title": "제공자"
+      "title": "제공자",
+      "context": "컨텍스트 창",
+      "contextUnknown": "알 수 없음",
+      "contextHint": "서버 모델이 담을 수 있는 토큰 수(--ctx-size 등)입니다. 한도에 닿기 전에 Koharu가 이전 페이지를 요약합니다."
     },
     "tabs": {
       "appearance": "모양",

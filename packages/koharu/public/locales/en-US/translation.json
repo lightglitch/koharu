@@ -463,7 +463,10 @@
       "signOutLabel": "Sign out of {{provider}}",
       "signingIn": "Waiting for sign-in…",
       "subscription": "Subscription",
-      "title": "Providers"
+      "title": "Providers",
+      "context": "Context window",
+      "contextUnknown": "Unknown",
+      "contextHint": "Tokens the server's model holds, such as its --ctx-size. Koharu summarizes older pages before reaching it."
     },
     "tabs": {
       "appearance": "Appearance",

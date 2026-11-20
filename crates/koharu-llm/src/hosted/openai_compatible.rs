@@ -14,7 +14,7 @@ use rig_core::{
     },
 };
 
-use super::{Http, key, unlisted};
+use super::{Http, context, key, unlisted};
 
 pub(crate) const PROVIDER_NAME: &str = "openai-compatible";
 
@@ -30,7 +30,11 @@ pub(super) fn connect(id: &str, base_url: Option<String>) -> Result<DynModel<Com
     let base_url = base_url.context("the OpenAI-compatible server has no base URL")?;
     let mut model = client(base_url)?.chat(id);
     let vendor = ProviderId::declare(PROVIDER_NAME)?;
-    model.wire = model.wire.with_facts(ModelFacts::new(unlisted(vendor, id)));
+    let mut spec = unlisted(vendor, id);
+    // The window the settings give, which the server doesn't say: with it, a
+    // translation's history is summarized before the server refuses it.
+    spec.context_window = context(PROVIDER_NAME)?;
+    model.wire = model.wire.with_facts(ModelFacts::new(spec));
     Ok(model.erase())
 }
 

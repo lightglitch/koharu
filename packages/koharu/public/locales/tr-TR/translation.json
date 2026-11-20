@@ -463,7 +463,10 @@
       "signOutLabel": "{{provider}} oturumunu kapat",
       "signingIn": "Oturum açma bekleniyor…",
       "subscription": "Abonelik",
-      "title": "Sağlayıcılar"
+      "title": "Sağlayıcılar",
+      "context": "Bağlam penceresi",
+      "contextUnknown": "Bilinmiyor",
+      "contextHint": "Sunucudaki modelin aldığı token sayısı, örneğin --ctx-size değeri. Koharu sınıra ulaşmadan önceki sayfaları özetler."
     },
     "tabs": {
       "appearance": "Görünüm",

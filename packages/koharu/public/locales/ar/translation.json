@@ -463,7 +463,10 @@
       "signOutLabel": "تسجيل الخروج من {{provider}}",
       "signingIn": "في انتظار تسجيل الدخول…",
       "subscription": "الاشتراك",
-      "title": "المزوّدون"
+      "title": "المزوّدون",
+      "context": "نافذة السياق",
+      "contextUnknown": "غير معروفة",
+      "contextHint": "عدد الرموز التي يستوعبها نموذج الخادم، مثل قيمة --ctx-size. يلخّص Koharu الصفحات السابقة قبل بلوغ الحد."
     },
     "tabs": {
       "appearance": "المظهر",

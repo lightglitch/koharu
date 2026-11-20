@@ -463,7 +463,10 @@
       "signOutLabel": "Cerrar sesión en {{provider}}",
       "signingIn": "Esperando el inicio de sesión…",
       "subscription": "Suscripción",
-      "title": "Proveedores"
+      "title": "Proveedores",
+      "context": "Ventana de contexto",
+      "contextUnknown": "Desconocida",
+      "contextHint": "Tokens que admite el modelo del servidor, como su --ctx-size. Koharu resume las páginas anteriores antes de llegar al límite."
     },
     "tabs": {
       "appearance": "Apariencia",

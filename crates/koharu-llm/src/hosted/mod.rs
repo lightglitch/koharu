@@ -105,6 +105,12 @@ impl koharu_config::Section for Providers {
 pub struct Endpoint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_url: Option<url::Url>,
+    /// Fork addition: the tokens the server's models hold, such as
+    /// llama.cpp's `--ctx-size`, for a server whose models the catalog
+    /// doesn't know, so a conversation is summarized before it outgrows
+    /// them. Unknown when unset, and then never summarized.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<u32>,
 }
 
 /// The base URL `[providers]` sets for `vendor`, if it sets one.
@@ -115,6 +121,15 @@ fn base_url(vendor: &str) -> Result<Option<String>> {
         .get(vendor)
         .and_then(|endpoint| endpoint.base_url.as_ref())
         .map(|url| url.as_str().trim_end_matches('/').to_owned()))
+}
+
+/// The context window `[providers]` sets for `vendor`, if it sets one.
+fn context(vendor: &str) -> Result<Option<u32>> {
+    let providers: Providers = koharu_config::get()?;
+    Ok(providers
+        .0
+        .get(vendor)
+        .and_then(|endpoint| endpoint.context))
 }
 
 /// The vendor's API key, stored under its rig name.

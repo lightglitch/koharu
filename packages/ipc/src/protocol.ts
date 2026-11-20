@@ -256,6 +256,13 @@ export type Edit = {
  */
 export type Endpoint = {
   base_url?: string | null
+  /**
+   *  Fork addition: the tokens the server's models hold, such as
+   *  llama.cpp's `--ctx-size`, for a server whose models the catalog
+   *  doesn't know, so a conversation is summarized before it outgrows
+   *  them. Unknown when unset, and then never summarized.
+   */
+  context?: number | null
 }
 
 /**  A command's failure, as its message with its causes. */

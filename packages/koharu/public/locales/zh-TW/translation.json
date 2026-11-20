@@ -463,7 +463,10 @@
       "signOutLabel": "登出 {{provider}}",
       "signingIn": "正在等待登入…",
       "subscription": "訂閱",
-      "title": "提供者"
+      "title": "提供者",
+      "context": "上下文視窗",
+      "contextUnknown": "未知",
+      "contextHint": "伺服器模型可容納的權杖數，例如它的 --ctx-size。達到上限前，Koharu 會摘要先前的頁面。"
     },
     "tabs": {
       "appearance": "外觀",

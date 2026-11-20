@@ -463,7 +463,10 @@
       "signOutLabel": "退出 {{provider}} 个登录",
       "signingIn": "来勒等侬登录…",
       "subscription": "订阅",
-      "title": "提供商"
+      "title": "提供商",
+      "context": "上下文窗口",
+      "contextUnknown": "勿晓得",
+      "contextHint": "服务器模型装得落个令牌数，譬如伊个 --ctx-size。到上限前头，Koharu 会得总结前头个页面。"
     },
     "tabs": {
       "appearance": "外观",

@@ -63,12 +63,19 @@ export function ProviderPreferences({
               {vendor.server && (
                 <BaseUrlField
                   value={value[vendor.name]?.base_url ?? ''}
-                  onChange={(base_url) => {
-                    const next = { ...value }
-                    if (base_url) next[vendor.name] = { base_url }
-                    else delete next[vendor.name]
-                    onChange(next)
-                  }}
+                  onChange={(base_url) =>
+                    onChange(withEndpoint(value, vendor.name, { base_url: base_url || undefined }))
+                  }
+                />
+              )}
+              {/* Fork addition: the window a server's models hold, which only an
+                  OpenAI-compatible server leaves unknown. */}
+              {vendor.name === 'openai-compatible' && (
+                <ContextField
+                  value={value[vendor.name]?.context ?? null}
+                  onChange={(context) =>
+                    onChange(withEndpoint(value, vendor.name, { context: context ?? undefined }))
+                  }
                 />
               )}
             </div>
@@ -224,6 +231,55 @@ function SignInField({ vendor }: { vendor: Vendor }) {
         </Button>
       )}
     </div>
+  )
+}
+
+/** `providers` with `vendor`'s endpoint changed by `change`, which keeps its other fields; an
+ * endpoint left with none goes. */
+function withEndpoint(
+  providers: Providers,
+  vendor: string,
+  change: Partial<NonNullable<Providers[string]>>,
+): Providers {
+  const endpoint = { ...providers[vendor], ...change }
+  const kept = Object.fromEntries(
+    Object.entries(endpoint).filter(([, field]) => field !== undefined && field !== null),
+  )
+  const next = { ...providers }
+  if (Object.keys(kept).length) next[vendor] = kept
+  else delete next[vendor]
+  return next
+}
+
+/** The tokens a server's models hold, which reach the preferences when the field loses the focus
+ * holding a whole number, or nothing while it's empty. */
+function ContextField({
+  value,
+  onChange,
+}: {
+  value: number | null
+  onChange: (value: number | null) => void
+}) {
+  const { t } = useTranslation()
+  const [draft, setDraft] = useState(value === null ? '' : String(value))
+  const parsed = draft.trim() === '' ? null : Number(draft)
+  const valid = parsed === null || (Number.isInteger(parsed) && parsed > 0 && parsed < 2 ** 32)
+  return (
+    <label className='grid gap-1 text-[10px] text-muted-foreground'>
+      {t('settings.providers.context')}
+      <Input
+        type='number'
+        inputMode='numeric'
+        min={1}
+        placeholder={t('settings.providers.contextUnknown')}
+        value={draft}
+        aria-invalid={!valid}
+        className='h-8 text-[12px] text-foreground'
+        onChange={(event) => setDraft(event.currentTarget.value)}
+        onBlur={() => valid && parsed !== value && onChange(parsed)}
+      />
+      <span>{t('settings.providers.contextHint')}</span>
+    </label>
   )
 }
 

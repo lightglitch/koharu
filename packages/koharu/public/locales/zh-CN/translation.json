@@ -463,7 +463,10 @@
       "signOutLabel": "退出 {{provider}} 登录",
       "signingIn": "正在等待登录…",
       "subscription": "订阅",
-      "title": "提供商"
+      "title": "提供商",
+      "context": "上下文窗口",
+      "contextUnknown": "未知",
+      "contextHint": "服务器模型可容纳的令牌数，例如它的 --ctx-size。达到上限前，Koharu 会总结之前的页面。"
     },
     "tabs": {
       "appearance": "外观",

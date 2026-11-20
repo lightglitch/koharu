@@ -463,7 +463,10 @@
       "signOutLabel": "{{provider}}からサインアウト",
       "signingIn": "サインインを待機中…",
       "subscription": "サブスクリプション",
-      "title": "プロバイダー"
+      "title": "プロバイダー",
+      "context": "コンテキスト長",
+      "contextUnknown": "不明",
+      "contextHint": "サーバーのモデルが扱えるトークン数（--ctx-size など）。上限に達する前に、Koharu が前のページを要約します。"
     },
     "tabs": {
       "appearance": "外観",

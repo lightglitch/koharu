@@ -463,7 +463,10 @@
       "signOutLabel": "Se déconnecter de {{provider}}",
       "signingIn": "En attente de connexion…",
       "subscription": "Abonnement",
-      "title": "Fournisseurs"
+      "title": "Fournisseurs",
+      "context": "Fenêtre de contexte",
+      "contextUnknown": "Inconnue",
+      "contextHint": "Jetons que le modèle du serveur accepte, comme son --ctx-size. Koharu résume les pages précédentes avant d'atteindre la limite."
     },
     "tabs": {
       "appearance": "Apparence",
