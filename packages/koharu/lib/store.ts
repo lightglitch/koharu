@@ -6,6 +6,7 @@ import type {
   Bounds,
   LayerId,
   Model,
+  Flag,
   PageFailure,
   PageId,
   PipelineEvent,
@@ -60,7 +61,19 @@ export interface Camera {
 /** The right pane's tabs. */
 export type Panel = 'layers' | 'story' | 'agent'
 export type PipelineScope = 'selected-pages' | 'project'
-export const pipelineStages: readonly Stage[] = ['detect', 'recognize', 'inpaint', 'translate']
+export const pipelineStages: readonly Stage[] = [
+  'detect',
+  'recognize',
+  'inpaint',
+  'translate',
+  'validate',
+]
+/** The stages a run takes when nothing says otherwise: validation only runs when it's asked for,
+ * since it costs a pass per page and later model calls. */
+// Fork addition: upstream has no validation stage.
+export const defaultStages: readonly Stage[] = pipelineStages.filter(
+  (stage) => stage !== 'validate',
+)
 
 /** A pipeline run as the activity center shows it, from the pipeline's events. */
 export interface Job {
@@ -75,6 +88,15 @@ export interface Job {
   page: PageId | null
   /** The pages given up on so far, in the order they failed; the run goes on without them. */
   failures: PageFailure[]
+  /** What validation flagged, each page's texts together, in the order they were measured. */
+  // Fork addition.
+  flagged: PageFlags[]
+}
+
+/** The texts validation flagged on a page. */
+export interface PageFlags {
+  page: PageId
+  flags: Flag[]
 }
 
 /** The pages the runs still shown gave up on, for marking them where pages are listed. */
@@ -146,7 +168,7 @@ export const useKoharuStore = create<KoharuStore>()((set) => ({
   panel: 'layers',
   storyHover: null,
   processingScope: 'project',
-  processingStages: [...pipelineStages],
+  processingStages: [...defaultStages],
   settingsOpen: false,
   historyOpen: false,
   selectPages: (selectedPages) => set({ selectedPages: [...new Set(selectedPages)] }),
@@ -195,6 +217,7 @@ function fold(job: Job | undefined, event: PipelineEvent): Job {
     stage: null,
     page: null,
     failures: [],
+    flagged: [],
   }
   switch (event.kind) {
     case 'queued':
@@ -206,6 +229,10 @@ function fold(job: Job | undefined, event: PipelineEvent): Job {
     case 'failed': {
       const { page, stage, reason } = event
       return { ...current, failures: [...current.failures, { page, stage, reason }] }
+    }
+    case 'flagged': {
+      const { page, flags } = event
+      return { ...current, flagged: [...current.flagged, { page, flags }] }
     }
     case 'ended':
       // The outcome's list is the whole of it, so a history replayed in part still ends right.

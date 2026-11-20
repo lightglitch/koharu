@@ -5,7 +5,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DetectorConfig, InpainterConfig, RecognizerConfig, TranslatorConfig};
+use crate::{
+    DetectorConfig, InpainterConfig, RecognizerConfig, TranslatorConfig, ValidationConfig,
+};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -15,6 +17,8 @@ pub struct PipelineConfig {
     pub recognizer: RecognizerConfig,
     pub inpainter: InpainterConfig,
     pub translator: TranslatorConfig,
+    // Fork addition.
+    pub validation: ValidationConfig,
 }
 
 impl koharu_config::Section for PipelineConfig {

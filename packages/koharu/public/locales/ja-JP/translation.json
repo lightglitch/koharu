@@ -339,7 +339,8 @@
       "detect": "検出",
       "inpaint": "インペイント",
       "recognize": "文字認識",
-      "translate": "翻訳"
+      "translate": "翻訳",
+      "validate": "検証"
     },
     "selected": "{{count}}件選択中"
   },
@@ -351,13 +352,15 @@
     "detect": "検出",
     "inpaint": "インペイント",
     "recognize": "OCR",
-    "translate": "翻訳"
+    "translate": "翻訳",
+    "validate": "検証"
   },
   "phaseDescription": {
     "detect": "ページ上のテキストを見つけます。",
     "inpaint": "文字を消した部分の絵を復元します。",
     "recognize": "各領域内の原文を読み取ります。",
-    "translate": "原文を対象言語に翻訳します。"
+    "translate": "原文を対象言語に翻訳します。",
+    "validate": "写植を確認して直します。"
   },
   "psd": {
     "background": "背景",
@@ -556,6 +559,21 @@
     "noNotes": "リリースノートはありません。",
     "retry": "再試行",
     "update": "更新"
+  },
+  "validation": {
+    "flaggedPages": "検証で {{count}} ページに問題が見つかりました",
+    "flaggedPages_one": "検証で 1 ページに問題が見つかりました",
+    "flaggedPages_other": "検証で {{count}} ページに問題が見つかりました",
+    "too_small": "小さすぎます：{{size}} px",
+    "too_big": "大きすぎます：{{size}} px（このページのセリフは {{typical}} px）",
+    "overflow": "枠に収まりません",
+    "sfx_overlap": "効果音が重なっています",
+    "overlap": "他のテキストと重なっています",
+    "off_page": "ページからはみ出しています",
+    "outside_balloon": "フキダシからはみ出しています",
+    "low_contrast": "読みにくい（コントラスト {{contrast}}:1）。縁取りが必要かもしれません",
+    "busy_background": "絵の上にあります。縁取りが必要かもしれません",
+    "runaway": "翻訳が繰り返しになっています。翻訳し直してください"
   },
   "wheel": {
     "brush": "ブラシサイズ",

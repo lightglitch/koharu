@@ -163,6 +163,59 @@ Code: `components/editor/LayersHeader.tsx` and
 - Run it from the release build in `release/`, which has the models in
   `release\store`. It loads models into the same GPU memory as an open app.
 
+### Validation stage
+
+- A fifth pipeline stage, **Validate**, after Translate
+  (`crates/koharu-pipeline/src/stages/validate.rs`). It measures each visible
+  translation as the renderer draws it and flags:
+  - text too small (under `min_size` of the page height, or dialogue under
+    `small` × the page's median dialogue size) or too big (dialogue over
+    `big` × the median; sound effects never);
+  - text that overflows its box;
+  - a sound effect over dialogue, or dialogue over dialogue, measured on
+    each line's letters, not the boxes (`ResolvedText::strips` in
+    `koharu-renderer/src/text/arrange.rs`), turned with the text;
+  - text off the page or out of its balloon;
+  - a runaway translation: a word repeated 8 times in a row, or a long text
+    ten times its source's length. Only retranslating fixes it, so the model
+    never sees it;
+  - text without an outline in low contrast with what's behind its letters,
+    or with art as dark (or light) as itself under or within 3 pixels of
+    its letters (`busy`, 1% by default; a clean balloon measures 0). The
+    letters are the text drawn alone, and what's behind them the page drawn
+    without its translations (`Frame::without`), so black line art isn't
+    mistaken for black letters.
+- **Fixes** (`stages/validate/fix.rs`): while something's flagged and
+  `max_iterations` rounds are left (3 by default, 0 only measures), a model is
+  shown the page as drawn and its texts, and answers per flagged text, held to
+  a schema: `accept`, a `size`, a `box` in page pixels, or an `outline`.
+  Koharu colours the outline unlike the letters (white round dark ones) at an
+  eighth of their size; a model left to choose outlined black text in black.
+  - Each fix is checked first: sizes are held to the page's range, boxes to
+    the page, and a dialogue box to the area its balloon safely holds (1/√2
+    of the balloon's bounds).
+  - All of a round's fixes are one undo step, labelled `validate`. The page is
+    then measured again. The model keeps the page's earlier rounds, without
+    their images, so it tries something else when a fix didn't help.
+  - **A fix never makes a text worse.** When the next measure finds a problem
+    a changed text, or a text it moved onto, didn't have, that text's fix is
+    undone (`Round::worse`, `undo`) and the model is told why. A fix that left
+    its text flagged as before is reported to the model as having no effect,
+    and a round that changed no flag ends the loop.
+  - A text in a balloon, dialogue or a sound effect, is kept inside it.
+  - The model is `[pipeline.validation] model`, or the translator's when
+    empty, with the translator's reasoning. It must read images and be
+    hosted. With a model of Koharu's own, validation only measures.
+- What's still flagged goes out as `Event::Flagged` and stays in Activity
+  until dismissed (`FlaggedPages` in `ActivityCenter.tsx`). A click shows the
+  page with the text selected. The CLI prints them.
+- Thresholds are in `[pipeline.validation]` (`ValidationConfig`).
+- It's never part of a default run (`defaultStages` in `lib/store.ts`): tick
+  it in the Run control, use a page's Validate menu item, or pass
+  `--stages ...,validate` to the CLI.
+- "Out of its balloon" tests sampled points of each line's letters against the
+  balloon's outline, so an oval's corners count as outside.
+
 ### Sentry is off
 
 - `crates/koharu/src/sentry.rs` starts the Sentry client without a DSN and

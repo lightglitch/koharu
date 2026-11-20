@@ -339,7 +339,8 @@
       "detect": "偵測",
       "inpaint": "修補",
       "recognize": "辨識",
-      "translate": "翻譯"
+      "translate": "翻譯",
+      "validate": "校驗"
     },
     "selected": "已選擇 {{count}}"
   },
@@ -351,13 +352,15 @@
     "detect": "偵測",
     "inpaint": "修補",
     "recognize": "OCR",
-    "translate": "翻譯"
+    "translate": "翻譯",
+    "validate": "校驗"
   },
   "phaseDescription": {
     "detect": "找出頁面上的文字。",
     "inpaint": "重建移除文字後的畫面。",
     "recognize": "讀取每個區域中的文字。",
-    "translate": "將原文翻譯為目標語言。"
+    "translate": "將原文翻譯為目標語言。",
+    "validate": "檢查並修正嵌字。"
   },
   "psd": {
     "background": "背景",
@@ -556,6 +559,21 @@
     "noNotes": "未提供發行說明。",
     "retry": "重試",
     "update": "更新"
+  },
+  "validation": {
+    "flaggedPages": "校驗標記了 {{count}} 頁",
+    "flaggedPages_one": "校驗標記了 1 頁",
+    "flaggedPages_other": "校驗標記了 {{count}} 頁",
+    "too_small": "字太小：{{size}} px",
+    "too_big": "字太大：{{size}} px，本頁對白為 {{typical}} px",
+    "overflow": "超出文字框",
+    "sfx_overlap": "被狀聲詞遮住",
+    "overlap": "與其他文字重疊",
+    "off_page": "超出頁面",
+    "outside_balloon": "超出對話框",
+    "low_contrast": "難以辨識（對比度 {{contrast}}:1），可能需要描邊",
+    "busy_background": "位於複雜畫面上，可能需要描邊",
+    "runaway": "譯文在重複，請重新翻譯"
   },
   "wheel": {
     "brush": "筆刷大小",

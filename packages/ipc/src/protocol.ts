@@ -308,6 +308,45 @@ export type Fit =
    */
   | 'best'
 
+/**  A text validation flagged, with what it measured. */
+export type Flag = {
+  block: LayerId
+  kind: FlagKind
+  /**  The start of its translation, to find it by. */
+  text: string
+  /**  The size it's drawn at, in page pixels. */
+  size: number
+  /**
+   *  The page's typical dialogue size, the median of what it's drawn at,
+   *  on a page with enough dialogue to have one.
+   */
+  typical: number | null
+  /**  The text it overlaps. */
+  other: LayerId | null
+  /**  Its contrast ratio against what's behind it. */
+  contrast: number | null
+}
+
+/**  What's wrong with a text. */
+export type FlagKind =
+  | 'too_small'
+  | 'too_big'
+  /**  It doesn't fit its box, even shrunk. */
+  | 'overflow'
+  /**  A sound effect lies over this dialogue. */
+  | 'sfx_overlap'
+  /**  Another dialogue lies over this one. */
+  | 'overlap'
+  | 'off_page'
+  | 'outside_balloon'
+  | 'low_contrast'
+  | 'busy_background'
+  /**
+   *  Its translation repeats a word over and over, or runs many times its
+   *  source's length: the model looped. Only retranslating fixes it.
+   */
+  | 'runaway'
+
 /**  One of a family's faces, by the weight and slant a text asks for. */
 export type FontFace = {
   post_script_name: string
@@ -671,6 +710,7 @@ export type PipelineConfig = {
   recognizer?: RecognizerConfig
   inpainter?: InpainterConfig
   translator?: TranslatorConfig
+  validation?: ValidationConfig
 }
 
 /**
@@ -691,6 +731,8 @@ export type PipelineEvent =
    *  run goes on, so the app hears it before the run ends.
    */
   | { kind: 'failed'; run: RunId; page: PageId; stage: Stage; reason: string }
+  /**  Fork addition: what validation flagged on a page. */
+  | { kind: 'flagged'; run: RunId; page: PageId; flags: Flag[] }
   | { kind: 'ended'; run: RunId; outcome: Outcome }
 
 export type Preferences = {
@@ -832,7 +874,16 @@ export type Span = {
 }
 
 /**  A stage, in the order a page's stages run. */
-export type Stage = 'detect' | 'recognize' | 'inpaint' | 'translate'
+export type Stage =
+  | 'detect'
+  | 'recognize'
+  | 'inpaint'
+  | 'translate'
+  /**
+   *  Fork addition: measures the drawn translations and flags what a
+   *  reader would trip on.
+   */
+  | 'validate'
 
 export type State = 'Running' | 'Finished' | { Failed: string }
 
@@ -974,6 +1025,51 @@ export type Typed = {
    *  empty.
    */
   mixed: CharKey[]
+}
+
+/**
+ *  `[pipeline.validation]`: when validation flags a text. Sizes are the
+ *  size a text is drawn at, after fitting, in page pixels.
+ */
+export type ValidationConfig = {
+  /**
+   *  The `vendor/model` that fixes what's flagged; the translator's when
+   *  empty. It must read images and be hosted, as an OpenAI-compatible
+   *  server is.
+   */
+  model?: string
+  /**  How many times a page is fixed and measured again; 0 only measures. */
+  max_iterations?: number
+  /**  The smallest dialogue may be drawn, as a share of the page's height. */
+  min_size?: number
+  /**
+   *  Dialogue drawn below this share of the page's typical dialogue size
+   *  is too small.
+   */
+  small?: number
+  /**
+   *  Dialogue drawn above this share of the page's typical dialogue size
+   *  is too big. A sound effect is never too small or too big; only one
+   *  over dialogue is flagged.
+   */
+  big?: number
+  /**
+   *  Two texts overlap when this share of the smaller one's lines lies
+   *  under the other's.
+   */
+  overlap?: number
+  /**
+   *  A text without an outline needs one below this contrast ratio, as
+   *  WCAG measures it, against what's behind its letters.
+   */
+  contrast?: number
+  /**
+   *  A text without an outline needs one when more than this share of
+   *  the page under and right around its letters, its translations left
+   *  out, is nearly as dark as the text, or as light: art through or
+   *  against the letters. A clean balloon measures 0.
+   */
+  busy?: number
 }
 
 export type Value = null | boolean | number | string | Value[] | { [key in string]: Value }

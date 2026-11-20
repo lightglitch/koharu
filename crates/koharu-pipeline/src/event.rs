@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, watch};
 use tracing::{Span, info_span};
 
-use crate::Stage;
+use crate::{Flag, Stage};
 
 /// How many events a slow listener can fall behind by.
 const EVENTS: usize = 1024;
@@ -60,6 +60,12 @@ pub enum Event {
         page: PageId,
         stage: Stage,
         reason: String,
+    },
+    /// Fork addition: what validation flagged on a page.
+    Flagged {
+        run: RunId,
+        page: PageId,
+        flags: Vec<Flag>,
     },
     Ended {
         run: RunId,
@@ -124,6 +130,7 @@ impl Events {
         | Event::Started { run, .. }
         | Event::Finished { run, .. }
         | Event::Failed { run, .. }
+        | Event::Flagged { run, .. }
         | Event::Ended { run, .. }) = &event;
         {
             let mut runs = self.runs.lock();
@@ -154,6 +161,7 @@ impl Events {
                 Event::Finished { page, stage, .. } | Event::Failed { page, stage, .. } => {
                     record.stages.remove(&(*page, *stage));
                 }
+                Event::Flagged { .. } => {}
                 Event::Ended { outcome, .. } => {
                     record.ended.send_replace(true);
                     // A failed or stopped run leaves stages it never finished.

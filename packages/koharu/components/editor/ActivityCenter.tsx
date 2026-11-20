@@ -1,14 +1,30 @@
 'use client'
 
 import { useMutationState } from '@tanstack/react-query'
-import { CircleAlert, Download, LoaderCircle, Square, X } from 'lucide-react'
+import type { TFunction } from 'i18next'
+import {
+  CircleAlert,
+  Download,
+  LoaderCircle,
+  ScanSearch,
+  Square,
+  TriangleAlert,
+  X,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { call } from '@/lib/backend'
 import { useExportProgress } from '@/lib/exportProgress'
+import { showPage } from '@/lib/pages'
 import { usePages } from '@/lib/queries'
-import { useKoharuStore, type Job } from '@/lib/store'
-import { commands, type PageFailure, type PageId, type Transfer } from '@koharu/ipc/protocol'
+import { useKoharuStore, type Job, type PageFlags } from '@/lib/store'
+import {
+  commands,
+  type Flag,
+  type PageFailure,
+  type PageId,
+  type Transfer,
+} from '@koharu/ipc/protocol'
 import { Button } from '@koharu/ui/components/button'
 import { ScrollArea } from '@koharu/ui/components/scroll-area'
 
@@ -28,7 +44,7 @@ export function ActivityCenter() {
     (activity): activity is { id: number; label: string } => typeof activity.label === 'string',
   )
   const visibleJobs = Object.values(jobs).filter(
-    (job) => job.state === 'running' || job.state === 'failed',
+    (job) => job.state === 'running' || job.state === 'failed' || job.flagged.length > 0,
   )
   const runningDownloads = Object.values(downloads).filter(
     (download) => download.state === 'Running',
@@ -117,7 +133,9 @@ function JobItem({ job }: { job: Job }) {
   const { t } = useTranslation()
   const dismiss = useKoharuStore((state) => state.dismissJob)
   // Numbered by position in the rail, so the row says where in the run this is.
-  const pages = usePages(job.page !== null || job.failures.length > 0).data
+  const pages = usePages(
+    job.page !== null || job.failures.length > 0 || job.flagged.length > 0,
+  ).data
   const pageLabel = (id: PageId) => {
     const index = pages?.findIndex((page) => page.id === id) ?? -1
     return index >= 0 ? t('navigator.pageNumber', { number: index + 1 }) : undefined
@@ -126,15 +144,31 @@ function JobItem({ job }: { job: Job }) {
     ...failure,
     label: pageLabel(failure.page),
   }))
-  // Each failure on its own line, naming its page once the text has left the panel.
-  const report = failures
-    .map((failure) => (failure.label ? `${failure.label}: ${failure.reason}` : failure.reason))
-    .join('\n')
-  if (job.state === 'failed') {
+  const flagged = job.flagged.map((page) => ({ ...page, label: pageLabel(page.page) }))
+  // Each failure and flag on its own line, naming its page once the text has left the panel.
+  const report = [
+    ...failures.map((failure) =>
+      failure.label ? `${failure.label}: ${failure.reason}` : failure.reason,
+    ),
+    ...flagged.flatMap((page) =>
+      page.flags.map((flag) => `${page.label ?? ''}: ${flagMessage(t, flag)}`),
+    ),
+  ].join('\n')
+  if (job.state !== 'running' && (failures.length > 0 || flagged.length > 0)) {
+    const failed = job.state === 'failed'
+    const Icon = failed ? CircleAlert : ScanSearch
     return (
       <div className='grid grid-cols-[1rem_minmax(0,1fr)_2.25rem_1.5rem] items-start gap-x-2.5 border-b p-3 text-[11px] last:border-b-0'>
-        <CircleAlert className='mt-0.5 size-3.5 justify-self-center text-destructive' />
-        <p className='min-w-0 font-medium text-destructive'>{t('activity.finishedWithFailures')}</p>
+        <Icon
+          className={`mt-0.5 size-3.5 justify-self-center ${failed ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`}
+        />
+        <p
+          className={`min-w-0 font-medium ${failed ? 'text-destructive' : 'text-amber-700 dark:text-amber-400'}`}
+        >
+          {failed
+            ? t('activity.finishedWithFailures')
+            : t('validation.flaggedPages', { count: flagged.length })}
+        </p>
         <span className='justify-self-end'>
           <CopyButton text={report} />
         </span>
@@ -147,7 +181,8 @@ function JobItem({ job }: { job: Job }) {
         >
           <X />
         </Button>
-        <PageFailures failures={failures} />
+        {failures.length > 0 ? <PageFailures failures={failures} /> : null}
+        {flagged.length > 0 ? <FlaggedPages pages={flagged} /> : null}
       </div>
     )
   }
@@ -185,8 +220,55 @@ function JobItem({ job }: { job: Job }) {
           <Progress value={percent} />
         </div>
         {failures.length > 0 ? <PageFailures failures={failures} /> : null}
+        {flagged.length > 0 ? <FlaggedPages pages={flagged} /> : null}
       </div>
     </div>
+  )
+}
+
+// Fork addition: what validation flagged, as warnings beside the failures.
+
+/** A flag in the interface's language: what's wrong, with what was measured. */
+function flagMessage(t: TFunction, flag: Flag) {
+  const message = t(`validation.${flag.kind}`, {
+    size: Math.round(flag.size),
+    typical: flag.typical === null ? undefined : Math.round(flag.typical),
+    contrast: flag.contrast === null ? undefined : flag.contrast.toFixed(1),
+  })
+  return flag.text ? `${message} “${flag.text}”` : message
+}
+
+/** The texts validation flagged, page by page; a click shows the page with the text selected. */
+function FlaggedPages({ pages }: { pages: (PageFlags & { label?: string })[] }) {
+  const { t } = useTranslation()
+  const select = (page: PageId, flag: Flag) => {
+    showPage(page)
+    useKoharuStore.getState().selectLayers([flag.block])
+  }
+  return (
+    <ul className='col-start-2 col-end-5 mt-2 grid gap-1'>
+      {pages.flatMap((page) =>
+        page.flags.map((flag, at) => (
+          <li key={`${page.page}:${flag.block}:${flag.kind}:${at}`}>
+            <button
+              type='button'
+              className='flex w-full items-start gap-1.5 rounded text-left hover:bg-accent'
+              onClick={() => select(page.page, flag)}
+            >
+              <TriangleAlert className='mt-px size-3 shrink-0 text-amber-600 dark:text-amber-400' />
+              <span className='line-clamp-3 min-w-0 flex-1 text-[10px] leading-4 break-words'>
+                {page.label ? (
+                  <span className='mr-1 font-medium text-amber-700 dark:text-amber-400'>
+                    {page.label}
+                  </span>
+                ) : null}
+                <span className='text-muted-foreground'>{flagMessage(t, flag)}</span>
+              </span>
+            </button>
+          </li>
+        )),
+      )}
+    </ul>
   )
 }
 

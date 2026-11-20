@@ -200,7 +200,7 @@ impl<'a> Turn<'a> {
 /// A turn's messages as the conversation keeps them: the page's texts and
 /// the answer. The image and the reasoning served this turn alone; kept, every
 /// later turn would send them again, and they'd fill the context.
-fn remembered(messages: Vec<Message>) -> Vec<Message> {
+pub(crate) fn remembered(messages: Vec<Message>) -> Vec<Message> {
     messages
         .into_iter()
         .map(|message| match message {

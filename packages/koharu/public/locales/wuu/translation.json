@@ -339,7 +339,8 @@
       "detect": "检测",
       "inpaint": "修补",
       "recognize": "识别",
-      "translate": "翻译"
+      "translate": "翻译",
+      "validate": "校验"
     },
     "selected": "拣中个页面：{{count}} 页"
   },
@@ -351,13 +352,15 @@
     "detect": "检测",
     "inpaint": "修补",
     "recognize": "OCR",
-    "translate": "翻译"
+    "translate": "翻译",
+    "validate": "校验"
   },
   "phaseDescription": {
     "detect": "寻出页面浪个文本。",
     "inpaint": "拿文字删脱仔，再重建原来文字底下个图稿。",
     "recognize": "读出每个区域里向个文本。",
-    "translate": "拿原文翻译成目标语言。"
+    "translate": "拿原文翻译成目标语言。",
+    "validate": "检查搭修正嵌字。"
   },
   "psd": {
     "background": "背景",
@@ -556,6 +559,21 @@
     "noNotes": "呒没发行说明。",
     "retry": "再试一趟",
     "update": "更新"
+  },
+  "validation": {
+    "flaggedPages": "校验标出了 {{count}} 页",
+    "flaggedPages_one": "校验标出了 1 页",
+    "flaggedPages_other": "校验标出了 {{count}} 页",
+    "too_small": "字忒小：{{size}} px",
+    "too_big": "字忒大：{{size}} px，迭页对白是 {{typical}} px",
+    "overflow": "超出文本框",
+    "sfx_overlap": "拨拟声词遮牢了",
+    "overlap": "搭别个文字叠牢了",
+    "off_page": "超出页面",
+    "outside_balloon": "超出对话框",
+    "low_contrast": "看勿清爽（对比度 {{contrast}}:1），可能要描边",
+    "busy_background": "勒复杂画面浪向，可能要描边",
+    "runaway": "译文勒重复，重新翻译一记"
   },
   "wheel": {
     "brush": "画笔大小",

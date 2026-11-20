@@ -339,7 +339,8 @@
       "detect": "Détecter",
       "inpaint": "Retoucher",
       "recognize": "Reconnaître",
-      "translate": "Traduire"
+      "translate": "Traduire",
+      "validate": "Valider"
     },
     "selected": "Sélection : {{count}}"
   },
@@ -351,13 +352,15 @@
     "detect": "Détection",
     "inpaint": "Inpainting",
     "recognize": "OCR",
-    "translate": "Traduction"
+    "translate": "Traduction",
+    "validate": "Validation"
   },
   "phaseDescription": {
     "detect": "Repérer le texte sur la page.",
     "inpaint": "Reconstruire l’image derrière le texte supprimé.",
     "recognize": "Lire le texte de chaque zone.",
-    "translate": "Convertir le texte source dans la langue cible."
+    "translate": "Convertir le texte source dans la langue cible.",
+    "validate": "Vérifie et corrige le lettrage."
   },
   "psd": {
     "background": "Arrière-plan",
@@ -556,6 +559,21 @@
     "noNotes": "Aucune note de version fournie.",
     "retry": "Réessayer",
     "update": "Mettre à jour"
+  },
+  "validation": {
+    "flaggedPages": "La validation a signalé {{count}} pages",
+    "flaggedPages_one": "La validation a signalé 1 page",
+    "flaggedPages_other": "La validation a signalé {{count}} pages",
+    "too_small": "Trop petit : {{size}} px",
+    "too_big": "Trop grand : {{size}} px ; les dialogues de la page font {{typical}} px",
+    "overflow": "Ne tient pas dans son cadre",
+    "sfx_overlap": "Une onomatopée le recouvre",
+    "overlap": "Chevauche un autre texte",
+    "off_page": "Dépasse de la page",
+    "outside_balloon": "Déborde de sa bulle",
+    "low_contrast": "Difficile à lire (contraste {{contrast}}:1) ; un contour peut aider",
+    "busy_background": "Sur un dessin chargé ; un contour peut aider",
+    "runaway": "La traduction se répète ; retraduisez-la"
   },
   "wheel": {
     "brush": "Taille du pinceau",

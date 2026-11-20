@@ -4,15 +4,17 @@ import { TextCursorInput } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { call } from '@/lib/backend'
-import { pipelineStages, useKoharuStore } from '@/lib/store'
+import { defaultStages, pipelineStages, useKoharuStore } from '@/lib/store'
 import { commands, type Stage } from '@koharu/ipc/protocol'
 import { Button } from '@koharu/ui/components/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@koharu/ui/components/tooltip'
 
 // Fork addition: upstream's area bar only offers Generative Fill.
 
-/** The stages a block runs on after detection, when the Run control has none of them ticked. */
+/** The stages a block can run after detection, and those it runs when the Run control has none
+ * of them ticked: validation only when ticked. */
 const AFTER_DETECTION: readonly Stage[] = pipelineStages.filter((stage) => stage !== 'detect')
+const BY_DEFAULT: readonly Stage[] = defaultStages.filter((stage) => stage !== 'detect')
 
 /** Makes the marked area a text block, for text detection missed, and runs the Run control's
  * ticked stages after detection on that block alone: OCR, clean-up, and translation by default. */
@@ -23,11 +25,7 @@ export function AddTextButton() {
     if (block === null) return
     const ticked = useKoharuStore.getState().processingStages
     const stages = AFTER_DETECTION.filter((stage) => ticked.includes(stage))
-    await call(
-      commands.runPipeline,
-      { blocks: [block] },
-      stages.length ? stages : [...AFTER_DETECTION],
-    )
+    await call(commands.runPipeline, { blocks: [block] }, stages.length ? stages : [...BY_DEFAULT])
   }
   return (
     <Tooltip>

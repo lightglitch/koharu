@@ -7,7 +7,7 @@ import { create } from 'zustand'
 import { call } from '@/lib/backend'
 import { usePage } from '@/lib/queries'
 import { deletePages } from '@/lib/scene'
-import { pipelineStages, useKoharuStore } from '@/lib/store'
+import { defaultStages, useKoharuStore } from '@/lib/store'
 import { commands, type PageId, type PageSummary, type Target } from '@koharu/ipc/protocol'
 import {
   AlertDialog,
@@ -30,7 +30,7 @@ function useRunActive(): boolean {
 }
 
 function runPipeline(target: Target) {
-  void call(commands.runPipeline, target, [...pipelineStages]).catch(() => undefined)
+  void call(commands.runPipeline, target, [...defaultStages]).catch(() => undefined)
 }
 
 /** The rail header's controls: they act on a multi-selection when there is one, and on the

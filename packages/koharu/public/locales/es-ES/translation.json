@@ -339,7 +339,8 @@
       "detect": "Detectar",
       "inpaint": "Rellenar",
       "recognize": "Reconocer",
-      "translate": "Traducir"
+      "translate": "Traducir",
+      "validate": "Validar"
     },
     "selected": "{{count}} seleccionadas"
   },
@@ -351,13 +352,15 @@
     "detect": "Detección",
     "inpaint": "Relleno",
     "recognize": "OCR",
-    "translate": "Traducción"
+    "translate": "Traducción",
+    "validate": "Validación"
   },
   "phaseDescription": {
     "detect": "Localiza el texto en la página.",
     "inpaint": "Reconstruye el dibujo tras eliminar el texto.",
     "recognize": "Lee el texto dentro de cada región.",
-    "translate": "Convierte el texto original al idioma de destino."
+    "translate": "Convierte el texto original al idioma de destino.",
+    "validate": "Revisa y corrige la rotulación."
   },
   "psd": {
     "background": "Fondo",
@@ -556,6 +559,21 @@
     "noNotes": "No se proporcionaron notas de versión.",
     "retry": "Reintentar",
     "update": "Actualizar"
+  },
+  "validation": {
+    "flaggedPages": "La validación marcó {{count}} páginas",
+    "flaggedPages_one": "La validación marcó 1 página",
+    "flaggedPages_other": "La validación marcó {{count}} páginas",
+    "too_small": "Demasiado pequeño: {{size}} px",
+    "too_big": "Demasiado grande: {{size}} px; el diálogo de la página mide {{typical}} px",
+    "overflow": "No cabe en su caja",
+    "sfx_overlap": "Una onomatopeya lo tapa",
+    "overlap": "Se solapa con otro texto",
+    "off_page": "Se sale de la página",
+    "outside_balloon": "Se sale de su bocadillo",
+    "low_contrast": "Difícil de leer (contraste {{contrast}}:1); puede necesitar contorno",
+    "busy_background": "Sobre un fondo recargado; puede necesitar contorno",
+    "runaway": "La traducción se repite; vuelve a traducirla"
   },
   "wheel": {
     "brush": "Tamaño del pincel",

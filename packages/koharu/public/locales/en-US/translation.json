@@ -339,7 +339,8 @@
       "detect": "Detect",
       "inpaint": "Inpaint",
       "recognize": "Recognize",
-      "translate": "Translate"
+      "translate": "Translate",
+      "validate": "Validate"
     },
     "selected": "{{count}} selected"
   },
@@ -351,13 +352,15 @@
     "detect": "Detection",
     "inpaint": "Inpainting",
     "recognize": "OCR",
-    "translate": "Translation"
+    "translate": "Translation",
+    "validate": "Validation"
   },
   "phaseDescription": {
     "detect": "Locate text on the page.",
     "inpaint": "Rebuild the artwork behind removed text.",
     "recognize": "Read the text inside each region.",
-    "translate": "Convert source text to the target language."
+    "translate": "Convert source text to the target language.",
+    "validate": "Check and fix the lettering."
   },
   "psd": {
     "background": "Background",
@@ -556,6 +559,21 @@
     "noNotes": "No release notes provided.",
     "retry": "Retry",
     "update": "Update"
+  },
+  "validation": {
+    "flaggedPages": "Validation flagged {{count}} pages",
+    "flaggedPages_one": "Validation flagged 1 page",
+    "flaggedPages_other": "Validation flagged {{count}} pages",
+    "too_small": "Too small: {{size}} px",
+    "too_big": "Too big: {{size}} px, the page's dialogue is {{typical}} px",
+    "overflow": "Doesn't fit its box",
+    "sfx_overlap": "A sound effect covers it",
+    "overlap": "Overlaps another text",
+    "off_page": "Runs off the page",
+    "outside_balloon": "Spills out of its balloon",
+    "low_contrast": "Hard to read (contrast {{contrast}}:1); may need an outline",
+    "busy_background": "Over busy artwork; may need an outline",
+    "runaway": "The translation repeats itself; retranslate it"
   },
   "wheel": {
     "brush": "Brush size",
