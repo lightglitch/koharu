@@ -1,27 +1,44 @@
 //! Validation: each translated text of a page measured as it's drawn, and
 //! flagged where a reader would trip on it: too small or too big beside the
 //! page's other dialogue, past its box, over another text, off the page or
-//! out of its balloon, or hard to tell from what's behind it. It changes
-//! nothing; what it flags goes out as an event, for the reader or a later
-//! fix.
+//! out of its balloon, or hard to tell from what's behind it. A model shown
+//! the page then fixes or accepts each flagged text, and the page is measured
+//! again, up to `max_iterations` times; what's still flagged goes out as an
+//! event, for the reader.
 // Fork addition: upstream has no validation stage.
 
-use image::RgbaImage;
+mod fix;
+
+use std::collections::HashSet;
+
+use base64::Engine as _;
+use image::{DynamicImage, ImageFormat, Rgba, RgbaImage, imageops};
 use koharu_renderer::Renderer;
-use koharu_scene::{Content, Layer, LayerId, Project, Role, Text};
+use koharu_scene::{Content, Frame, Layer, LayerId, Project, Role, Text};
 use kurbo::{Affine, BezPath, Point, Rect, Shape as _};
 use serde::{Deserialize, Serialize};
 use tracing::info_span;
 
-use super::Task;
+use self::fix::Holder;
+use super::{Member, Task};
 use crate::{Event, PipelineConfig, Stage};
+
+/// The longest side of the page the model sees, in pixels, as the
+/// translator's.
+const SIGHT: u32 = 1280;
 
 /// `[pipeline.validation]`: when validation flags a text. Sizes are the
 /// size a text is drawn at, after fitting, in page pixels.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 #[derive(specta::Type)]
 pub struct ValidationConfig {
+    /// The `vendor/model` that fixes what's flagged; the translator's when
+    /// empty. It must read images and be hosted, as an OpenAI-compatible
+    /// server is.
+    pub model: String,
+    /// How many times a page is fixed and measured again; 0 only measures.
+    pub max_iterations: u32,
     /// The smallest any text may be drawn, as a share of the page's height.
     pub min_size: f64,
     /// Dialogue drawn below this share of the page's typical dialogue size
@@ -45,6 +62,8 @@ pub struct ValidationConfig {
 impl Default for ValidationConfig {
     fn default() -> Self {
         Self {
+            model: String::new(),
+            max_iterations: 3,
             min_size: 0.007,
             small: 0.6,
             big: 1.6,
@@ -56,7 +75,7 @@ impl Default for ValidationConfig {
 }
 
 /// What's wrong with a text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum FlagKind {
     TooSmall,
@@ -114,43 +133,93 @@ pub(crate) struct Measured {
     outlined: bool,
     /// Its fill's relative luminance.
     fill: f64,
-    /// Its balloon's bounds, when it's in one.
-    balloon: Option<Rect>,
+    /// Its balloon's outline, when it's in one.
+    balloon: Option<BezPath>,
     behind: Option<Behind>,
+    /// Its whole text, for the model.
+    full: String,
+    /// The frame it may fill, on the page.
+    room: Option<Rect>,
+    holder: Holder,
+    /// Its own coordinates to the page's.
+    transform: Affine,
 }
 
-/// Validates the task's page.
+/// Validates the task's page: measures it, and while something's flagged
+/// and rounds are left, has the model fix or accept it and measures again.
 pub(crate) async fn validate(task: &Task, config: &PipelineConfig) -> anyhow::Result<()> {
     let member = task.members[0].clone();
     task.started(&[&member]);
-    let settings = config.validation;
-    let read = member.clone();
-    let flags = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<Flag>> {
-        let _span =
-            info_span!("measure", stage = %Stage::Validate, page = read.index + 1).entered();
-        let renderer = Renderer::get();
-        let (project, page) = {
-            let session = read.session.lock();
-            let page = renderer.render(&session, read.page)?.rasterize()?;
-            (session.project(), page)
+    let settings = config.validation.clone();
+    let reference = match settings.model.trim() {
+        "" => config.translator.model.clone(),
+        model => model.to_owned(),
+    };
+    // A model of Koharu's own runs on the GPU thread, which validation
+    // doesn't take a turn on.
+    let local = reference
+        .split_once('/')
+        .is_none_or(|(vendor, _)| vendor == koharu_llm::KOHARU);
+    if local && settings.max_iterations > 0 {
+        tracing::info!(%reference, "validation only measures: its fixes need a hosted model");
+    }
+    let mut accepted: HashSet<(LayerId, FlagKind)> = HashSet::new();
+    let mut model = None;
+    // The page's rounds so far, so a fix that didn't help isn't tried again.
+    let mut history = Vec::new();
+    let mut round = 0;
+    let mut remaining = loop {
+        let fixing = !local && round < settings.max_iterations;
+        let (flags, page) = look(&member, &settings, &accepted, fixing).await?;
+        let Some(page) = page.filter(|_| !flags.is_empty()) else {
+            break flags;
         };
-        let size = project.page(read.page)?.size;
-        let measured = measure(&project, read.page, renderer, &page.image)?;
-        let mut flags = flags(
-            &measured,
-            Rect::new(0.0, 0.0, f64::from(size.width), f64::from(size.height)),
-            &settings,
+        let model = match &model {
+            Some(model) => model,
+            None => model.insert(fix::connect(&reference).await?),
+        };
+        let asked = fix::ask(
+            model,
+            &page,
+            &flags,
+            &mut history,
+            config.translator.reasoning,
+            &member.cancel,
+        )
+        .await;
+        let fixes = match asked {
+            Ok(Some(fixes)) => fixes,
+            Ok(None) => return Ok(()),
+            Err(error) => {
+                report(task, &member, flags);
+                return Err(error);
+            }
+        };
+        let (ops, accepts) = fix::ops(&page, &fixes, &flags, &settings);
+        tracing::info!(
+            page = member.index + 1,
+            round,
+            fixed = ops.len(),
+            accepted = accepts.len(),
+            "validation fixes"
         );
-        // A run on some blocks measures the whole page, for what's beside
-        // them, and tells only what concerns them.
-        if let Some(only) = &read.blocks {
-            flags.retain(|flag| {
-                only.contains(&flag.block) || flag.other.is_some_and(|other| only.contains(&other))
-            });
+        let before = accepted.len();
+        accepted.extend(accepts);
+        if ops.is_empty() && accepted.len() == before {
+            break flags;
         }
-        Ok(flags)
-    })
-    .await??;
+        if !ops.is_empty() {
+            member.apply(Stage::Validate, move |_| Ok(ops)).await?;
+        }
+        round += 1;
+    };
+    remaining.retain(|flag| !accepted.contains(&(flag.block, flag.kind)));
+    report(task, &member, remaining);
+    Ok(())
+}
+
+/// Tells the app what's still flagged on `member`'s page.
+fn report(task: &Task, member: &Member, flags: Vec<Flag>) {
     if !flags.is_empty() {
         task.events.send(Event::Flagged {
             run: member.run,
@@ -158,7 +227,148 @@ pub(crate) async fn validate(task: &Task, config: &PipelineConfig) -> anyhow::Re
             flags,
         });
     }
-    Ok(())
+}
+
+/// `member`'s page measured as it's drawn now: what's flagged and not
+/// `accepted`, and when `fixing` with something flagged, the page as the
+/// model sees it.
+async fn look(
+    member: &Member,
+    settings: &ValidationConfig,
+    accepted: &HashSet<(LayerId, FlagKind)>,
+    fixing: bool,
+) -> anyhow::Result<(Vec<Flag>, Option<fix::Page>)> {
+    let (read, settings, accepted) = (member.clone(), settings.clone(), accepted.clone());
+    tokio::task::spawn_blocking(move || {
+        let _span =
+            info_span!("measure", stage = %Stage::Validate, page = read.index + 1).entered();
+        let renderer = Renderer::get();
+        let (project, drawn) = {
+            let session = read.session.lock();
+            let drawn = renderer.render(&session, read.page)?.rasterize()?;
+            (session.project(), drawn.image)
+        };
+        let size = project.page(read.page)?.size;
+        let (width, height) = (f64::from(size.width), f64::from(size.height));
+        let measured = measure(&project, read.page, renderer, &drawn)?;
+        let mut flags = flags(&measured, Rect::new(0.0, 0.0, width, height), &settings);
+        // A run on some blocks measures the whole page, for what's beside
+        // them, and tells and fixes only what concerns them.
+        if let Some(only) = &read.blocks {
+            flags.retain(|flag| {
+                only.contains(&flag.block) || flag.other.is_some_and(|other| only.contains(&other))
+            });
+        }
+        flags.retain(|flag| !accepted.contains(&(flag.block, flag.kind)));
+        let page = if fixing && !flags.is_empty() {
+            Some(sight(&measured, &drawn, width, height)?)
+        } else {
+            None
+        };
+        Ok((flags, page))
+    })
+    .await?
+}
+
+/// The page as the model sees it: `drawn` over white at `SIGHT`, as a JPEG,
+/// and its texts as `measured`.
+fn sight(
+    measured: &[Measured],
+    drawn: &RgbaImage,
+    width: f64,
+    height: f64,
+) -> anyhow::Result<fix::Page> {
+    let mut page = RgbaImage::from_pixel(drawn.width(), drawn.height(), Rgba([255; 4]));
+    imageops::overlay(&mut page, drawn, 0, 0);
+    let page = DynamicImage::ImageRgba8(page)
+        .thumbnail(SIGHT, SIGHT)
+        .to_rgb8();
+    let mut bytes = Vec::new();
+    page.write_to(&mut std::io::Cursor::new(&mut bytes), ImageFormat::Jpeg)?;
+    let texts = measured
+        .iter()
+        .enumerate()
+        .map(|(at, text)| fix::Text {
+            key: format!("t{}", at + 1),
+            block: text.block,
+            role: text.role,
+            text: text.full.clone(),
+            size: text.size,
+            letters: letters(&text.quads),
+            room: text.room,
+            balloon: text
+                .balloon
+                .as_ref()
+                .map(|outline| holds(outline.bounding_box())),
+            holder: text.holder,
+            transform: text.transform,
+        })
+        .collect();
+    Ok(fix::Page {
+        image: base64::engine::general_purpose::STANDARD.encode(bytes),
+        scale: f64::from(page.width()) / width,
+        width,
+        height,
+        typical: typical(measured),
+        texts,
+    })
+}
+
+/// Where `quads` are, together, on the page.
+fn letters(quads: &[[Point; 4]]) -> Rect {
+    quads
+        .iter()
+        .flatten()
+        .fold(None, |bounds: Option<Rect>, &corner| {
+            Some(bounds.map_or(Rect::from_points(corner, corner), |b| b.union_pt(corner)))
+        })
+        .unwrap_or(Rect::ZERO)
+}
+
+/// The share of `quads` outside `outline`, sampled on a grid across each.
+fn outside(quads: &[[Point; 4]], outline: &BezPath) -> f64 {
+    const STEPS: usize = 8;
+    let (mut out, mut all) = (0usize, 0usize);
+    for quad in quads {
+        for across in 0..STEPS {
+            for down in 0..STEPS {
+                let u = (across as f64 + 0.5) / STEPS as f64;
+                let v = (down as f64 + 0.5) / STEPS as f64;
+                let point = quad[0].lerp(quad[1], u).lerp(quad[3].lerp(quad[2], u), v);
+                all += 1;
+                if !outline.contains(point) {
+                    out += 1;
+                }
+            }
+        }
+    }
+    if all == 0 {
+        0.0
+    } else {
+        out as f64 / all as f64
+    }
+}
+
+/// The rectangle a balloon of `bounds` safely holds text in: about its
+/// centre, as large as an oval of those bounds holds, 1/√2 of each side.
+fn holds(bounds: Rect) -> Rect {
+    let scale = std::f64::consts::FRAC_1_SQRT_2;
+    Rect::from_center_size(
+        bounds.center(),
+        (bounds.width() * scale, bounds.height() * scale),
+    )
+}
+
+/// The page's typical dialogue size: the median of what its dialogue is
+/// drawn at, when it has a few texts to stand for it.
+fn typical(measured: &[Measured]) -> Option<f32> {
+    let mut dialogue: Vec<f32> = measured
+        .iter()
+        .filter(|text| text.role == Role::Text)
+        .map(|text| text.size)
+        .collect();
+    dialogue.sort_by(f32::total_cmp);
+    (dialogue.len() >= 3).then(|| dialogue[dialogue.len() / 2])
 }
 
 /// The page's visible translated texts as `renderer` draws them, `page` its
@@ -206,14 +416,23 @@ fn measure(
             Some(Layer {
                 content: Content::Balloon(balloon),
                 ..
-            }) => Some(BezPath::from(&balloon.outline).bounding_box()),
+            }) => Some(BezPath::from(&balloon.outline)),
             _ => None,
         };
         let behind = (!outlined).then(|| behind(drawn, &quads, fill)).flatten();
+        let holder = match translation.frame {
+            Frame::Box { .. } => Holder::Box,
+            Frame::Path { .. } => Holder::Path,
+            Frame::Point => Holder::Point,
+        };
         measured.push(Measured {
             block: id,
             role: block.role,
             text: excerpt(translation),
+            full: whole(translation),
+            room: translation.bounds(),
+            holder,
+            transform,
             size,
             quads,
             overflowed: resolved.overflowed,
@@ -228,14 +447,7 @@ fn measure(
 
 /// What validation flags among `measured`, on a page of `page` bounds.
 pub(crate) fn flags(measured: &[Measured], page: Rect, config: &ValidationConfig) -> Vec<Flag> {
-    let mut dialogue: Vec<f32> = measured
-        .iter()
-        .filter(|text| text.role == Role::Text)
-        .map(|text| text.size)
-        .collect();
-    dialogue.sort_by(f32::total_cmp);
-    // A typical size needs a few texts to stand for the page.
-    let typical = (dialogue.len() >= 3).then(|| dialogue[dialogue.len() / 2]);
+    let typical = typical(measured);
     let minimum = (page.height() * config.min_size) as f32;
     let mut flags = Vec::new();
     for text in measured {
@@ -274,8 +486,9 @@ pub(crate) fn flags(measured: &[Measured], page: Rect, config: &ValidationConfig
             if (area - inside(page)) / area > 0.02 {
                 flags.push(flag(FlagKind::OffPage));
             }
-            if let Some(balloon) = text.balloon
-                && (area - inside(balloon)) / area > 0.1
+            // Against the outline itself: an oval's corners aren't inside it.
+            if let Some(balloon) = &text.balloon
+                && outside(&text.quads, balloon) > 0.05
             {
                 flags.push(flag(FlagKind::OutsideBalloon));
             }
@@ -435,15 +648,20 @@ fn luminance([r, g, b, _]: [f64; 4]) -> f64 {
     0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
 }
 
-/// The start of `text`'s content, on one line.
-fn excerpt(text: &Text) -> String {
+/// `text`'s content on one line.
+fn whole(text: &Text) -> String {
     let content: String = text
         .content
         .0
         .iter()
         .map(|span| span.insert.as_str())
         .collect();
-    let line = content.split_whitespace().collect::<Vec<_>>().join(" ");
+    content.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// The start of `text`'s content, on one line.
+fn excerpt(text: &Text) -> String {
+    let line = whole(text);
     match line.char_indices().nth(40) {
         Some((at, _)) => format!("{}…", &line[..at]),
         None => line,
@@ -543,6 +761,10 @@ mod tests {
             fill: 0.0,
             balloon: None,
             behind: None,
+            full: String::new(),
+            room: None,
+            holder: Holder::Box,
+            transform: Affine::IDENTITY,
         }
     }
 
@@ -606,12 +828,23 @@ mod tests {
     fn text_off_the_page_or_out_of_its_balloon_is_flagged() {
         let off = text(1, Role::Text, 30.0, Rect::new(950.0, 100.0, 1100.0, 130.0));
         let mut out = text(2, Role::Text, 30.0, Rect::new(100.0, 500.0, 300.0, 530.0));
-        out.balloon = Some(Rect::new(120.0, 480.0, 240.0, 560.0));
+        out.balloon = Some(Rect::new(120.0, 480.0, 240.0, 560.0).to_path(0.1));
+        // Inside a round balloon's rectangle, but over its curve.
+        let mut corner = text(3, Role::Text, 30.0, Rect::new(400.0, 400.0, 440.0, 420.0));
+        corner.balloon =
+            Some(kurbo::Ellipse::from_rect(Rect::new(400.0, 400.0, 600.0, 600.0)).to_path(0.1));
+        let mut centred = text(4, Role::Text, 30.0, Rect::new(460.0, 490.0, 540.0, 510.0));
+        centred.balloon = corner.balloon.clone();
         assert_eq!(
-            kinds(&flags(&[off, out], PAGE, &ValidationConfig::default())),
+            kinds(&flags(
+                &[off, out, corner, centred],
+                PAGE,
+                &ValidationConfig::default()
+            )),
             [
                 (id(1), FlagKind::OffPage),
-                (id(2), FlagKind::OutsideBalloon)
+                (id(2), FlagKind::OutsideBalloon),
+                (id(3), FlagKind::OutsideBalloon)
             ]
         );
     }

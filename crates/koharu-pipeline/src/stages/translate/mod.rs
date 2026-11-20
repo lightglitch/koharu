@@ -13,7 +13,7 @@ mod conversation;
 mod model;
 mod placement;
 mod repair;
-mod turn;
+pub(crate) mod turn;
 
 use anyhow::{Context as _, Result, ensure};
 use base64::Engine as _;

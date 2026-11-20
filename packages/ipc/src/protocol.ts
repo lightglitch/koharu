@@ -1027,6 +1027,14 @@ export type Typed = {
  *  size a text is drawn at, after fitting, in page pixels.
  */
 export type ValidationConfig = {
+  /**
+   *  The `vendor/model` that fixes what's flagged; the translator's when
+   *  empty. It must read images and be hosted, as an OpenAI-compatible
+   *  server is.
+   */
+  model?: string
+  /**  How many times a page is fixed and measured again; 0 only measures. */
+  max_iterations?: number
   /**  The smallest any text may be drawn, as a share of the page's height. */
   min_size?: number
   /**
@@ -1050,8 +1058,9 @@ export type ValidationConfig = {
    */
   contrast?: number
   /**
-   *  A text without an outline needs one over a background whose
-   *  lightness varies more than this, from 0 to 1: artwork, not a balloon.
+   *  A text without an outline needs one when more than this share of
+   *  what's behind its letters, their soft edges left out, is nearly as
+   *  dark as the text, or as light: the lines of artwork, not a balloon.
    */
   busy?: number
 }
