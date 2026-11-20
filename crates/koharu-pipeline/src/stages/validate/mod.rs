@@ -13,7 +13,7 @@ use std::collections::HashSet;
 
 use base64::Engine as _;
 use image::{DynamicImage, ImageFormat, Rgba, RgbaImage, imageops};
-use koharu_renderer::Renderer;
+use koharu_renderer::{Frame as RendererFrame, Raster, Renderer};
 use koharu_scene::{Content, Frame, Layer, LayerId, Project, Role, Text};
 use kurbo::{Affine, BezPath, Point, Rect, Shape as _};
 use serde::{Deserialize, Serialize};
@@ -55,8 +55,9 @@ pub struct ValidationConfig {
     /// WCAG measures it, against what's behind its letters.
     pub contrast: f64,
     /// A text without an outline needs one when more than this share of
-    /// what's behind its letters, their soft edges left out, is nearly as
-    /// dark as the text, or as light: the lines of artwork, not a balloon.
+    /// the page under and right around its letters, its translations left
+    /// out, is nearly as dark as the text, or as light: art through or
+    /// against the letters. A clean balloon measures 0.
     pub busy: f64,
 }
 
@@ -70,7 +71,7 @@ impl Default for ValidationConfig {
             big: 1.6,
             overlap: 0.05,
             contrast: 3.0,
-            busy: 0.15,
+            busy: 0.01,
         }
     }
 }
@@ -172,6 +173,12 @@ pub(crate) async fn validate(task: &Task, config: &PipelineConfig) -> anyhow::Re
     let mut remaining = loop {
         let fixing = !local && round < settings.max_iterations;
         let (flags, page) = look(&member, &settings, &accepted, fixing).await?;
+        tracing::info!(
+            page = member.index + 1,
+            round,
+            flags = ?flags.iter().map(|flag| (flag.kind, &flag.text)).collect::<Vec<_>>(),
+            "validation measured"
+        );
         let Some(page) = page.filter(|_| !flags.is_empty()) else {
             break flags;
         };
@@ -244,14 +251,14 @@ async fn look(
         let _span =
             info_span!("measure", stage = %Stage::Validate, page = read.index + 1).entered();
         let renderer = Renderer::get();
-        let (project, drawn) = {
+        let (project, frame) = {
             let session = read.session.lock();
-            let drawn = renderer.render(&session, read.page)?.rasterize()?;
-            (session.project(), drawn.image)
+            (session.project(), renderer.render(&session, read.page)?)
         };
+        let drawn = frame.rasterize()?.image;
         let size = project.page(read.page)?.size;
         let (width, height) = (f64::from(size.width), f64::from(size.height));
-        let measured = measure(&project, read.page, renderer, &drawn)?;
+        let measured = measure(&project, read.page, renderer, &frame)?;
         let mut flags = flags(&measured, Rect::new(0.0, 0.0, width, height), &settings);
         // A run on some blocks measures the whole page, for what's beside
         // them, and tells and fixes only what concerns them.
@@ -301,6 +308,7 @@ fn sight(
                 .balloon
                 .as_ref()
                 .map(|outline| holds(outline.bounding_box())),
+            fill: text.fill,
             holder: text.holder,
             transform: text.transform,
         })
@@ -372,14 +380,23 @@ fn typical(measured: &[Measured]) -> Option<f32> {
     (dialogue.len() >= 3).then(|| dialogue[dialogue.len() / 2])
 }
 
-/// The page's visible translated texts as `renderer` draws them, `page` its
-/// drawing in page pixels.
+/// The page's visible translated texts as `renderer` lays them out and
+/// `frame` draws them.
 fn measure(
     project: &Project,
     page: koharu_scene::PageId,
     renderer: &Renderer,
-    drawn: &RgbaImage,
+    frame: &RendererFrame,
 ) -> anyhow::Result<Vec<Measured>> {
+    // The page without its translations: what's behind each text's letters,
+    // the clean-up included, whatever its colour.
+    let translated: Vec<LayerId> = project
+        .blocks(page)?
+        .into_iter()
+        .filter(|(_, block)| block.translation.is_some())
+        .map(|(id, _)| id)
+        .collect();
+    let bare = frame.without(&translated).rasterize()?;
     let mut measured = Vec::new();
     for (id, block) in project.blocks(page)? {
         let Some(translation) = &block.translation else {
@@ -420,7 +437,11 @@ fn measure(
             }) => Some(BezPath::from(&balloon.outline)),
             _ => None,
         };
-        let behind = (!outlined).then(|| behind(drawn, &quads, fill)).flatten();
+        let behind = match frame.translation(id).filter(|_| !outlined) {
+            Some(drawn) => behind(&bare, &drawn.cropped().rasterize()?, fill),
+            None => None,
+        };
+        tracing::debug!(text = %excerpt(translation), ?behind, outlined, "validation behind");
         let holder = match translation.frame {
             Frame::Box { .. } => Holder::Box,
             Frame::Path { .. } => Holder::Path,
@@ -555,72 +576,51 @@ pub(crate) fn flags(measured: &[Measured], page: Rect, config: &ValidationConfig
     flags
 }
 
-/// What's behind `quads` on `drawn`. The pixels near `fill` are taken for
-/// the letters, and left out with a halo of `HALO` pixels round them, whose
-/// blend of letter and background isn't the background; `None` with too few
-/// left to tell.
-fn behind(drawn: &RgbaImage, quads: &[[Point; 4]], fill: [f32; 4]) -> Option<Behind> {
-    /// How far a letter's soft edge reaches, in pixels.
-    const HALO: i64 = 2;
+/// What's under and right around a text's letters on `bare`, the page
+/// without its translations: `letters` is the text drawn alone, whose opaque
+/// pixels are its letters, and `RING` pixels round them count, as art that
+/// touches a letter muddles it as much as art under it. `None` with too few
+/// to tell.
+fn behind(bare: &Raster, letters: &Raster, fill: [f32; 4]) -> Option<Behind> {
+    /// How far round a letter art still muddles it, in pixels.
+    const RING: i64 = 3;
     let text = luminance(fill.map(f64::from));
-    let fill = fill.map(|channel| f64::from(channel) * 255.0);
+    let (width, height) = (
+        i64::from(letters.image.width()),
+        i64::from(letters.image.height()),
+    );
+    let ink = |x: i64, y: i64| {
+        (0..width).contains(&x)
+            && (0..height).contains(&y)
+            && letters.image.get_pixel(x as u32, y as u32).0[3] > 128
+    };
     let (mut luminances, mut similar) = (Vec::new(), 0usize);
-    for quad in quads {
-        let bounds = quad
-            .iter()
-            .fold(Rect::from_points(quad[0], quad[0]), |rect, &corner| {
-                rect.union_pt(corner)
-            });
-        let (x0, y0) = (
-            bounds.x0.floor().max(0.0) as u32,
-            bounds.y0.floor().max(0.0) as u32,
-        );
-        let x1 = (bounds.x1.ceil() as u32).min(drawn.width());
-        let y1 = (bounds.y1.ceil() as u32).min(drawn.height());
-        if x1 <= x0 || y1 <= y0 {
-            continue;
-        }
-        let (width, height) = ((x1 - x0) as i64, (y1 - y0) as i64);
-        let at = |x: i64, y: i64| (y * width + x) as usize;
-        let mut ink = vec![false; (width * height) as usize];
-        for y in 0..height {
-            for x in 0..width {
-                let [r, g, b, _] = drawn
-                    .get_pixel(x0 + x as u32, y0 + y as u32)
-                    .0
-                    .map(f64::from);
-                ink[at(x, y)] =
-                    (r - fill[0]).abs() + (g - fill[1]).abs() + (b - fill[2]).abs() < 96.0;
+    for y in -RING..height + RING {
+        for x in -RING..width + RING {
+            let near = (-RING..=RING).any(|dy| (-RING..=RING).any(|dx| ink(x + dx, y + dy)));
+            if !near {
+                continue;
             }
-        }
-        for y in 0..height {
-            for x in 0..width {
-                let point = Point::new(
-                    f64::from(x0) + x as f64 + 0.5,
-                    f64::from(y0) + y as f64 + 0.5,
-                );
-                if !contains(quad, point) {
-                    continue;
-                }
-                let near_ink = (-HALO..=HALO).any(|dy| {
-                    (-HALO..=HALO).any(|dx| {
-                        let (nx, ny) = (x + dx, y + dy);
-                        (0..width).contains(&nx) && (0..height).contains(&ny) && ink[at(nx, ny)]
-                    })
-                });
-                if near_ink {
-                    continue;
-                }
-                let [r, g, b, _] = drawn
-                    .get_pixel(x0 + x as u32, y0 + y as u32)
-                    .0
-                    .map(|channel| f64::from(channel) / 255.0);
-                let behind = luminance([r, g, b, 1.0]);
-                if contrast(text, behind) < 2.0 {
-                    similar += 1;
-                }
-                luminances.push(behind);
+            // The same place on the bare page.
+            let px = i64::from(letters.offset.x) + x - i64::from(bare.offset.x);
+            let py = i64::from(letters.offset.y) + y - i64::from(bare.offset.y);
+            if !(0..i64::from(bare.image.width())).contains(&px)
+                || !(0..i64::from(bare.image.height())).contains(&py)
+            {
+                continue;
             }
+            // Over white, as the page shows where nothing's drawn.
+            let [r, g, b, a] = bare
+                .image
+                .get_pixel(px as u32, py as u32)
+                .0
+                .map(|channel| f64::from(channel) / 255.0);
+            let over = |channel: f64| channel * a + (1.0 - a);
+            let under = luminance([over(r), over(g), over(b), 1.0]);
+            if contrast(text, under) < 2.0 {
+                similar += 1;
+            }
+            luminances.push(under);
         }
     }
     if luminances.len() < 32 {
@@ -695,17 +695,6 @@ fn polygon_area(points: &[Point]) -> f64 {
 /// Which side of the edge `a`→`b` `point` is on: positive on its left.
 fn side(a: Point, b: Point, point: Point) -> f64 {
     (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x)
-}
-
-/// Whether the convex `quad` holds `point`, either winding.
-fn contains(quad: &[Point; 4], point: Point) -> bool {
-    let sides = (0..4).map(|at| side(quad[at], quad[(at + 1) % 4], point));
-    let (mut left, mut right) = (false, false);
-    for value in sides {
-        left |= value > 0.0;
-        right |= value < 0.0;
-    }
-    !(left && right)
 }
 
 /// `subject` cut to the convex `window`, by Sutherland and Hodgman's

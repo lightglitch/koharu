@@ -63,6 +63,8 @@ pub(super) struct Text {
     pub(super) room: Option<Rect>,
     /// Where its balloon safely holds text, when it's in one.
     pub(super) balloon: Option<Rect>,
+    /// Its fill's relative luminance, which an outline is unlike.
+    pub(super) fill: f64,
     pub(super) holder: Holder,
     /// Its own coordinates to the page's.
     pub(super) transform: Affine,
@@ -92,8 +94,6 @@ pub(super) struct Fix {
     size: Option<f64>,
     #[serde(default, rename = "box")]
     area: Option<[f64; 4]>,
-    #[serde(default)]
-    outline: Option<Outline>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
@@ -103,13 +103,6 @@ enum Action {
     Size,
     Box,
     Outline,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-enum Outline {
-    Black,
-    White,
 }
 
 #[derive(Deserialize)]
@@ -128,7 +121,7 @@ For each flagged text, answer one fix in \"fixes\", naming the text by its \"key
 - \"box\" with \"box\": [x, y, width, height], the area in page pixels it should fill: for dialogue, inside \
 its \"balloon\", the area its balloon safely holds text in, and off the other texts; anywhere on the art for a \
 sound effect.\n\
-- \"outline\" with \"outline\": \"black\" or \"white\", for text hard to tell from the art behind it.\n\
+- \"outline\", for text hard to tell from the art behind it: it gets an outline unlike its letters.\n\
 A text shrinks to fit its room, so a bigger size only shows where its room holds it: \
 for small text in a tight spot, answer a bigger \"box\" instead. \
 After your fixes the page is drawn and measured again; when what's still flagged comes back, \
@@ -236,9 +229,8 @@ fn schema(keys: &[&str]) -> Result<schemars::Schema> {
                         "action": {"type": "string", "enum": ["accept", "size", "box", "outline"]},
                         "size": {"type": ["number", "null"]},
                         "box": {"type": ["array", "null"], "items": {"type": "number"}},
-                        "outline": {"type": ["string", "null"], "enum": ["black", "white", null]},
                     },
-                    "required": ["key", "action", "size", "box", "outline"],
+                    "required": ["key", "action", "size", "box"],
                     "additionalProperties": false,
                 },
             },
@@ -334,13 +326,18 @@ pub(super) fn ops(
                 );
             }
             Action::Outline => {
-                let color = match fix.outline {
-                    Some(Outline::White) => [1.0, 1.0, 1.0, 1.0],
-                    _ => [0.0, 0.0, 0.0, 1.0],
+                // Unlike its letters, as a sound effect's outline is placed:
+                // black round light letters, white round any other. The
+                // model only says that it needs one; one it coloured black
+                // round black letters only made them bold.
+                let color = if text.fill > 0.5 {
+                    [0.0, 0.0, 0.0, 1.0]
+                } else {
+                    [1.0, 1.0, 1.0, 1.0]
                 };
-                // A sixteenth of its size, as a sound effect's outline is
-                // placed.
-                let width = f64::from(text.size) / scale / 16.0;
+                // An eighth of its size: over art, a sound effect's
+                // sixteenth leaves the letters touching the lines.
+                let width = f64::from(text.size) / scale / 8.0;
                 merge(
                     patch,
                     json!({"style": {"chars": {"stroke": color, "stroke_width": width}}}),
@@ -396,6 +393,7 @@ mod tests {
             letters: Rect::new(100.0, 100.0, 200.0, 130.0),
             room: Some(Rect::new(90.0, 90.0, 210.0, 200.0)),
             balloon: None,
+            fill: 0.0,
             holder: Holder::Path,
             transform: Affine::IDENTITY,
         };
@@ -424,10 +422,10 @@ mod tests {
     #[test]
     fn an_answer_reads_fenced_and_its_fixes_become_checked_patches() -> Result<()> {
         let answer = "```json\n{\"fixes\": [\
-            {\"key\": \"t1\", \"action\": \"size\", \"size\": 500, \"box\": null, \"outline\": null},\
-            {\"key\": \"t2\", \"action\": \"box\", \"size\": null, \"box\": [900, 10, 300, 50], \"outline\": null},\
-            {\"text\": \"Sfx!\", \"action\": \"outline\", \"size\": null, \"box\": null, \"outline\": \"white\"},\
-            {\"key\": \"t9\", \"action\": \"size\", \"size\": 20, \"box\": null, \"outline\": null}\
+            {\"key\": \"t1\", \"action\": \"size\", \"size\": 500, \"box\": null},\
+            {\"key\": \"t2\", \"action\": \"box\", \"size\": null, \"box\": [900, 10, 300, 50]},\
+            {\"text\": \"Sfx!\", \"action\": \"outline\", \"size\": null, \"box\": null, \"outline\": \"black\"},\
+            {\"key\": \"t9\", \"action\": \"size\", \"size\": 20, \"box\": null}\
         ]}\n```";
         let fixes = read(answer)?;
         let (ops, accepted) = ops(&page(), &fixes, &[], &ValidationConfig::default());
@@ -471,7 +469,6 @@ mod tests {
             action: Action::Accept,
             size: None,
             area: None,
-            outline: None,
         }];
         let flags = [flag(1, FlagKind::TooBig), flag(2, FlagKind::Overflow)];
         let (ops, accepted) = ops(&page(), &fixes, &flags, &ValidationConfig::default());

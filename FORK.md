@@ -177,12 +177,17 @@ Code: `components/editor/LayersHeader.tsx` and
     `koharu-renderer/src/text/arrange.rs`), turned with the text;
   - text off the page or out of its balloon;
   - text without an outline in low contrast with what's behind its letters,
-    or over artwork as dark (or light) as itself.
+    or with art as dark (or light) as itself under or within 3 pixels of
+    its letters (`busy`, 1% by default; a clean balloon measures 0). The
+    letters are the text drawn alone, and what's behind them the page drawn
+    without its translations (`Frame::without`), so black line art isn't
+    mistaken for black letters.
 - **Fixes** (`stages/validate/fix.rs`): while something's flagged and
   `max_iterations` rounds are left (3 by default, 0 only measures), a model is
   shown the page as drawn and its texts, and answers per flagged text, held to
-  a schema: `accept`, a `size`, a `box` in page pixels, or a black or white
-  `outline`.
+  a schema: `accept`, a `size`, a `box` in page pixels, or an `outline`.
+  Koharu colours the outline unlike the letters (white round dark ones) at an
+  eighth of their size; a model left to choose outlined black text in black.
   - Each fix is checked first: sizes are held to the page's range, boxes to
     the page, and a dialogue box to the area its balloon safely holds (1/√2
     of the balloon's bounds).
