@@ -14,27 +14,29 @@ import {
 } from '@/components/preferences/PreferenceFields'
 import { call, dispatch, refreshModels } from '@/lib/backend'
 import { queryClient } from '@/lib/queries'
+import { type Vendor, vendors } from '@/lib/vendors'
 import {
   Channel,
   commands,
+  type Endpoint,
   type Providers,
   type SignInPrompt,
-  type Vendor,
 } from '@koharu/ipc/protocol'
 import { Button } from '@koharu/ui/components/button'
 import { Input } from '@koharu/ui/components/input'
 
-const vendorsKey = ['vendors'] as const
+const connectedKey = ['connected-vendors'] as const
 
-/** Lists the vendors and models again after a key or a sign-in changed. */
+/** Asks again which vendors are connected, and lists the models again, after a key or a sign-in
+ * changed. */
 async function vendorsChanged() {
-  await queryClient.invalidateQueries({ queryKey: vendorsKey })
+  await queryClient.invalidateQueries({ queryKey: connectedKey })
   await refreshModels(true)
 }
 
 /** Each vendor's API key, or its sign-in for one the user signs in to with their plan, kept in
  * the OS credential store and saved apart from `config.toml`, and the `[providers]` base URL for a
- * vendor whose server the user names. */
+ * vendor whose server the user names, with the context window of a server that doesn't say. */
 export function ProviderPreferences({
   value,
   onChange,
@@ -43,10 +45,24 @@ export function ProviderPreferences({
   onChange: (value: Providers) => void
 }) {
   const { t } = useTranslation()
-  const vendors = useQuery({
-    queryKey: vendorsKey,
-    queryFn: () => call(commands.listVendors),
+  const connected = useQuery({
+    queryKey: connectedKey,
+    queryFn: () =>
+      call(
+        commands.listConnected,
+        vendors.map((vendor) => vendor.name),
+      ),
   })
+  /** `vendor`'s endpoint with `patch` merged in; an endpoint with nothing left set goes. */
+  const update = (vendor: string, patch: Endpoint) => {
+    const endpoint: Endpoint = { ...value[vendor], ...patch }
+    if (!endpoint.base_url) delete endpoint.base_url
+    if (!endpoint.context_window) delete endpoint.context_window
+    const next = { ...value }
+    if (Object.keys(endpoint).length > 0) next[vendor] = endpoint
+    else delete next[vendor]
+    onChange(next)
+  }
   return (
     <PreferencePage
       title={t('settings.providers.title')}
@@ -56,26 +72,30 @@ export function ProviderPreferences({
         title={t('settings.providers.connections')}
         description={t('settings.providers.connectionsDescription')}
       >
-        {(vendors.data ?? []).map((vendor) => (
+        {vendors.map((vendor) => (
           <PreferenceRow key={vendor.name} title={vendorName(vendor.name, t)} align='start'>
             <div className='grid gap-2'>
-              {vendor.signs_in ? <SignInField vendor={vendor} /> : <KeyField vendor={vendor} />}
+              {vendor.signsIn ? (
+                <SignInField
+                  vendor={vendor}
+                  connected={connected.data?.includes(vendor.name) ?? false}
+                />
+              ) : (
+                <KeyField
+                  vendor={vendor}
+                  connected={connected.data?.includes(vendor.name) ?? false}
+                />
+              )}
               {vendor.server && (
                 <BaseUrlField
                   value={value[vendor.name]?.base_url ?? ''}
-                  onChange={(base_url) =>
-                    onChange(withEndpoint(value, vendor.name, { base_url: base_url || undefined }))
-                  }
+                  onChange={(base_url) => update(vendor.name, { base_url })}
                 />
               )}
-              {/* Fork addition: the window a server's models hold, which only an
-                  OpenAI-compatible server leaves unknown. */}
-              {vendor.name === 'openai-compatible' && (
-                <ContextField
-                  value={value[vendor.name]?.context ?? null}
-                  onChange={(context) =>
-                    onChange(withEndpoint(value, vendor.name, { context: context ?? undefined }))
-                  }
+              {vendor.contextWindow && (
+                <ContextWindowField
+                  value={value[vendor.name]?.context_window ?? null}
+                  onChange={(context_window) => update(vendor.name, { context_window })}
                 />
               )}
             </div>
@@ -87,7 +107,7 @@ export function ProviderPreferences({
 }
 
 /** A vendor's key, written to the credential store when the field loses the focus. */
-function KeyField({ vendor }: { vendor: Vendor }) {
+function KeyField({ vendor, connected }: { vendor: Vendor; connected: boolean }) {
   const { t } = useTranslation()
   const inputId = useId()
   const [draft, setDraft] = useState('')
@@ -116,9 +136,7 @@ function KeyField({ vendor }: { vendor: Vendor }) {
           spellCheck={false}
           value={draft}
           placeholder={
-            vendor.connected
-              ? t('settings.providers.configured')
-              : t('settings.providers.notConfigured')
+            connected ? t('settings.providers.configured') : t('settings.providers.notConfigured')
           }
           className='h-8 min-w-0 flex-1 text-[12px] [-webkit-text-security:disc] [&::placeholder]:[-webkit-text-security:none]'
           onChange={(event) => setDraft(event.currentTarget.value)}
@@ -127,7 +145,7 @@ function KeyField({ vendor }: { vendor: Vendor }) {
             if (event.key === 'Enter') event.currentTarget.blur()
           }}
         />
-        {vendor.connected && (
+        {connected && (
           <Button
             type='button'
             variant='outline'
@@ -145,7 +163,7 @@ function KeyField({ vendor }: { vendor: Vendor }) {
 
 /** A vendor's sign-in with the user's plan: a button that signs in, showing the page and the code
  * the sign-in waits on, or signs out. The browser opens on the page unless the sign-in opened it. */
-function SignInField({ vendor }: { vendor: Vendor }) {
+function SignInField({ vendor, connected }: { vendor: Vendor; connected: boolean }) {
   const { t } = useTranslation()
   const [waiting, setWaiting] = useState(false)
   const [prompt, setPrompt] = useState<SignInPrompt | null>(null)
@@ -221,65 +239,16 @@ function SignInField({ vendor }: { vendor: Vendor }) {
           size='sm'
           className='justify-self-start'
           aria-label={
-            vendor.connected
+            connected
               ? t('settings.providers.signOutLabel', { provider: name })
               : t('settings.providers.signInLabel', { provider: name })
           }
-          onClick={vendor.connected ? signOut : () => void signIn()}
+          onClick={connected ? signOut : () => void signIn()}
         >
-          {vendor.connected ? t('settings.providers.signOut') : t('settings.providers.signIn')}
+          {connected ? t('settings.providers.signOut') : t('settings.providers.signIn')}
         </Button>
       )}
     </div>
-  )
-}
-
-/** `providers` with `vendor`'s endpoint changed by `change`, which keeps its other fields; an
- * endpoint left with none goes. */
-function withEndpoint(
-  providers: Providers,
-  vendor: string,
-  change: Partial<NonNullable<Providers[string]>>,
-): Providers {
-  const endpoint = { ...providers[vendor], ...change }
-  const kept = Object.fromEntries(
-    Object.entries(endpoint).filter(([, field]) => field !== undefined && field !== null),
-  )
-  const next = { ...providers }
-  if (Object.keys(kept).length) next[vendor] = kept
-  else delete next[vendor]
-  return next
-}
-
-/** The tokens a server's models hold, which reach the preferences when the field loses the focus
- * holding a whole number, or nothing while it's empty. */
-function ContextField({
-  value,
-  onChange,
-}: {
-  value: number | null
-  onChange: (value: number | null) => void
-}) {
-  const { t } = useTranslation()
-  const [draft, setDraft] = useState(value === null ? '' : String(value))
-  const parsed = draft.trim() === '' ? null : Number(draft)
-  const valid = parsed === null || (Number.isInteger(parsed) && parsed > 0 && parsed < 2 ** 32)
-  return (
-    <label className='grid gap-1 text-[10px] text-muted-foreground'>
-      {t('settings.providers.context')}
-      <Input
-        type='number'
-        inputMode='numeric'
-        min={1}
-        placeholder={t('settings.providers.contextUnknown')}
-        value={draft}
-        aria-invalid={!valid}
-        className='h-8 text-[12px] text-foreground'
-        onChange={(event) => setDraft(event.currentTarget.value)}
-        onBlur={() => valid && parsed !== value && onChange(parsed)}
-      />
-      <span>{t('settings.providers.contextHint')}</span>
-    </label>
   )
 }
 
@@ -299,6 +268,38 @@ function BaseUrlField({ value, onChange }: { value: string; onChange: (value: st
         className='h-8 text-[12px] text-foreground'
         onChange={(event) => setDraft(event.currentTarget.value)}
         onBlur={() => valid && draft !== value && onChange(draft)}
+      />
+    </label>
+  )
+}
+
+/** The context window, in tokens, that a server runs its models with, such as llama.cpp's
+ * `--ctx-size`, which reaches the preferences when the field loses the focus holding a whole
+ * number, or nothing while the server's is unknown. */
+function ContextWindowField({
+  value,
+  onChange,
+}: {
+  value: number | null
+  onChange: (value: number | null) => void
+}) {
+  const { t } = useTranslation()
+  const [draft, setDraft] = useState(value === null ? '' : String(value))
+  const tokens = draft === '' ? null : Number(draft)
+  const valid = tokens === null || (Number.isInteger(tokens) && tokens > 0 && tokens < 2 ** 32)
+  return (
+    <label className='grid gap-1 text-[10px] text-muted-foreground'>
+      {t('settings.providers.contextWindow')}
+      <Input
+        type='number'
+        inputMode='numeric'
+        min={1}
+        step={1}
+        value={draft}
+        aria-invalid={!valid}
+        className='h-8 text-[12px] text-foreground'
+        onChange={(event) => setDraft(event.currentTarget.value)}
+        onBlur={() => valid && tokens !== value && onChange(tokens)}
       />
     </label>
   )

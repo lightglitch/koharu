@@ -450,6 +450,7 @@
       "configured": "已配置",
       "connections": "连接",
       "connectionsDescription": "凭据安全地存储在此设备上。",
+      "contextWindow": "上下文长度（token）",
       "credential": "凭据",
       "credentialLabel": "{{provider}} 凭据",
       "description": "连接翻译和语言模型提供商。",
@@ -463,10 +464,7 @@
       "signOutLabel": "退出 {{provider}} 登录",
       "signingIn": "正在等待登录…",
       "subscription": "订阅",
-      "title": "提供商",
-      "context": "上下文窗口",
-      "contextUnknown": "未知",
-      "contextHint": "服务器模型可容纳的令牌数，例如它的 --ctx-size。达到上限前，Koharu 会总结之前的页面。"
+      "title": "提供商"
     },
     "tabs": {
       "appearance": "外观",

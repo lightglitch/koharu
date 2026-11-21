@@ -450,6 +450,7 @@
       "configured": "已設定",
       "connections": "連線",
       "connectionsDescription": "認證資訊會安全地儲存在此裝置上。",
+      "contextWindow": "上下文長度（token）",
       "credential": "認證資訊",
       "credentialLabel": "{{provider}} 認證資訊",
       "description": "連線翻譯和語言模型提供者。",
@@ -463,10 +464,7 @@
       "signOutLabel": "登出 {{provider}}",
       "signingIn": "正在等待登入…",
       "subscription": "訂閱",
-      "title": "提供者",
-      "context": "上下文視窗",
-      "contextUnknown": "未知",
-      "contextHint": "伺服器模型可容納的權杖數，例如它的 --ctx-size。達到上限前，Koharu 會摘要先前的頁面。"
+      "title": "提供者"
     },
     "tabs": {
       "appearance": "外觀",

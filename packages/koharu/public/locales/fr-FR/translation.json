@@ -450,6 +450,7 @@
       "configured": "Configuré",
       "connections": "Connexions",
       "connectionsDescription": "Les identifiants sont stockés de façon sécurisée sur cet appareil.",
+      "contextWindow": "Longueur du contexte (jetons)",
       "credential": "Identifiants",
       "credentialLabel": "Identifiants {{provider}}",
       "description": "Connectez des fournisseurs de traduction et de modèles de langage.",
@@ -463,10 +464,7 @@
       "signOutLabel": "Se déconnecter de {{provider}}",
       "signingIn": "En attente de connexion…",
       "subscription": "Abonnement",
-      "title": "Fournisseurs",
-      "context": "Fenêtre de contexte",
-      "contextUnknown": "Inconnue",
-      "contextHint": "Jetons que le modèle du serveur accepte, comme son --ctx-size. Koharu résume les pages précédentes avant d'atteindre la limite."
+      "title": "Fournisseurs"
     },
     "tabs": {
       "appearance": "Apparence",

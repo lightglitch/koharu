@@ -450,6 +450,7 @@
       "configured": "設定済み",
       "connections": "接続",
       "connectionsDescription": "認証情報はこのデバイスに安全に保存されます。",
+      "contextWindow": "コンテキスト長（トークン）",
       "credential": "認証情報",
       "credentialLabel": "{{provider}}の認証情報",
       "description": "翻訳および言語モデルのプロバイダーに接続します。",
@@ -463,10 +464,7 @@
       "signOutLabel": "{{provider}}からサインアウト",
       "signingIn": "サインインを待機中…",
       "subscription": "サブスクリプション",
-      "title": "プロバイダー",
-      "context": "コンテキスト長",
-      "contextUnknown": "不明",
-      "contextHint": "サーバーのモデルが扱えるトークン数（--ctx-size など）。上限に達する前に、Koharu が前のページを要約します。"
+      "title": "プロバイダー"
     },
     "tabs": {
       "appearance": "外観",

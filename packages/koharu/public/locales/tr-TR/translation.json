@@ -450,6 +450,7 @@
       "configured": "Yapılandırıldı",
       "connections": "Bağlantılar",
       "connectionsDescription": "Kimlik bilgileri bu cihazda güvenli bir şekilde saklanır.",
+      "contextWindow": "Bağlam uzunluğu (token)",
       "credential": "Kimlik bilgisi",
       "credentialLabel": "{{provider}} kimlik bilgisi",
       "description": "Çeviri ve dil modeli sağlayıcılarını bağlayın.",
@@ -463,10 +464,7 @@
       "signOutLabel": "{{provider}} oturumunu kapat",
       "signingIn": "Oturum açma bekleniyor…",
       "subscription": "Abonelik",
-      "title": "Sağlayıcılar",
-      "context": "Bağlam penceresi",
-      "contextUnknown": "Bilinmiyor",
-      "contextHint": "Sunucudaki modelin aldığı token sayısı, örneğin --ctx-size değeri. Koharu sınıra ulaşmadan önceki sayfaları özetler."
+      "title": "Sağlayıcılar"
     },
     "tabs": {
       "appearance": "Görünüm",

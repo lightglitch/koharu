@@ -172,18 +172,6 @@ Code: `components/editor/LayersHeader.tsx` and
 - Run it from the release build in `release/`, which has the models in
   `release\store`. It loads models into the same GPU memory as an open app.
 
-### Context window for an OpenAI-compatible server
-
-- `[providers.<vendor>] context` (`Endpoint` in
-  `crates/koharu-llm/src/hosted/mod.rs`) is the tokens a server's models hold,
-  such as llama.cpp's `--ctx-size`. The OpenAI-compatible provider
-  (`hosted/openai_compatible.rs`) gives it to the model as its context window,
-  so a translation's history is summarized before the server refuses it.
-  Upstream leaves such a model's window unknown, and its history then grows
-  until the server refuses every page.
-- Settings shows it under the OpenAI-compatible provider (`ContextField` in
-  `ProviderPreferences.tsx`). Saving the base URL keeps it (`withEndpoint`).
-
 ### Validation stage
 
 - A fifth pipeline stage, **Validate**, after Translate
@@ -349,6 +337,8 @@ These went upstream from the fork or were made unnecessary by upstream:
 - the translator's error diagnostics (#1022);
 - the detection crash on a region a pixel across (imageproc patched upstream
   in 0.86.4, `daaa6b5e`; the fork's `connected_components` wrapper was dropped);
+- an OpenAI-compatible server's context window in Settings (upstream
+  `83ec928e`, as `context_window`; the fork's `context` was dropped);
 - re-detecting a page whose text was deleted (detection now always replaces a
   page's blocks).
 

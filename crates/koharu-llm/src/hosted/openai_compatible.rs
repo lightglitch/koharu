@@ -14,7 +14,7 @@ use rig_core::{
     },
 };
 
-use super::{Http, context, key, unlisted};
+use super::{Http, key, unlisted};
 
 pub(crate) const PROVIDER_NAME: &str = "openai-compatible";
 
@@ -26,22 +26,27 @@ fn client(base_url: String) -> Result<OpenAI> {
         .connect(Http::default()))
 }
 
-pub(super) fn connect(id: &str, base_url: Option<String>) -> Result<DynModel<Completion>> {
+pub(super) fn connect(
+    id: &str,
+    base_url: Option<String>,
+    context_window: Option<u32>,
+) -> Result<DynModel<Completion>> {
     let base_url = base_url.context("the OpenAI-compatible server has no base URL")?;
     let mut model = client(base_url)?.chat(id);
     let vendor = ProviderId::declare(PROVIDER_NAME)?;
-    let mut spec = unlisted(vendor, id);
-    // The window the settings give, which the server doesn't say: with it, a
-    // translation's history is summarized before the server refuses it.
-    spec.context_window = context(PROVIDER_NAME)?;
-    model.wire = model.wire.with_facts(ModelFacts::new(spec));
+    model.wire = model
+        .wire
+        .with_facts(ModelFacts::new(spec(vendor, id, context_window)));
     Ok(model.erase())
 }
 
 /// The server's `/models` list, or none while it has no base URL. The list
 /// says nothing of what a model can do, so each is offered with its limits
-/// unknown.
-pub(super) async fn models(base_url: Option<String>) -> Result<Vec<ModelSpec>> {
+/// unknown but the context window the user gives the server.
+pub(super) async fn models(
+    base_url: Option<String>,
+    context_window: Option<u32>,
+) -> Result<Vec<ModelSpec>> {
     let Some(base_url) = base_url else {
         return Ok(Vec::new());
     };
@@ -52,7 +57,16 @@ pub(super) async fn models(base_url: Option<String>) -> Result<Vec<ModelSpec>> {
         .into_iter()
         .map(|model| {
             let name = model.name.clone().unwrap_or_else(|| model.id.clone());
-            unlisted(vendor, &model.id).with_display_name(name)
+            spec(vendor, &model.id, context_window).with_display_name(name)
         })
         .collect())
+}
+
+/// A model the server runs, within the context window the user gives it.
+fn spec(vendor: ProviderId, id: &str, context_window: Option<u32>) -> ModelSpec {
+    let spec = unlisted(vendor, id);
+    match context_window {
+        Some(tokens) => spec.with_context_window(tokens),
+        None => spec,
+    }
 }

@@ -257,12 +257,13 @@ export type Edit = {
 export type Endpoint = {
   base_url?: string | null
   /**
-   *  Fork addition: the tokens the server's models hold, such as
-   *  llama.cpp's `--ctx-size`, for a server whose models the catalog
-   *  doesn't know, so a conversation is summarized before it outgrows
-   *  them. Unknown when unset, and then never summarized.
+   *  The context window, in tokens, an OpenAI-compatible server runs its
+   *  models with, which it doesn't say: llama.cpp's server runs every model
+   *  it serves with one `--ctx-size`, and Zed's OpenAI-compatible provider
+   *  is told each model's `max_tokens`. A conversation keeps inside it;
+   *  unset, it grows until the server cuts it off.
    */
-  context?: number | null
+  context_window?: number | null
 }
 
 /**  A command's failure, as its message with its causes. */
@@ -1082,18 +1083,6 @@ export type ValidationConfig = {
 export type Value = null | boolean | number | string | Value[] | { [key in string]: Value }
 
 /**
- *  A vendor, by rig's name: whether the user signs in to it with their plan
- *  in place of giving an API key, whether they name its server by a base
- *  URL, and whether its sign-in or key is stored.
- */
-export type Vendor = {
-  name: string
-  signs_in: boolean
-  server: boolean
-  connected: boolean
-}
-
-/**
  *  What the chosen tool did: a turn of `steps` notches, clockwise positive,
  *  or a press.
  */
@@ -1160,10 +1149,12 @@ export const commands = {
   /** Saves every section, hands each to its owner, and answers them as the file holds them now. */
   savePreferences: (preferences: Preferences) =>
     invoke<Preferences>('save_preferences', { preferences }, { headers: headers() }),
-  /** Koharu's own models, and each vendor's that has a key or a sign-in. */
-  listModels: () => invoke<Model[]>('list_models', {}, { headers: headers() }),
-  /** Every vendor Koharu lists models from, in its order. */
-  listVendors: () => invoke<Vendor[]>('list_vendors', {}, { headers: headers() }),
+  /** Koharu's own models, and each of `vendors`' that has a key or a sign-in, by rig's names, which the interface keeps. */
+  listModels: (vendors: string[]) =>
+    invoke<Model[]>('list_models', { vendors }, { headers: headers() }),
+  /** Those of `vendors`, by rig's names, whose sign-in or key is stored. */
+  listConnected: (vendors: string[]) =>
+    invoke<string[]>('list_connected', { vendors }, { headers: headers() }),
   /** Stores `vendor`'s API key, encrypted with the key the OS credential store keeps, or forgets it for `None`. */
   setApiKey: (vendor: string, key: string | null) =>
     invoke<null>('set_api_key', { vendor, key }, { headers: headers() }),

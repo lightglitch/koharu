@@ -7,52 +7,19 @@ mod http;
 mod lm_studio;
 pub(crate) mod openai_compatible;
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, num::NonZeroU32};
 
 use anyhow::{Context, Result, bail, ensure};
 use rig_core::{
     catalog::{Catalog, ModelSpec, ReasoningSupport},
     driver::DynModel,
     operation::Completion,
-    providers::{
-        anthropic, deepseek, gemini, minimax, ollama, openai, openrouter,
-        registry::{ConnectOptions, ProviderConfig, ProviderId},
-        xai,
-    },
+    providers::registry::{ConnectOptions, ProviderConfig, ProviderId},
 };
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 
 pub(crate) use http::{Http, SignIn, reqwest};
-
-/// The vendors Koharu lists models from, by rig's names.
-pub const VENDORS: &[&str] = &[
-    openai::PROVIDER_NAME,
-    anthropic::PROVIDER_NAME,
-    gemini::PROVIDER_NAME,
-    xai::PROVIDER_NAME,
-    deepseek::PROVIDER_NAME,
-    minimax::PROVIDER_NAME,
-    openrouter::PROVIDER_NAME,
-    chatgpt::PROVIDER_NAME,
-    grok::PROVIDER_NAME,
-    ollama::PROVIDER_NAME,
-    lm_studio::PROVIDER_NAME,
-    openai_compatible::PROVIDER_NAME,
-];
-
-/// The vendors whose server the user names by its base URL: one they run, or
-/// one that speaks OpenAI's format. Every vendor still reads a base URL from
-/// `[providers]`.
-pub const SERVERS: &[&str] = &[
-    ollama::PROVIDER_NAME,
-    lm_studio::PROVIDER_NAME,
-    openai_compatible::PROVIDER_NAME,
-];
-
-/// The vendors the user signs in to with their plan, in place of an API key.
-/// The sign-in is kept under the vendor's name, where a key would be.
-pub const SIGN_INS: &[&str] = &[chatgpt::PROVIDER_NAME, grok::PROVIDER_NAME];
 
 /// What a sign-in asks of the user: to sign in on a page, entering a code
 /// there for a device code.
@@ -64,8 +31,9 @@ pub struct SignInPrompt {
     pub code: Option<String>,
 }
 
-/// Signs in to `vendor`, one of [`SIGN_INS`], telling `prompt` what the
-/// user must do.
+/// Signs in to `vendor`, ChatGPT or Grok, with the user's plan in place of
+/// an API key, telling `prompt` what the user must do. The sign-in is kept
+/// under the vendor's name, where a key would be.
 pub async fn sign_in(
     vendor: &str,
     prompt: impl Fn(SignInPrompt) + Send + Sync + 'static,
@@ -77,8 +45,8 @@ pub async fn sign_in(
     }
 }
 
-/// Signs out of `vendor`, one of [`SIGN_INS`]: the vendor revokes the
-/// sign-in, and Koharu deletes it.
+/// Signs out of `vendor`, one [`sign_in`] signs in to: the vendor revokes
+/// the sign-in, and Koharu deletes it.
 pub async fn sign_out(vendor: &str) -> Result<()> {
     match vendor {
         chatgpt::PROVIDER_NAME => chatgpt::sign_out().await,
@@ -105,12 +73,13 @@ impl koharu_config::Section for Providers {
 pub struct Endpoint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_url: Option<url::Url>,
-    /// Fork addition: the tokens the server's models hold, such as
-    /// llama.cpp's `--ctx-size`, for a server whose models the catalog
-    /// doesn't know, so a conversation is summarized before it outgrows
-    /// them. Unknown when unset, and then never summarized.
+    /// The context window, in tokens, an OpenAI-compatible server runs its
+    /// models with, which it doesn't say: llama.cpp's server runs every model
+    /// it serves with one `--ctx-size`, and Zed's OpenAI-compatible provider
+    /// is told each model's `max_tokens`. A conversation keeps inside it;
+    /// unset, it grows until the server cuts it off.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub context: Option<u32>,
+    pub context_window: Option<NonZeroU32>,
 }
 
 /// The base URL `[providers]` sets for `vendor`, if it sets one.
@@ -123,13 +92,14 @@ fn base_url(vendor: &str) -> Result<Option<String>> {
         .map(|url| url.as_str().trim_end_matches('/').to_owned()))
 }
 
-/// The context window `[providers]` sets for `vendor`, if it sets one.
-fn context(vendor: &str) -> Result<Option<u32>> {
+/// The context window `[providers]` gives `vendor`'s server, if it gives one.
+fn context_window(vendor: &str) -> Result<Option<u32>> {
     let providers: Providers = koharu_config::get()?;
     Ok(providers
         .0
         .get(vendor)
-        .and_then(|endpoint| endpoint.context))
+        .and_then(|endpoint| endpoint.context_window)
+        .map(NonZeroU32::get))
 }
 
 /// The vendor's API key, stored under its rig name.
@@ -147,7 +117,9 @@ pub(crate) fn connect(vendor: &str, id: &str) -> Result<DynModel<Completion>> {
     match vendor {
         grok::PROVIDER_NAME => return grok::connect(id, base_url),
         lm_studio::PROVIDER_NAME => return lm_studio::connect(id, base_url),
-        openai_compatible::PROVIDER_NAME => return openai_compatible::connect(id, base_url),
+        openai_compatible::PROVIDER_NAME => {
+            return openai_compatible::connect(id, base_url, context_window(vendor)?);
+        }
         _ => {}
     }
     let selection = catalog_id(vendor)?;
@@ -208,7 +180,7 @@ pub(crate) async fn models(vendor: &str) -> Result<Vec<ModelSpec>> {
         grok::PROVIDER_NAME => return grok::models(base_url(vendor)?).await,
         lm_studio::PROVIDER_NAME => return lm_studio::models(base_url(vendor)?).await,
         openai_compatible::PROVIDER_NAME => {
-            return openai_compatible::models(base_url(vendor)?).await;
+            return openai_compatible::models(base_url(vendor)?, context_window(vendor)?).await;
         }
         _ => {}
     }
@@ -256,20 +228,27 @@ pub(crate) async fn models(vendor: &str) -> Result<Vec<ModelSpec>> {
 
 #[cfg(test)]
 mod tests {
+    use rig_core::providers::{
+        anthropic, deepseek, gemini, minimax, ollama, openai, openrouter, xai,
+    };
+
     use super::*;
 
     /// Every vendor rig configures connects in its OpenAI, Anthropic, or
     /// Gemini format, and a model the catalog doesn't list keeps its id.
     #[test]
     fn every_vendor_connects() {
-        for vendor in VENDORS.iter().filter(|vendor| {
-            ![
-                grok::PROVIDER_NAME,
-                lm_studio::PROVIDER_NAME,
-                openai_compatible::PROVIDER_NAME,
-            ]
-            .contains(vendor)
-        }) {
+        for vendor in [
+            openai::PROVIDER_NAME,
+            anthropic::PROVIDER_NAME,
+            gemini::PROVIDER_NAME,
+            xai::PROVIDER_NAME,
+            deepseek::PROVIDER_NAME,
+            minimax::PROVIDER_NAME,
+            openrouter::PROVIDER_NAME,
+            chatgpt::PROVIDER_NAME,
+            ollama::PROVIDER_NAME,
+        ] {
             let spec = spec(catalog_id(vendor).unwrap(), "a-model-from-next-year");
             let options = ConnectOptions::new().api_key("key").http(Http::default());
             let model = Catalog::builtin().connect_with(&spec, options).unwrap();

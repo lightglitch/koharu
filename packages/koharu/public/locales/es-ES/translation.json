@@ -450,6 +450,7 @@
       "configured": "Configurado",
       "connections": "Conexiones",
       "connectionsDescription": "Las credenciales se almacenan de forma segura en este dispositivo.",
+      "contextWindow": "Longitud del contexto (tokens)",
       "credential": "Credencial",
       "credentialLabel": "Credencial de {{provider}}",
       "description": "Conecta proveedores de traducción y modelos de lenguaje.",
@@ -463,10 +464,7 @@
       "signOutLabel": "Cerrar sesión en {{provider}}",
       "signingIn": "Esperando el inicio de sesión…",
       "subscription": "Suscripción",
-      "title": "Proveedores",
-      "context": "Ventana de contexto",
-      "contextUnknown": "Desconocida",
-      "contextHint": "Tokens que admite el modelo del servidor, como su --ctx-size. Koharu resume las páginas anteriores antes de llegar al límite."
+      "title": "Proveedores"
     },
     "tabs": {
       "appearance": "Apariencia",
