@@ -7,27 +7,11 @@ import { I18nextProvider } from 'react-i18next'
 import { StartupView } from '@/components/app/StartupView'
 import { Updater } from '@/components/app/Updater'
 import ClientOnly from '@/components/ClientOnly'
-import { refreshModels, refreshPreferences } from '@/lib/backend'
+import { hear } from '@/lib/events'
 import i18n from '@/lib/i18n'
-import {
-  pageKey,
-  pagesKey,
-  projectKey,
-  queryClient,
-  refresh,
-  type ProjectView,
-} from '@/lib/queries'
-import {
-  receiveCanvasSelection,
-  receiveDownload,
-  receivePickedColor,
-  receivePipeline,
-  receiveRuns,
-  rgbaToHex,
-  useKoharuStore,
-} from '@/lib/store'
-import { commands, events, type Change, type PageId } from '@koharu/ipc/protocol'
-import { toast, Toaster } from '@koharu/ui/components/toast'
+import { queryClient } from '@/lib/queries'
+import { useKoharuStore } from '@/lib/store'
+import { Toaster } from '@koharu/ui/components/toast'
 import { TooltipProvider } from '@koharu/ui/components/tooltip'
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -38,45 +22,7 @@ export function Providers({ children }: { children: ReactNode }) {
     lifecycle.active = true
     if (!lifecycle.bound) {
       lifecycle.bound = true
-      const listen = <T,>(
-        event: (handler: (payload: T) => void) => Promise<unknown>,
-        receive: (payload: T) => void,
-      ) =>
-        event((payload) => {
-          if (lifecycle.active) receive(payload)
-        })
-
-      void refreshPreferences().catch(() => undefined)
-      void refreshModels().catch(() => undefined)
-
-      // Listening first, so nothing told while the runs load is missed.
-      void Promise.all([
-        listen(events.change, receiveChange),
-        listen(events.project, receiveProject),
-        listen(events.page, receivePage),
-        listen(events.selection, receiveCanvasSelection),
-        listen(events.camera, (camera) => useKoharuStore.setState({ camera })),
-        listen(events.selectionBounds, (selectionBounds) =>
-          useKoharuStore.setState({ selectionBounds }),
-        ),
-        listen(events.area, (area) => useKoharuStore.setState({ area })),
-        listen(events.typing, (typing) => useKoharuStore.setState({ typing })),
-        listen(events.color, (color) => receivePickedColor(rgbaToHex(color))),
-        listen(events.brushDiameter, (diameter) => {
-          const store = useKoharuStore.getState()
-          store.setBrush({ ...store.brush, diameter })
-        }),
-        listen(events.notice, (notice) =>
-          toast.add({ type: 'info', title: i18n.t(`canvas.notice.${notice}`) }),
-        ),
-        listen(events.pipeline, receivePipeline),
-        listen(events.download, receiveDownload),
-      ])
-        .then(() => commands.getPipelineEvents())
-        .then((runs) => {
-          if (lifecycle.active) receiveRuns(runs)
-        })
-        .catch(() => undefined)
+      void hear(() => lifecycle.active).catch(() => undefined)
     }
 
     return () => {
@@ -94,34 +40,29 @@ export function Providers({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Prevent the host webview from applying browser zoom; keep Ctrl+wheel for app handlers.
+    // The webview is the app's window, not a browser tab: it applies no browser zoom, keeping
+    // Ctrl+wheel for the app's handlers, and opens no browser menu on a right-click, where the
+    // app shows its own menu or none. A text field keeps its edit menu, as Clip Studio Paint's do.
     const preventViewportScaling = (event: WheelEvent) => {
       if (event.ctrlKey) event.preventDefault()
     }
-
-    window.addEventListener('wheel', preventViewportScaling, { capture: true, passive: false })
-    return () => window.removeEventListener('wheel', preventViewportScaling, { capture: true })
-  }, [])
-
-  // CEF's own context menu offers browser actions that mean nothing in the editor, so it is kept
-  // only where native Copy, Paste and spelling apply: fields, editable content, and the text the
-  // app marks selectable. The listener bubbles on the document and never stops propagation, so the
-  // app's own context menus open first and still work. Development keeps the menu for Inspect.
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') return
-    const suppress = (event: MouseEvent) => {
+    // Fork addition: text the app marks selectable keeps the menu too, for native Copy, and
+    // development keeps it everywhere, for Inspect.
+    const preventBrowserMenu = (event: MouseEvent) => {
+      if (process.env.NODE_ENV === 'development') return
       const target = event.target
-      if (
-        target instanceof Element &&
-        ((target instanceof HTMLElement && target.isContentEditable) ||
-          target.closest('input, textarea, .select-text'))
-      ) {
+      if (target instanceof Element && (target.matches(':read-write') || target.closest('.select-text'))) {
         return
       }
       event.preventDefault()
     }
-    document.addEventListener('contextmenu', suppress)
-    return () => document.removeEventListener('contextmenu', suppress)
+
+    window.addEventListener('wheel', preventViewportScaling, { capture: true, passive: false })
+    window.addEventListener('contextmenu', preventBrowserMenu)
+    return () => {
+      window.removeEventListener('wheel', preventViewportScaling, { capture: true })
+      window.removeEventListener('contextmenu', preventBrowserMenu)
+    }
   }, [])
 
   return (
@@ -136,52 +77,6 @@ export function Providers({ children }: { children: ReactNode }) {
       </I18nextProvider>
     </QueryClientProvider>
   )
-}
-
-/** Another project opened, or the open one closed: its selection starts empty. A project told
- * again, after changes the interface missed, is read again. */
-function receiveProject(name: string | null): void {
-  const previous = queryClient.getQueryData<ProjectView | null>(projectKey)
-  if (previous?.name !== name) {
-    const store = useKoharuStore.getState()
-    store.selectPages([])
-    store.selectLayers([])
-  }
-  if (name === null) {
-    queryClient.setQueryData(projectKey, null)
-    queryClient.setQueryData(pageKey, null)
-  } else {
-    void refresh(projectKey, pageKey).catch(() => undefined)
-  }
-}
-
-/** The page the canvas shows. The project is read again too: a read already under way, which a
- * change starts, answers the page shown before, and would land over this one. */
-function receivePage(page: PageId | null): void {
-  queryClient.setQueryData<ProjectView | null>(projectKey, (project) =>
-    project ? { ...project, page } : project,
-  )
-  if (page !== null && useKoharuStore.getState().selectedPages.length === 0) {
-    useKoharuStore.getState().selectPages([page])
-  }
-  void refresh(projectKey, pageKey).catch(() => undefined)
-}
-
-/** An edit, undo, or redo, from whichever writer: the project and its shown page are read again,
- * and so are the pages Story lists, which a change to one of their layers doesn't name. */
-function receiveChange(change: Change): void {
-  queryClient.setQueryData<ProjectView | null>(projectKey, (project) =>
-    project
-      ? {
-          ...project,
-          history: change.history,
-          revisions: project.page
-            ? { ...project.revisions, [project.page]: change.revision }
-            : project.revisions,
-        }
-      : project,
-  )
-  void refresh(projectKey, pageKey, pagesKey).catch(() => undefined)
 }
 
 function StartupBoundary({ children }: { children: ReactNode }) {

@@ -4,8 +4,7 @@ import { create } from 'zustand'
 
 import { commands, type PageId } from '@koharu/ipc/protocol'
 
-import { dispatch } from './backend'
-import { projectKey, queryClient, type ProjectView } from './queries'
+import { projectKey, queryClient, send, type ProjectView } from './queries'
 import { useKoharuStore } from './store'
 
 /** Whether the Go to page dialog shows. Its own store, so the fork's navigation stays out of the
@@ -21,7 +20,7 @@ export function showPage(page: PageId): void {
   store.selectPages([page])
   if (page === queryClient.getQueryData<ProjectView | null>(projectKey)?.page) return
   store.selectLayers([])
-  dispatch(commands.show, page)
+  send(commands.show, page)
 }
 
 /** The page `delta` steps from the shown one, or undefined past either end: paging past the last

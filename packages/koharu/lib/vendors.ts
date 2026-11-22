@@ -1,6 +1,7 @@
-/** A vendor Koharu lists models from, by rig's name, and what the user gives it. */
-export type Vendor = {
-  name: string
+import type { TFunction } from 'i18next'
+
+/** What the user gives a vendor besides an API key, which a vendor not named here takes. */
+export type VendorTraits = {
   /** The user signs in with their plan in place of giving an API key. */
   signsIn?: boolean
   /** The user names its server by a base URL: one they run, or one that speaks OpenAI's format. */
@@ -9,18 +10,34 @@ export type Vendor = {
   contextWindow?: boolean
 }
 
-/** Every vendor Koharu lists models from, in Settings' order. */
-export const vendors: Vendor[] = [
-  { name: 'openai' },
-  { name: 'anthropic' },
-  { name: 'gcp.gemini' },
-  { name: 'xai' },
-  { name: 'deepseek' },
-  { name: 'minimax' },
-  { name: 'openrouter' },
-  { name: 'chatgpt', signsIn: true },
-  { name: 'grok', signsIn: true },
-  { name: 'ollama', server: true },
-  { name: 'lmstudio', server: true },
-  { name: 'openai-compatible', server: true, contextWindow: true },
-]
+/** Each vendor's traits, by rig's name, as `list_vendors` names them. */
+export const vendorTraits: Record<string, VendorTraits> = {
+  chatgpt: { signsIn: true },
+  grok: { signsIn: true },
+  ollama: { server: true },
+  lmstudio: { server: true },
+  'openai-compatible': { server: true, contextWindow: true },
+}
+
+/** Vendors by rig's names, as their makers write them; others show their own name. */
+const vendorNames: Record<string, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  'gcp.gemini': 'Google Gemini',
+  xai: 'xAI',
+  deepseek: 'DeepSeek',
+  minimax: 'MiniMax',
+  openrouter: 'OpenRouter',
+  chatgpt: 'ChatGPT',
+  grok: 'Grok',
+  ollama: 'Ollama',
+  lmstudio: 'LM Studio',
+  koharu: 'Koharu',
+}
+
+/** The vendor's name: its maker's, or for an OpenAI-compatible server, which no one makes, a
+ * description in the interface's language. */
+export function vendorName(vendor: string, t: TFunction): string {
+  if (vendor === 'openai-compatible') return t('settings.providers.openaiCompatible')
+  return vendorNames[vendor] ?? vendor
+}

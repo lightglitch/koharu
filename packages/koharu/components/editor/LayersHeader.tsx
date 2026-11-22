@@ -1,11 +1,12 @@
 'use client'
 
+import { useMutation } from '@tanstack/react-query'
 import { Eye, EyeOff, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { call, dispatch } from '@/lib/backend'
 import { isBlockLayer, isContainer, isLockedLayer, isTextLayer, walkLayers } from '@/lib/document'
+import { send } from '@/lib/queries'
 import { deleteLayers, setVisibility } from '@/lib/scene'
 import { useKoharuStore } from '@/lib/store'
 import { type Layer, type LayerId } from '@koharu/ipc/protocol'
@@ -40,6 +41,13 @@ export function LayersHeader({ layers }: { layers: Layer[] }) {
   const texts = unlocked
     .map(({ layer }) => layer)
     .filter((layer) => isTextLayer(layer) || isBlockLayer(layer))
+  const remove = useMutation({
+    mutationFn: ({ layers }: { layers: LayerId[]; gone: Set<LayerId> }) => deleteLayers(layers),
+    onSuccess: (_, { gone }) => {
+      const { selectedLayers, selectLayers } = useKoharuStore.getState()
+      selectLayers(selectedLayers.filter((selected) => !gone.has(selected)))
+    },
+  })
   const deleteTexts = () => {
     setConfirmingDelete(false)
     if (texts.length === 0) return
@@ -51,15 +59,7 @@ export function LayersHeader({ layers }: { layers: Layer[] }) {
           : [layer.id],
       ),
     )
-    void call(
-      deleteLayers,
-      texts.map((layer) => layer.id),
-    )
-      .then(() => {
-        const { selectedLayers, selectLayers } = useKoharuStore.getState()
-        selectLayers(selectedLayers.filter((selected) => !gone.has(selected)))
-      })
-      .catch(() => undefined)
+    remove.mutate({ layers: texts.map((layer) => layer.id), gone })
   }
 
   return (
@@ -74,7 +74,7 @@ export function LayersHeader({ layers }: { layers: Layer[] }) {
               aria-label={toggleLabel}
               className='shadow-none'
               onClick={() =>
-                dispatch(
+                send(
                   setVisibility,
                   unlocked.map(({ layer }) => layer.id),
                   !anyVisible,

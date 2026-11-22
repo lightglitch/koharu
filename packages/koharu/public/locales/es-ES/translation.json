@@ -55,6 +55,8 @@
   "colorPicker": {
     "brushColor": "Color del pincel",
     "hexCode": "Código de color hexadecimal",
+    "recent": "Colores recientes",
+    "recentColor": "Color reciente {{color}}",
     "sampleCanvas": "Elegir un color del lienzo",
     "transparent": "Transparente"
   },
@@ -65,8 +67,10 @@
     "loading": "Cargando…"
   },
   "errors": {
+    "actionFailed": "No se pudo completar la acción",
     "fatalTitle": "Koharu no pudo continuar",
-    "tryAgain": "Intentar de nuevo"
+    "tryAgain": "Intentar de nuevo",
+    "unknown": "La aplicación nativa devolvió un error desconocido."
   },
   "export": {
     "cbzDescription": "Elige cómo se codifican las páginas dentro del archivo.",
@@ -115,12 +119,16 @@
     "title": "Relleno generativo"
   },
   "fontPicker": {
+    "addFavorite": "Añadir {{name}} a favoritas",
     "choose": "Elegir una fuente",
+    "favoritesOnly": "Mostrar fuentes favoritas",
     "fontCount": "{{count}} fuentes",
     "fontCount_one": "{{count}} fuente",
     "fontCount_other": "{{count}} fuentes",
     "fonts": "Fuentes",
+    "noFavorites": "Aún no hay fuentes favoritas",
     "noResults": "Ninguna fuente coincide con esta búsqueda",
+    "removeFavorite": "Quitar {{name}} de favoritas",
     "search": "Buscar fuentes"
   },
   "history": {
@@ -194,8 +202,8 @@
     "border": "Contorno",
     "borderColor": "Color del contorno",
     "borderWidth": "Ancho del contorno",
+    "chooseBorderWidth": "Elegir ancho del contorno",
     "chooseFontSize": "Elegir tamaño de fuente",
-    "decreaseBorderWidth": "Reducir ancho del contorno",
     "font": "Fuente",
     "fontSize": "Tamaño de fuente",
     "fontStyles": {
@@ -204,7 +212,6 @@
     },
     "fontWeight": "Grosor de fuente",
     "horizontal": "Horizontal",
-    "increaseBorderWidth": "Aumentar ancho del contorno",
     "opacity": "Opacidad",
     "selectPage": "Selecciona una página para inspeccionar sus capas.",
     "source": "Texto original",
@@ -214,20 +221,6 @@
     "translation": "Traducción",
     "type": "Tipografía",
     "vertical": "Vertical"
-  },
-  "languages": {
-    "ar": "العربية",
-    "en-US": "English",
-    "es-ES": "Español",
-    "fr-FR": "Français",
-    "ja-JP": "日本語",
-    "ko-KR": "한국어",
-    "pt-BR": "Português brasileiro",
-    "ru-RU": "Русский",
-    "tr-TR": "Türkçe",
-    "wuu": "吴语",
-    "zh-CN": "简体中文",
-    "zh-TW": "繁體中文"
   },
   "layers": {
     "delete": "Eliminar {{name}}",
@@ -276,6 +269,7 @@
     "closeProject": "Cerrar proyecto",
     "delete": "Eliminar selección",
     "discord": "Discord",
+    "donate": "Donar",
     "edit": "Editar",
     "export": "Exportar proyecto",
     "feedback": "Enviar comentarios",
@@ -342,9 +336,12 @@
       "translate": "Traducir",
       "validate": "Validar"
     },
-    "selected": "{{count}} seleccionadas"
+    "selected": "{{count}} seleccionadas",
+    "translated": "{{translated}} de {{total}} traducidos"
   },
   "outputPicker": {
+    "noResults": "Ningún idioma coincide con esta búsqueda.",
+    "search": "Buscar idiomas",
     "targetLanguage": "Idioma de destino",
     "title": "Salida de traducción"
   },
@@ -475,15 +472,18 @@
     },
     "title": "Ajustes",
     "typesetting": {
+      "addFallback": "Añadir una alternativa",
       "addFamily": "Añadir familia tipográfica",
-      "defaultFamilies": "Familias tipográficas predeterminadas",
       "description": "Define la pila ordenada de fuentes usada cuando una capa de texto no tiene una familia asignada.",
       "empty": "No hay familias predeterminadas. Koharu usará la alternativa del sistema.",
+      "fallbacks": "Alternativas",
+      "fallbacksDescription": "Se usan en orden para los caracteres que le faltan a la principal. Arrastra para reordenar, o sobre Principal para intercambiarlas.",
       "familyLabel": "Familia tipográfica predeterminada {{index}}",
       "fontFallback": "Fuentes preferidas",
       "fontFallbackDescription": "Koharu usa la primera familia disponible compatible con el texto.",
       "loadError": "No se pudieron cargar las fuentes. Las familias existentes aún se pueden eliminar.",
       "loadingFonts": "Cargando fuentes…",
+      "primary": "Principal",
       "removeFamily": "Eliminar {{family}}",
       "title": "Renderizador"
     }
@@ -501,10 +501,12 @@
     "loadingProjects": "Cargando proyectos…",
     "newDescription": "Crea un espacio de trabajo limpio para tus páginas, traducciones y exportaciones.",
     "newProject": "Nuevo proyecto",
+    "noResults": "Ningún proyecto coincide con esta búsqueda.",
     "projectKind": "Proyecto de Koharu",
     "projectList": "Proyectos",
     "projectName": "Nombre del proyecto",
     "projectNamePlaceholder": "Mi nuevo proyecto",
+    "search": "Buscar proyectos",
     "storageHint": "Los proyectos se guardan localmente en este ordenador.",
     "title": "Proyectos",
     "yourProjects": "Tus proyectos"

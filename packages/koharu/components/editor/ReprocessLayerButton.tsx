@@ -3,8 +3,8 @@
 import { RefreshCcwDot } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { call } from '@/lib/backend'
 import { type BlockLayer } from '@/lib/document'
+import { send } from '@/lib/queries'
 import { useKoharuStore } from '@/lib/store'
 import { commands } from '@koharu/ipc/protocol'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@koharu/ui/components/tooltip'
@@ -35,10 +35,7 @@ export function ReprocessLayerButton({
             aria-label={t('layers.process', { name })}
             className='grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-foreground/[0.06] hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/25'
             onClick={() =>
-              void call(commands.runPipeline, { blocks: [block.id] }, [
-                'recognize',
-                'translate',
-              ]).catch(() => undefined)
+              send(commands.runPipeline, { blocks: [block.id] }, ['recognize', 'translate'])
             }
           />
         }

@@ -1,9 +1,9 @@
 'use client'
 
+import { useMutation } from '@tanstack/react-query'
 import { TextCursorInput } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { call } from '@/lib/backend'
 import { defaultStages, pipelineStages, useKoharuStore } from '@/lib/store'
 import { commands, type Stage } from '@koharu/ipc/protocol'
 import { Button } from '@koharu/ui/components/button'
@@ -20,13 +20,15 @@ const BY_DEFAULT: readonly Stage[] = defaultStages.filter((stage) => stage !== '
  * ticked stages after detection on that block alone: OCR, clean-up, and translation by default. */
 export function AddTextButton() {
   const { t } = useTranslation()
-  const add = async () => {
-    const block = await call(commands.addTextFromArea, t('area.addTextStep'))
-    if (block === null) return
-    const ticked = useKoharuStore.getState().processingStages
-    const stages = AFTER_DETECTION.filter((stage) => ticked.includes(stage))
-    await call(commands.runPipeline, { blocks: [block] }, stages.length ? stages : [...BY_DEFAULT])
-  }
+  const add = useMutation({
+    mutationFn: async () => {
+      const block = await commands.addTextFromArea(t('area.addTextStep'))
+      if (block === null) return
+      const ticked = useKoharuStore.getState().processingStages
+      const stages = AFTER_DETECTION.filter((stage) => ticked.includes(stage))
+      await commands.runPipeline({ blocks: [block] }, stages.length ? stages : [...BY_DEFAULT])
+    },
+  })
   return (
     <Tooltip>
       <TooltipTrigger
@@ -36,7 +38,7 @@ export function AddTextButton() {
             variant='secondary'
             size='sm'
             className='h-7 text-[11px]'
-            onClick={() => void add().catch(() => undefined)}
+            onClick={() => add.mutate()}
           />
         }
       >

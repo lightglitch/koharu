@@ -1,10 +1,10 @@
 'use client'
 
+import { useMutation } from '@tanstack/react-query'
 import { Check, Copy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { call } from '@/lib/backend'
 import { commands } from '@koharu/ipc/protocol'
 import { Button } from '@koharu/ui/components/button'
 
@@ -15,6 +15,10 @@ import { Button } from '@koharu/ui/components/button'
 export function CopyButton({ text }: { text: string }) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
+  const copy = useMutation({
+    mutationFn: () => commands.copyText(text),
+    onSuccess: () => setCopied(true),
+  })
   useEffect(() => {
     if (!copied) return
     const timer = window.setTimeout(() => setCopied(false), 1500)
@@ -26,11 +30,7 @@ export function CopyButton({ text }: { text: string }) {
       variant='ghost'
       className='-mt-1 shrink-0'
       aria-label={copied ? t('activity.copied') : t('activity.copyError')}
-      onClick={() =>
-        void call(commands.copyText, text)
-          .then(() => setCopied(true))
-          .catch(() => undefined)
-      }
+      onClick={() => copy.mutate()}
     >
       {copied ? <Check /> : <Copy />}
     </Button>

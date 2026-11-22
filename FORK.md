@@ -74,8 +74,12 @@ and `lib/pages.ts`, plus small hooks in `PageRail.tsx`, `CanvasWorkspace.tsx` an
   page, Home and End to the first and last, and Ctrl/Cmd+G opens Go to page.
   - The keys do nothing while a text field, button, list, slider, menu or dialog
     has focus.
+  - `navigatePages` in `lib/pages.ts` keeps its own focus guard, and
+    `CanvasWorkspace.tsx` listens for it on the window, beside upstream's
+    `react-hotkeys-hook` shortcuts.
   - The original keys were A, D and G, which now clash with the tool keys: A is
-    direct select. Check `toolKeys` in `lib/store.ts` before choosing keys.
+    direct select. Check `shortcuts` and `toolKeys` in `lib/shortcuts.ts` before
+    choosing keys.
 
 ### Layers panel (`packages/koharu`)
 
@@ -93,10 +97,10 @@ Code: `components/editor/LayersHeader.tsx` and
 
 ### Interface (`packages/koharu`)
 
-- **Hide the browser context menu in production** (`app/providers.tsx`). It stays
-  available over inputs, textareas, editable content and `.select-text`, so native
-  Copy still works there. It stays on in development builds. Upstream keeps the
-  native CEF menu and positions it at the pointer.
+- **The browser context menu over selectable text** (`preventBrowserMenu` in
+  `app/providers.tsx`). Upstream hides the menu everywhere but text fields; the
+  fork keeps it over `.select-text` too, so native Copy still works there, and
+  everywhere in development builds, for Inspect.
 - **The Activity panel scrolls** (`components/editor/ActivityCenter.tsx`). Rows
   scroll under the title past a fixed height, so many failures don't grow the
   panel over the canvas.

@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { dispatch } from '@/lib/backend'
+import { send } from '@/lib/queries'
 import { showPageBy, useGoToPage } from '@/lib/pages'
 import { pageKey, queryClient } from '@/lib/queries'
 import { MIN_BRUSH_DIAMETER, maxBrushDiameter, useKoharuStore } from '@/lib/store'
@@ -25,7 +25,7 @@ export function WheelTools() {
 
   useEffect(
     () =>
-      dispatch(commands.showWheelTools, {
+      send(commands.showWheelTools, {
         pages: t('wheel.pages'),
         zoom: t('wheel.zoom'),
         brush: t('wheel.brush'),
@@ -51,8 +51,8 @@ function act(input: WheelInput): void {
     case 'zoom':
       if (input.kind === 'turn') {
         const zoom = state.camera.zoom * NOTCH ** input.steps
-        dispatch(commands.setZoom, Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)))
-      } else dispatch(commands.fit)
+        send(commands.setZoom, Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)))
+      } else send(commands.fit)
       return
     case 'brush':
       if (input.kind === 'turn') {

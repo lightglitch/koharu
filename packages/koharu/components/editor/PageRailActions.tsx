@@ -1,11 +1,11 @@
 'use client'
 
+import { useMutation } from '@tanstack/react-query'
 import { RefreshCcwDot, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { create } from 'zustand'
 
-import { call } from '@/lib/backend'
-import { usePage } from '@/lib/queries'
+import { send, usePage } from '@/lib/queries'
 import { deletePages } from '@/lib/scene'
 import { defaultStages, useKoharuStore } from '@/lib/store'
 import { commands, type PageId, type PageSummary, type Target } from '@koharu/ipc/protocol'
@@ -30,7 +30,7 @@ function useRunActive(): boolean {
 }
 
 function runPipeline(target: Target) {
-  void call(commands.runPipeline, target, [...defaultStages]).catch(() => undefined)
+  send(commands.runPipeline, target, [...defaultStages])
 }
 
 /** The rail header's controls: they act on a multi-selection when there is one, and on the
@@ -105,19 +105,21 @@ function DeletePagesDialog({ pages }: { pages: PageSummary[] }) {
   const { open, pages: asked, selection, setOpen } = useDeleteRequest()
   const shown = usePage().data?.id ?? null
   const count = asked.length
+  const remove = useMutation({
+    mutationFn: (targets: PageId[]) => deletePages(targets),
+    onSuccess: (_, targets) => {
+      const store = useKoharuStore.getState()
+      store.selectPages(store.selectedPages.filter((page) => !targets.includes(page)))
+      if (shown !== null && targets.includes(shown)) store.selectLayers([])
+    },
+  })
 
   const confirm = () => {
     setOpen(false)
     // Only pages still in the project: one may have gone while the dialog was open.
     const targets = asked.filter((id) => pages.some((page) => page.id === id))
     if (targets.length === 0) return
-    void call(deletePages, targets)
-      .then(() => {
-        const store = useKoharuStore.getState()
-        store.selectPages(store.selectedPages.filter((page) => !targets.includes(page)))
-        if (shown !== null && targets.includes(shown)) store.selectLayers([])
-      })
-      .catch(() => undefined)
+    remove.mutate(targets)
   }
 
   return (
