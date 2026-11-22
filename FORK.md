@@ -176,6 +176,18 @@ Code: `components/editor/LayersHeader.tsx` and
 - Run it from the release build in `release/`, which has the models in
   `release\store`. It loads models into the same GPU memory as an open app.
 
+### Outlines over dark art
+
+- `outline()` in `crates/koharu-ml/src/koharu_layout_highres/measure.rs`
+  measures a lettering's outline from rings of pixels around its glyphs.
+  Lettering over hair or a tone has that art, as dark as its ink, inside its
+  mask, so upstream measured the rings from the art's edge and found no
+  outline, and the translation had none either.
+- The fork leaves out of the glyphs the ink-coloured areas that reach the
+  measuring window's edge, which run on past the lettering, and the specks
+  smaller than (size / 12)² pixels, a tone's dots. An outline keeps the
+  glyphs apart from both; glyphs touching the art have none to find.
+
 ### Validation stage
 
 - A fifth pipeline stage, **Validate**, after Translate

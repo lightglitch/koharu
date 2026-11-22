@@ -226,10 +226,49 @@ fn outline(
     let (x0, y0) = (left.saturating_sub(margin), top.saturating_sub(margin));
     let x1 = (left + glyphs.width() + margin).min(page.width());
     let y1 = (top + glyphs.height() + margin).min(page.height());
-    let mut shape = GrayImage::new(x1 - x0, y1 - y0);
+    // Fork fix: art as dark as the ink, such as hair or a tone the lettering
+    // lies on, falls in its mask too, and rings measured from it lie on the
+    // art rather than the outline between it and the glyphs. The glyphs end
+    // inside the window, while ink that reaches its edge runs on past the
+    // lettering, so that is art, and the glyphs are the rest. An outline
+    // keeps the two apart; glyphs that touch the art have none.
+    let (width, height) = (x1 - x0, y1 - y0);
+    let art = ink.map(|ink| {
+        let like = GrayImage::from_fn(width, height, |x, y| {
+            let pixel = page.get_pixel(x0 + x, y0 + y).0;
+            Luma([u8::from((0..3).all(|at| pixel[at].abs_diff(ink[at]) <= 80)) * 255])
+        });
+        let labels = connected_components(&like, Connectivity::Eight, Luma([0]));
+        let border = (0..width)
+            .flat_map(|x| [(x, 0), (x, height - 1)])
+            .chain((0..height).flat_map(|y| [(0, y), (width - 1, y)]));
+        let mut reaching: std::collections::HashSet<u32> = border
+            .map(|(x, y)| labels.get_pixel(x, y).0[0])
+            .filter(|label| *label != 0)
+            .collect();
+        // A tone's dots are apart, so none reaches the edge, but each is far
+        // smaller than any glyph's piece, a dakuten's included.
+        let mut areas: HashMap<u32, f32> = HashMap::new();
+        for label in labels.pixels() {
+            *areas.entry(label.0[0]).or_default() += 1.0;
+        }
+        let speck = (size / 12.0).powi(2);
+        reaching.extend(
+            areas
+                .into_iter()
+                .filter(|&(label, area)| label != 0 && area < speck)
+                .map(|(label, _)| label),
+        );
+        (labels, reaching)
+    });
+    let mut shape = GrayImage::new(width, height);
     for (x, y, pixel) in glyphs.enumerate_pixels() {
-        if pixel.0[0] != 0 {
-            shape.put_pixel(x + left - x0, y + top - y0, Luma([255]));
+        let (x, y) = (x + left - x0, y + top - y0);
+        let on_art = art
+            .as_ref()
+            .is_some_and(|(labels, reaching)| reaching.contains(&labels.get_pixel(x, y).0[0]));
+        if pixel.0[0] != 0 && !on_art {
+            shape.put_pixel(x, y, Luma([255]));
         }
     }
     let mut body = close(&shape, Norm::LInf, radius as u8);
@@ -959,5 +998,39 @@ mod tests {
         // On white paper the band never ends.
         let on_paper = outline(&page(Rgb([255; 3])), &glyphs, [60, 60], 20.0, Some([0; 3]));
         assert_eq!(on_paper, None);
+    }
+
+    #[test]
+    fn art_as_dark_as_the_ink_in_the_lettering_mask_is_not_a_glyph() {
+        // The glyphs in their white band over art, with black hair running
+        // down the page beside the band and a tone's dots, both inside the
+        // lettering's mask, as on a page whose lettering lies over them.
+        let mut page = RgbImage::from_pixel(200, 200, Rgb([200, 40, 40]));
+        for y in 56..114 {
+            for x in 56..84 {
+                page.put_pixel(x, y, Rgb([255; 3]));
+            }
+        }
+        for (x, y) in (60..80).flat_map(|x| (60..80).chain(90..110).map(move |y| (x, y))) {
+            page.put_pixel(x, y, Rgb([0; 3]));
+        }
+        for (x, y) in (40..48).flat_map(|x| (0..200).map(move |y| (x, y))) {
+            page.put_pixel(x, y, Rgb([0; 3]));
+        }
+        for (x, y) in [(51, 64), (51, 72), (51, 96), (51, 104)] {
+            page.put_pixel(x, y, Rgb([0; 3]));
+        }
+        // The mask starts at the hair, 20 pixels left of the glyphs.
+        let glyphs = GrayImage::from_fn(40, 50, |x, y| {
+            let page = page.get_pixel(40 + x, 60 + y).0;
+            Luma([if page == [0; 3] { 255 } else { 0 }])
+        });
+        assert_eq!(
+            outline(&page, &glyphs, [40, 60], 20.0, Some([0; 3])),
+            Some(Outline {
+                color: [255; 3],
+                width: 4.0,
+            })
+        );
     }
 }
