@@ -189,7 +189,15 @@ impl Lettering {
             stroke_width,
             ink: ink_color,
             paper: paper_color,
-            outline: outline(page, &ink, [left, top], size, ink_color),
+            outline: outline(
+                page,
+                &ink,
+                [left, top],
+                size,
+                ink_color,
+                stroke_width,
+                self.bubble.is_some(),
+            ),
         })
     }
 }
@@ -216,6 +224,8 @@ fn outline(
     [left, top]: [u32; 2],
     size: f32,
     ink: Option<[u8; 3]>,
+    stroke_width: Option<f32>,
+    in_bubble: bool,
 ) -> Option<Outline> {
     let far = (0.4 * size).ceil().max(4.0) as u32;
     let radius = (0.3 * size).round().clamp(2.0, 127.0) as u32;
@@ -275,10 +285,19 @@ fn outline(
     fill_holes(&mut body);
     let distance = euclidean_squared_distance_transform(&shape);
     let mut rings: Vec<Vec<[u8; 3]>> = vec![Vec::new(); far as usize + 3];
+    // Fork fix: the rings again, cut into cells about a glyph across, as
+    // long lettering crosses paper in one place and art in another.
+    let cell = size.round().max(8.0) as u32;
+    let mut cells: HashMap<(u32, u32), Vec<Vec<[u8; 3]>>> = HashMap::new();
     for (x, y, squared) in distance.enumerate_pixels() {
         let ring = squared.0[0].sqrt().ceil() as usize;
         if body.get_pixel(x, y).0[0] == 0 && (1..rings.len()).contains(&ring) {
-            rings[ring].push(page.get_pixel(x0 + x, y0 + y).0);
+            let pixel = page.get_pixel(x0 + x, y0 + y).0;
+            rings[ring].push(pixel);
+            cells
+                .entry((x / cell, y / cell))
+                .or_insert_with(|| vec![Vec::new(); rings.len()])[ring]
+                .push(pixel);
         }
     }
     let share = |ring: &[[u8; 3]], color: [u8; 3]| {
@@ -303,9 +322,72 @@ fn outline(
     let end =
         (2..=far as usize).reduce(|end, ring| if drop(ring) > drop(end) { ring } else { end })?;
     let held = shares[2..=end].iter().sum::<f32>() / (end - 1) as f32;
-    (drop(end) >= 0.15 && held >= 0.8 && rings[end + 2].len() >= 16).then_some(Outline {
+    if held < 0.8 || rings[end + 2].len() < 16 {
+        return None;
+    }
+    if drop(end) >= 0.15 {
+        return Some(Outline {
+            color,
+            width: end as f32,
+        });
+    }
+    // Fork fix: where the lettering lies on paper of the band's colour, the
+    // band fades into it and tells nothing, and averaged over the whole ring
+    // that paper hides the art the band keeps out elsewhere, as on light art
+    // with lines that stop short of the glyphs, or lettering that crosses
+    // paper and a tone. So each cell with art just past its own band's end,
+    // at least 0.15 of it unlike the band, has its say: the band there holds
+    // its colour and keeps out at least half of that art. Most of them
+    // agreeing is an outline. Where the paper past the band is near its
+    // colour, a band ends only at the art, so it reads wider than it is, never
+    // narrower: the outline is as wide as the narrow quarter of them, and,
+    // where all of them end far off, no wider than one and a half of the
+    // glyphs' strokes, which lettering's outlines rarely pass. Paper
+    // with nothing on it has no say. A bubble's border runs close by its
+    // text with paper between, which reads as just such a band, so lettering
+    // in a bubble keeps to the whole ring.
+    if in_bubble {
+        return None;
+    }
+    let (mut over_art, mut widths) = (0, Vec::new());
+    for rings in cells.values() {
+        let shares: Vec<f32> = rings.iter().map(|ring| share(ring, color)).collect();
+        let Some(end) = (2..=far as usize)
+            .filter(|&ring| rings[ring].len() >= 4 && rings[ring + 2].len() >= 4)
+            .reduce(|end, ring| {
+                // A tie is the band's last ring and the first past it.
+                if shares[ring] - shares[ring + 2] >= shares[end] - shares[end + 2] {
+                    ring
+                } else {
+                    end
+                }
+            })
+        else {
+            continue;
+        };
+        let band = rings[2..=end].concat();
+        let past = rings[end + 2..(end + 5).min(rings.len())].concat();
+        if band.len() < 8 || past.len() < 8 {
+            continue;
+        }
+        let past_missed = 1.0 - share(&past, color);
+        if past_missed < 0.15 {
+            continue;
+        }
+        over_art += 1;
+        let band_held = share(&band, color);
+        if band_held >= 0.8 && 1.0 - band_held <= past_missed / 2.0 {
+            widths.push(end);
+        }
+    }
+    if over_art == 0 || 5 * widths.len() < 3 * over_art {
+        return None;
+    }
+    widths.sort_unstable();
+    let width = widths[widths.len() / 4] as f32;
+    Some(Outline {
         color,
-        width: end as f32,
+        width: stroke_width.map_or(width, |stroke| width.min((1.5 * stroke).round().max(2.0))),
     })
 }
 
@@ -971,6 +1053,8 @@ mod tests {
             [60, 60],
             20.0,
             Some([0; 3]),
+            None,
+            false,
         );
         assert_eq!(
             over_art,
@@ -989,15 +1073,71 @@ mod tests {
             beside.put_pixel(x, y, Rgb([255; 3]));
         }
         assert_eq!(
-            outline(&beside, &glyphs, [60, 60], 20.0, Some([0; 3])),
+            outline(&beside, &glyphs, [60, 60], 20.0, Some([0; 3]), None, false),
             Some(Outline {
                 color: [255; 3],
                 width: 4.0,
             })
         );
         // On white paper the band never ends.
-        let on_paper = outline(&page(Rgb([255; 3])), &glyphs, [60, 60], 20.0, Some([0; 3]));
+        let on_paper = outline(
+            &page(Rgb([255; 3])),
+            &glyphs,
+            [60, 60],
+            20.0,
+            Some([0; 3]),
+            None,
+            false,
+        );
         assert_eq!(on_paper, None);
+    }
+
+    #[test]
+    fn an_outline_shows_where_art_lies_past_it_though_paper_lies_elsewhere() {
+        // Two black glyphs on white paper, with grey art beside the first
+        // only, too little of the whole ring for the band's end to show in
+        // it: the art stops at a white band 4 pixels wide around the glyphs
+        // when it starts at `start` 84, or runs up to them from 80.
+        let page = |start: u32| {
+            let mut page = RgbImage::from_pixel(200, 200, Rgb([255; 3]));
+            for (x, y) in (start..200).flat_map(|x| (60..80).map(move |y| (x, y))) {
+                page.put_pixel(x, y, Rgb([90; 3]));
+            }
+            for (x, y) in (60..80).flat_map(|x| (60..80).chain(90..110).map(move |y| (x, y))) {
+                page.put_pixel(x, y, Rgb([0; 3]));
+            }
+            page
+        };
+        let glyphs = GrayImage::from_fn(20, 50, |_, y| {
+            Luma([if (20..30).contains(&y) { 0 } else { 255 }])
+        });
+        assert_eq!(
+            outline(
+                &page(84),
+                &glyphs,
+                [60, 60],
+                20.0,
+                Some([0; 3]),
+                None,
+                false
+            ),
+            Some(Outline {
+                color: [255; 3],
+                width: 4.0,
+            })
+        );
+        assert_eq!(
+            outline(
+                &page(80),
+                &glyphs,
+                [60, 60],
+                20.0,
+                Some([0; 3]),
+                None,
+                false
+            ),
+            None
+        );
     }
 
     #[test]
@@ -1026,7 +1166,7 @@ mod tests {
             Luma([if page == [0; 3] { 255 } else { 0 }])
         });
         assert_eq!(
-            outline(&page, &glyphs, [40, 60], 20.0, Some([0; 3])),
+            outline(&page, &glyphs, [40, 60], 20.0, Some([0; 3]), None, false),
             Some(Outline {
                 color: [255; 3],
                 width: 4.0,

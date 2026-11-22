@@ -187,6 +187,18 @@ Code: `components/editor/LayersHeader.tsx` and
   measuring window's edge, which run on past the lettering, and the specks
   smaller than (size / 12)² pixels, a tone's dots. An outline keeps the
   glyphs apart from both; glyphs touching the art have none to find.
+- Upstream also wants the band to end sharply all round. Lettering on light
+  paper with a few lines, or crossing paper in one place and art in another,
+  has paper of the band's colour past most of it, which hides the art the
+  band keeps out elsewhere. The fork also asks the rings cell by cell, about
+  a glyph across: where there's art past a cell's band, the band there must
+  hold its colour and keep out at least half of it, and most such cells
+  agreeing is an outline.
+  - Its width is the narrowest quarter of those cells' bands, capped at 1.5
+    of the glyphs' strokes, since a band whose paper matches it ends only at
+    the art.
+  - Lettering in a bubble keeps to upstream's rule: the bubble's border, close
+    by with paper between, reads as a band.
 
 ### Validation stage
 
