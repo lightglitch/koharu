@@ -439,7 +439,8 @@
         "targetLanguageDescription": "选择文本要翻译成的语言。",
         "vision": "视觉",
         "visionDescription": "翻译时将页面图像输入给 LLM。"
-      }
+      },
+      "defaultThreshold": "默认值：{{value}}"
     },
     "providers": {
       "browserHint": "请在浏览器打开的页面上完成登录。",

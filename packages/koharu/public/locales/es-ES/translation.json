@@ -439,7 +439,8 @@
         "targetLanguageDescription": "Elige el idioma al que se traducirá el texto.",
         "vision": "Visión",
         "visionDescription": "Proporciona imágenes de las páginas al LLM durante la traducción."
-      }
+      },
+      "defaultThreshold": "Predeterminado: {{value}}"
     },
     "providers": {
       "browserHint": "Termina de iniciar sesión en la página que abrió tu navegador.",

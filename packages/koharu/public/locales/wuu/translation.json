@@ -439,7 +439,8 @@
         "targetLanguageDescription": "选译文要用个目标语言。",
         "vision": "视觉",
         "visionDescription": "翻译个辰光，也拿页面图像输入畀 LLM。"
-      }
+      },
+      "defaultThreshold": "默认值：{{value}}"
     },
     "providers": {
       "browserHint": "到浏览器打开个页面里向登录好。",

@@ -11,11 +11,11 @@ pub(super) struct Config {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-pub(super) struct Thresholds {
-    pub(super) text: f32,
-    pub(super) onomatopoeia: f32,
-    pub(super) bubble: f32,
-    pub(super) panel: f32,
+pub struct Thresholds {
+    pub text: f32,
+    pub onomatopoeia: f32,
+    pub bubble: f32,
+    pub panel: f32,
 }
 
 impl Thresholds {

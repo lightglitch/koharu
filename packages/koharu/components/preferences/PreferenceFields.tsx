@@ -110,6 +110,7 @@ export function NumberField({
   step,
   integer = false,
   placeholder,
+  hint,
   onChange,
 }: {
   label: string
@@ -120,6 +121,8 @@ export function NumberField({
   /** Whole numbers only. */
   integer?: boolean
   placeholder?: string
+  /** A line under the field, such as the value an empty one stands for. */
+  hint?: string
   onChange: (value: number | null) => void
 }) {
   // The label takes the room a wrapped neighbour's label adds, so inputs side by side line up.
@@ -141,6 +144,7 @@ export function NumberField({
           />
         </NumberFieldGroup>
       </NumberFieldRoot>
+      {hint && <span>{hint}</span>}
     </label>
   )
 }

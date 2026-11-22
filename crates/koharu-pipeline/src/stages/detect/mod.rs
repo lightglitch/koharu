@@ -11,7 +11,7 @@ use koharu_scene::{Content, Layer, Op};
 use rayon::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 
-pub use self::model::Detector;
+pub use self::model::{Detector, DetectorThresholds};
 use super::{Task, key};
 use crate::{PipelineConfig, Stage};
 

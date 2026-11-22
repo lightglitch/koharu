@@ -245,6 +245,17 @@ export type DetectorConfig = {
   panel?: number | null
 }
 
+/**
+ *  The lowest confidence each class keeps when `DetectorConfig` leaves it
+ *  unset, as the detector loads it.
+ */
+export type DetectorThresholds = {
+  text: number
+  onomatopoeia: number
+  bubble: number
+  panel: number
+}
+
 export type Direction = 'horizontal' | 'vertical'
 
 /**
@@ -1191,8 +1202,12 @@ export const commands = {
     runner('save_preferences', (options) =>
       invoke<Preferences>('save_preferences', { preferences }, options),
     ),
-  /** Koharu's own models, and each vendor's that has a key or a sign-in. */
   listModels: () => runner('list_models', (options) => invoke<Model[]>('list_models', {}, options)),
+  /** Koharu's own models, and each vendor's that has a key or a sign-in. The thresholds `model` keeps detections at when the preferences leave them unset, which Settings shows under its own. */
+  detectorThresholds: (model: Detector) =>
+    runner('detector_thresholds', (options) =>
+      invoke<DetectorThresholds>('detector_thresholds', { model }, options),
+    ),
   /** Every vendor Koharu lists models from, in its order. */
   listVendors: () =>
     runner('list_vendors', (options) => invoke<Vendor[]>('list_vendors', {}, options)),

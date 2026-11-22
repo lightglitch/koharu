@@ -17,7 +17,7 @@ pub use event::{Event, Outcome, PageFailure, RunId};
 pub use pipeline::Pipeline;
 pub use request::{Area, Request, Stage, Target};
 pub use stages::{
-    detect::{Detector, DetectorConfig},
+    detect::{Detector, DetectorConfig, DetectorThresholds},
     inpaint::{Inpainter, InpainterConfig},
     recognize::{Recognizer, RecognizerConfig},
     translate::{TranslatorConfig, placement},

@@ -1,5 +1,6 @@
 'use client'
 
+import { useQuery } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
 import { type ReactNode, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -15,13 +16,14 @@ import {
 import { detectors, inpainters, modelName, REASONING, recognizers, vendorOf } from '@/lib/models'
 import { languageNames } from '@/lib/translation'
 import { vendorName } from '@/lib/vendors'
-import type {
-  Detector,
-  Inpainter,
-  Model,
-  PipelineConfig,
-  Recognizer,
-  TranslatorConfig,
+import {
+  commands,
+  type Detector,
+  type Inpainter,
+  type Model,
+  type PipelineConfig,
+  type Recognizer,
+  type TranslatorConfig,
 } from '@koharu/ipc/protocol'
 import { Badge } from '@koharu/ui/components/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@koharu/ui/components/popover'
@@ -42,8 +44,15 @@ export function PipelinePreferences({
   models: Model[]
   onChange: (value: PipelineConfig) => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const detector = value.detector ?? {}
+  // Fork addition: what an empty threshold stands for, as the detector loads it.
+  const detectorModel = detector.model ?? 'koharu-layout-highres'
+  const defaults = useQuery({
+    queryKey: ['detector-thresholds', detectorModel],
+    queryFn: () => commands.detectorThresholds(detectorModel),
+  }).data
+  const decimal = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 })
   const inpainter = value.inpainter ?? {}
   const translator = value.translator ?? {}
   const thresholds = ['text', 'onomatopoeia', 'bubble', 'panel'] as const
@@ -75,6 +84,13 @@ export function PipelinePreferences({
                 max={1}
                 step={0.05}
                 placeholder={t('model.default')}
+                hint={
+                  defaults
+                    ? t('settings.pipeline.defaultThreshold', {
+                        value: decimal.format(defaults[threshold]),
+                      })
+                    : undefined
+                }
                 onChange={(next) =>
                   onChange({ ...value, detector: { ...detector, [threshold]: next } })
                 }

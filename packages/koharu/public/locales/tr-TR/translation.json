@@ -439,7 +439,8 @@
         "targetLanguageDescription": "Metnin çevrileceği dili seçin.",
         "vision": "Görsel",
         "visionDescription": "Çeviri sırasında sayfa görsellerini LLM'ye iletir."
-      }
+      },
+      "defaultThreshold": "Varsayılan: {{value}}"
     },
     "providers": {
       "browserHint": "Tarayıcınızın açtığı sayfada oturum açmayı tamamlayın.",

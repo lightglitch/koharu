@@ -22,6 +22,7 @@ use koharu_torch::Device;
 use rayon::prelude::*;
 
 pub use self::{
+    config::Thresholds,
     layout::{Bubble, Kind, Layout, Lettering, Panel},
     measure::{Outline, Typography},
     processor::Mask,
@@ -29,7 +30,7 @@ pub use self::{
 };
 
 use self::{
-    config::{Config, Thresholds},
+    config::Config,
     model::Model,
     processor::{Detection, ImageProcessor},
 };
@@ -63,6 +64,28 @@ pub struct Options {
     pub panel: Option<f32>,
 }
 
+/// The checkpoint's recommended thresholds, but for onomatopoeia's and
+/// bubbles', which Koharu sets.
+fn defaults(config: &Config) -> Thresholds {
+    Thresholds {
+        onomatopoeia: ONOMATOPOEIA_THRESHOLD,
+        bubble: BUBBLE_THRESHOLD,
+        ..config.recommended_thresholds
+    }
+}
+
+/// The thresholds a detection keeps by default, read from the checkpoint's
+/// config without its weights, for Settings to show beside the user's own.
+// Fork addition: upstream's Settings only says "default".
+pub async fn default_thresholds() -> Result<Thresholds> {
+    let [config] = REPOSITORY
+        .resolve(["config.json"])
+        .await
+        .context("failed to resolve Koharu Layout HighRes's config")?;
+    let config: Config = serde_json::from_slice(&fs_err::read(&config)?)?;
+    Ok(defaults(&config))
+}
+
 #[derive(Debug)]
 pub struct KoharuLayoutHighres {
     device: Device,
@@ -87,11 +110,7 @@ impl KoharuLayoutHighres {
             device,
             model,
             processor,
-            thresholds: Thresholds {
-                onomatopoeia: ONOMATOPOEIA_THRESHOLD,
-                bubble: BUBBLE_THRESHOLD,
-                ..config.recommended_thresholds
-            },
+            thresholds: defaults(&config),
         })
     }
 

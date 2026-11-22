@@ -7,7 +7,7 @@ use futures::future::{AbortHandle, Abortable};
 use koharu_agent::AgentConfig;
 use koharu_config::secrets::SecretString;
 use koharu_llm::{Model, Providers, SignInPrompt, VENDORS};
-use koharu_pipeline::PipelineConfig;
+use koharu_pipeline::{Detector, DetectorThresholds, PipelineConfig};
 use koharu_renderer::RendererConfig;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -78,6 +78,15 @@ pub async fn save_preferences(
 }
 
 /// Koharu's own models, and each vendor's that has a key or a sign-in.
+/// The thresholds `model` keeps detections at when the preferences leave
+/// them unset, which Settings shows under its own.
+// Fork addition: upstream's Settings only says "default".
+#[tauri::command]
+#[specta::specta]
+pub async fn detector_thresholds(model: Detector) -> Result<DetectorThresholds> {
+    Ok(model.thresholds().await?)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn list_models() -> Vec<Model> {

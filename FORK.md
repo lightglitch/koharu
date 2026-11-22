@@ -101,6 +101,13 @@ Code: `components/editor/LayersHeader.tsx` and
   `app/providers.tsx`). Upstream hides the menu everywhere but text fields; the
   fork keeps it over `.select-text` too, so native Copy still works there, and
   everywhere in development builds, for Inspect.
+- **Detection thresholds show their defaults** (`PipelinePreferences.tsx`, the
+  `detector_thresholds` command in `commands/preferences.rs`,
+  `Detector::thresholds` in `koharu-pipeline`, `default_thresholds` in
+  `koharu_layout_highres`). Under each threshold, Settings shows the value an
+  empty one stands for, as the detector loads it: the checkpoint's recommended
+  thresholds, but Koharu's own for sound effects and bubbles. Upstream only
+  says "default".
 - **The Activity panel scrolls** (`components/editor/ActivityCenter.tsx`). Rows
   scroll under the title past a fixed height, so many failures don't grow the
   panel over the canvas.

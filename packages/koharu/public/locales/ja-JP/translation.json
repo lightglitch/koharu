@@ -439,7 +439,8 @@
         "targetLanguageDescription": "テキストの翻訳先言語を選択します。",
         "vision": "ビジョン",
         "visionDescription": "翻訳時にページ画像をLLMへ入力します。"
-      }
+      },
+      "defaultThreshold": "既定値: {{value}}"
     },
     "providers": {
       "browserHint": "ブラウザーで開いたページでサインインを完了してください。",

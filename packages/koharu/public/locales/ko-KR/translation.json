@@ -439,7 +439,8 @@
         "targetLanguageDescription": "텍스트를 번역할 언어를 선택합니다.",
         "vision": "비전",
         "visionDescription": "번역할 때 LLM에 페이지 이미지를 입력합니다."
-      }
+      },
+      "defaultThreshold": "기본값: {{value}}"
     },
     "providers": {
       "browserHint": "브라우저에 열린 페이지에서 로그인을 마치세요.",

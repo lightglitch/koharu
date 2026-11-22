@@ -439,7 +439,8 @@
         "targetLanguageDescription": "選擇文字要翻譯成的語言。",
         "vision": "視覺",
         "visionDescription": "翻譯時將頁面影像輸入給 LLM。"
-      }
+      },
+      "defaultThreshold": "預設值：{{value}}"
     },
     "providers": {
       "browserHint": "請在瀏覽器開啟的頁面上完成登入。",
