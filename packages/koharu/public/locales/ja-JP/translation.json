@@ -15,6 +15,7 @@
     "downloadingFiles_other": "{{count}}件のファイルをダウンロード中",
     "exporting": "書き出し中",
     "finishedWithFailures": "一部のページが失敗して完了しました",
+    "loadingPages": "ページを読み込み中: {{loaded}} / {{total}}",
     "modelDownload": "モデルのダウンロード",
     "processing": "処理中",
     "stop": "停止",
@@ -130,6 +131,31 @@
     "noResults": "この検索に一致するフォントはありません",
     "removeFavorite": "{{name}} をお気に入りから削除",
     "search": "フォントを検索"
+  },
+  "gallery": {
+    "back": "戻る",
+    "chapters": "{{count}}話",
+    "chapters_one": "{{count}}話",
+    "chapters_other": "{{count}}話",
+    "latest": "新着",
+    "library": "マイライブラリ",
+    "locked": "ロック中",
+    "noResults": "「{{query}}」の結果はありません",
+    "noSeries": "シリーズはまだありません",
+    "noSeriesHint": "上でシリーズを検索するか、アドレスを貼り付けてください。",
+    "onShelf": "本棚にあります",
+    "ongoing": "連載中",
+    "popular": "人気",
+    "removeAction": "シリーズを削除",
+    "removeDescription": "「{{title}}」をあなたのシリーズから削除します。各話のプロジェクトはKoharuに残ります。",
+    "removeLabel": "{{title}}を削除",
+    "removeTitle": "シリーズを削除しますか？",
+    "search": "検索",
+    "searchPlaceholder": "シリーズを検索、またはアドレスを貼り付け",
+    "searching": "検索中…",
+    "seeAll": "すべて表示",
+    "title": "ギャラリー",
+    "yourSeries": "あなたのシリーズ"
   },
   "history": {
     "close": "ヒストリーを閉じる",
@@ -364,6 +390,18 @@
     "cleanup": "クリーンアップ",
     "outline": "輪郭"
   },
+  "reader": {
+    "coverAlone": "表紙を単独で",
+    "edit": "編集",
+    "loadFailed": "話を読み込めませんでした",
+    "ltr": "左から右",
+    "mode": "モード",
+    "next": "次のページ",
+    "noPages": "まだページがありません",
+    "previous": "前のページ",
+    "read": "閲覧",
+    "rtl": "右から左"
+  },
   "reasoning": {
     "high": "高",
     "low": "低",
@@ -397,6 +435,16 @@
       "qualityLabel": "品質",
       "title": "書き出し",
       "webpQuality": "WebP品質"
+    },
+    "gallery": {
+      "accounts": "アカウント",
+      "description": "サイトにログインすると、購入した話など、アカウントで読めるものを読めます。",
+      "noSignIn": "アカウント不要",
+      "signIn": "ログイン",
+      "signOut": "サインアウト",
+      "signOutLabel": "{{site}}からサインアウト",
+      "signedIn": "{{name}} でログイン中",
+      "title": "ギャラリー"
     },
     "loading": "設定を読み込み中…",
     "pipeline": {
@@ -467,6 +515,7 @@
     "tabs": {
       "appearance": "外観",
       "export": "書き出し",
+      "gallery": "ギャラリー",
       "pipeline": "パイプライン",
       "providers": "プロバイダー",
       "typesetting": "レンダラー"
@@ -510,6 +559,7 @@
     "search": "プロジェクトを検索",
     "storageHint": "プロジェクトはこのコンピューターにローカル保存されます。",
     "title": "プロジェクト",
+    "views": "表示",
     "yourProjects": "プロジェクト一覧"
   },
   "startup": {

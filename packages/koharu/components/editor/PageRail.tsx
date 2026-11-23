@@ -129,7 +129,7 @@ export function PageRail() {
     selectPages(next)
     if (page.id !== active) {
       selectLayers([])
-      send(commands.show, page.id)
+      send(commands.show, page.id, null)
     }
   }
 

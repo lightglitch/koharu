@@ -5,6 +5,7 @@ import {
   Cpu,
   FileArchive,
   KeyRound,
+  Library,
   Monitor,
   Moon,
   Palette,
@@ -17,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Choice } from '@/components/controls/Choice'
 import { ExportPreferences } from '@/components/preferences/ExportPreferences'
+import { GalleryPreferences } from '@/components/preferences/GalleryPreferences'
 import { PipelinePreferences } from '@/components/preferences/PipelinePreferences'
 import {
   PreferencePage,
@@ -47,6 +49,7 @@ const tabs = [
   ['providers', KeyRound],
   ['typesetting', Type],
   ['export', FileArchive],
+  ['gallery', Library],
 ] as const
 
 export function SettingsPage() {
@@ -124,6 +127,9 @@ export function SettingsPage() {
               ) : (
                 <LoadingPreferences />
               )}
+            </TabsContent>
+            <TabsContent value='gallery'>
+              <GalleryPreferences />
             </TabsContent>
             <TabsContent value='typesetting'>
               {preferences ? (

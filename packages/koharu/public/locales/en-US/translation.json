@@ -15,6 +15,7 @@
     "downloadingFiles_other": "Downloading {{count}} files",
     "exporting": "Exporting",
     "finishedWithFailures": "Finished with failed pages",
+    "loadingPages": "Loading pages: {{loaded}} of {{total}}",
     "modelDownload": "Model download",
     "processing": "Processing",
     "stop": "Stop",
@@ -130,6 +131,31 @@
     "noResults": "No fonts match this search",
     "removeFavorite": "Remove {{name}} from favorites",
     "search": "Search fonts"
+  },
+  "gallery": {
+    "back": "Back",
+    "chapters": "{{count}} chapters",
+    "chapters_one": "{{count}} chapter",
+    "chapters_other": "{{count}} chapters",
+    "latest": "Latest",
+    "library": "My books",
+    "locked": "Locked",
+    "noResults": "No results for “{{query}}”",
+    "noSeries": "No series yet",
+    "noSeriesHint": "Search for a series above, or paste its address.",
+    "onShelf": "On your shelf",
+    "ongoing": "Ongoing",
+    "popular": "Popular",
+    "removeAction": "Remove series",
+    "removeDescription": "This removes “{{title}}” from your series. Its chapters’ projects stay in Koharu.",
+    "removeLabel": "Remove {{title}}",
+    "removeTitle": "Remove series?",
+    "search": "Search",
+    "searchPlaceholder": "Search series, or paste an address",
+    "searching": "Searching…",
+    "seeAll": "See all",
+    "title": "Gallery",
+    "yourSeries": "Your series"
   },
   "history": {
     "close": "Close history",
@@ -364,6 +390,18 @@
     "cleanup": "Cleanup",
     "outline": "Outline"
   },
+  "reader": {
+    "coverAlone": "Cover alone",
+    "edit": "Edit",
+    "loadFailed": "Couldn't load the chapter",
+    "ltr": "Left to right",
+    "mode": "Mode",
+    "next": "Next page",
+    "noPages": "No pages yet",
+    "previous": "Previous page",
+    "read": "Read",
+    "rtl": "Right to left"
+  },
   "reasoning": {
     "high": "High",
     "low": "Low",
@@ -397,6 +435,16 @@
       "qualityLabel": "Quality",
       "title": "Export",
       "webpQuality": "WebP quality"
+    },
+    "gallery": {
+      "accounts": "Accounts",
+      "description": "Sign in to a site to read what your account can, such as chapters you bought.",
+      "noSignIn": "No account needed",
+      "signIn": "Sign in",
+      "signOut": "Sign out",
+      "signOutLabel": "Sign out of {{site}}",
+      "signedIn": "Signed in as {{name}}",
+      "title": "Gallery"
     },
     "loading": "Loading preferences…",
     "pipeline": {
@@ -467,6 +515,7 @@
     "tabs": {
       "appearance": "Appearance",
       "export": "Export",
+      "gallery": "Gallery",
       "pipeline": "Pipeline",
       "providers": "Providers",
       "typesetting": "Renderer"
@@ -510,6 +559,7 @@
     "search": "Search projects",
     "storageHint": "Projects are stored locally on this computer.",
     "title": "Projects",
+    "views": "View",
     "yourProjects": "Your projects"
   },
   "startup": {

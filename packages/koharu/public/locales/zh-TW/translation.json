@@ -15,6 +15,7 @@
     "downloadingFiles_other": "正在下載 {{count}} 個檔案",
     "exporting": "正在匯出",
     "finishedWithFailures": "已完成，部分頁面失敗",
+    "loadingPages": "正在載入頁面：{{loaded}} / {{total}}",
     "modelDownload": "模型下載",
     "processing": "正在處理",
     "stop": "停止",
@@ -130,6 +131,31 @@
     "noResults": "沒有符合此搜尋的字型",
     "removeFavorite": "將 {{name}} 從我的最愛移除",
     "search": "搜尋字型"
+  },
+  "gallery": {
+    "back": "返回",
+    "chapters": "{{count}} 話",
+    "chapters_one": "{{count}} 話",
+    "chapters_other": "{{count}} 話",
+    "latest": "最新",
+    "library": "我的書籍",
+    "locked": "已鎖定",
+    "noResults": "沒有「{{query}}」的結果",
+    "noSeries": "尚無系列",
+    "noSeriesHint": "在上方搜尋系列，或貼上它的網址。",
+    "onShelf": "在書架上",
+    "ongoing": "連載中",
+    "popular": "熱門",
+    "removeAction": "移除系列",
+    "removeDescription": "這會將「{{title}}」從你的系列中移除。其章節的專案仍保留在 Koharu 中。",
+    "removeLabel": "移除{{title}}",
+    "removeTitle": "移除系列？",
+    "search": "搜尋",
+    "searchPlaceholder": "搜尋系列，或貼上網址",
+    "searching": "搜尋中…",
+    "seeAll": "查看全部",
+    "title": "圖庫",
+    "yourSeries": "你的系列"
   },
   "history": {
     "close": "關閉步驟記錄",
@@ -364,6 +390,18 @@
     "cleanup": "清理",
     "outline": "輪廓"
   },
+  "reader": {
+    "coverAlone": "封面單獨",
+    "edit": "編輯",
+    "loadFailed": "無法載入章節",
+    "ltr": "由左至右",
+    "mode": "模式",
+    "next": "下一頁",
+    "noPages": "尚無頁面",
+    "previous": "上一頁",
+    "read": "閱讀",
+    "rtl": "由右至左"
+  },
   "reasoning": {
     "high": "高",
     "low": "低",
@@ -397,6 +435,16 @@
       "qualityLabel": "品質",
       "title": "匯出",
       "webpQuality": "WebP 品質"
+    },
+    "gallery": {
+      "accounts": "帳號",
+      "description": "登入網站後，可以閱讀帳號能看的內容，例如已購買的章節。",
+      "noSignIn": "無需帳號",
+      "signIn": "登入",
+      "signOut": "登出",
+      "signOutLabel": "登出 {{site}}",
+      "signedIn": "已登入為 {{name}}",
+      "title": "圖庫"
     },
     "loading": "正在載入偏好設定…",
     "pipeline": {
@@ -467,6 +515,7 @@
     "tabs": {
       "appearance": "外觀",
       "export": "匯出",
+      "gallery": "圖庫",
       "pipeline": "流程",
       "providers": "提供者",
       "typesetting": "渲染器"
@@ -510,6 +559,7 @@
     "search": "搜尋專案",
     "storageHint": "專案會儲存在這台電腦上。",
     "title": "專案",
+    "views": "檢視",
     "yourProjects": "你的專案"
   },
   "startup": {

@@ -257,6 +257,9 @@ Code: `components/editor/LayersHeader.tsx` and
 - It's never part of a default run (`defaultStages` in `lib/store.ts`): tick
   it in the Run control, use a page's Validate menu item, or pass
   `--stages ...,validate` to the CLI.
+  - The Run control remembers its ticked stages between sessions (upstream's
+    `persist` in `lib/store.ts`), so a ticked Validate stays ticked. A first
+    start uses `defaultStages`, not upstream's `pipelineStages`.
 - "Out of its balloon" tests sampled points of each line's letters against the
   balloon's outline, so an oval's corners count as outside.
 

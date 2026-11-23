@@ -1,3 +1,57 @@
+## [0.94.0](https://github.com/koharu-rs/koharu/compare/0.93.0..0.94.0) - 2026-11-23
+
+### ⛰️  Features
+
+- *(ui)* Keep the tool, brush, processing choices, and start tab between runs - ([78d1c38](https://github.com/koharu-rs/koharu/commit/78d1c38c74e94d0254169f80639c0124d369493a))
+
+### 🐛 Bug Fixes
+
+- *(pipeline)* Empty libtorch's cache when models unload, which kept their memory until Koharu quit ([#1484](https://github.com/koharu-rs/koharu/issues/1484)) - ([8e725fb](https://github.com/koharu-rs/koharu/commit/8e725fbf89608a6f76a5f00031311e17c3a0f122))
+- *(ui)* Let the mutation cache drop each send() command once it settles ([#1479](https://github.com/koharu-rs/koharu/issues/1479)) - ([547c291](https://github.com/koharu-rs/koharu/commit/547c291c0ab95f71bf434e76147ae6ae00036249))
+- *(ui)* Run commands while the browser reports no network - ([b43358d](https://github.com/koharu-rs/koharu/commit/b43358da7f883d709164b866398bdf4e8586eec4))
+
+### 🚜 Refactor
+
+- *(gallery)* Keep the shelf and chapter readings in the interface - ([4d26193](https://github.com/koharu-rs/koharu/commit/4d26193615a7c2e139574431531007144fbcaf69))
+
+### 📚 Documentation
+
+- Add gallery and reader guides - ([db9de2c](https://github.com/koharu-rs/koharu/commit/db9de2cdde63e884a31d399dcd77c2017b17392a))
+
+### ⚡ Performance
+
+- *(desktop)* Render a PDF's pages in parallel and save them with the fast PNG encoder - ([6a2bbb1](https://github.com/koharu-rs/koharu/commit/6a2bbb15f0adea39df6e7f63d10956b03e34b989))
+
+## [0.93.0](https://github.com/koharu-rs/koharu/compare/0.92.0..0.93.0) - 2026-11-23
+
+### ⛰️  Features
+
+- Read manga sites in a gallery, with a two-page reader - ([1cc4738](https://github.com/koharu-rs/koharu/commit/1cc47386c7e7cc58f9426ea37bed34d17786c6b4))
+
+### 🧪 Testing
+
+- *(ui)* Answer getReading in the fake desktop - ([fcad568](https://github.com/koharu-rs/koharu/commit/fcad5682a16dd3b1d48aab0230ad0a6b2d4117d3))
+
+## [0.92.0](https://github.com/koharu-rs/koharu/compare/0.91.1..0.92.0) - 2026-11-22
+
+### ⛰️  Features
+
+- *(ml)* Update Hayai OCR to b00317e ([#1475](https://github.com/koharu-rs/koharu/issues/1475)) - ([491cabe](https://github.com/koharu-rs/koharu/commit/491cabec3c38a7e70e4cb1bc47f6f3f42609d4b9))
+
+### 🐛 Bug Fixes
+
+- *(ui)* Keep the detector threshold inputs inside their column in a narrow settings window - ([beaafaa](https://github.com/koharu-rs/koharu/commit/beaafaa3a76d02b3479955310d1007f42f35cd56))
+
+## [0.91.1](https://github.com/koharu-rs/koharu/compare/0.91.0..0.91.1) - 2026-11-22
+
+### 🐛 Bug Fixes
+
+- *(linux)* Draw the window on a child X window of GTK's, so Koharu starts on NVIDIA under X11 - ([a142321](https://github.com/koharu-rs/koharu/commit/a142321f78d554339195c416be70706009f96a3e))
+
+### 🎨 Styling
+
+- *(linux)* Format the child window's input shape call - ([65557c9](https://github.com/koharu-rs/koharu/commit/65557c9ffab41de4e4f4f97ff8d4315cdc3de912))
+
 ## [0.91.0](https://github.com/koharu-rs/koharu/compare/0.90.3..0.91.0) - 2026-11-21
 
 ### ⛰️  Features

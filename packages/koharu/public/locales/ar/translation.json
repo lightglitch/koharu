@@ -15,6 +15,7 @@
     "downloadingFiles_other": "جارٍ تنزيل {{count}} من الملفات",
     "exporting": "جارٍ التصدير",
     "finishedWithFailures": "اكتمل مع فشل بعض الصفحات",
+    "loadingPages": "جارٍ تحميل الصفحات: {{loaded}} من {{total}}",
     "modelDownload": "تنزيل النموذج",
     "processing": "قيد المعالجة",
     "stop": "إيقاف",
@@ -130,6 +131,31 @@
     "noResults": "لا توجد خطوط تطابق هذا البحث",
     "removeFavorite": "إزالة {{name}} من المفضلة",
     "search": "ابحث عن خطوط"
+  },
+  "gallery": {
+    "back": "رجوع",
+    "chapters": "{{count}} من الفصول",
+    "chapters_one": "{{count}} فصل",
+    "chapters_other": "{{count}} من الفصول",
+    "latest": "الأحدث",
+    "library": "كتبي",
+    "locked": "مقفل",
+    "noResults": "لا نتائج لـ «{{query}}»",
+    "noSeries": "لا توجد سلاسل بعد",
+    "noSeriesHint": "ابحث عن سلسلة في الأعلى، أو الصق عنوانها.",
+    "onShelf": "على رفّك",
+    "ongoing": "مستمرة",
+    "popular": "الأكثر شعبية",
+    "removeAction": "إزالة السلسلة",
+    "removeDescription": "سيؤدي هذا إلى إزالة «{{title}}» من سلاسلك. تبقى مشاريع فصولها في Koharu.",
+    "removeLabel": "إزالة {{title}}",
+    "removeTitle": "إزالة السلسلة؟",
+    "search": "بحث",
+    "searchPlaceholder": "ابحث عن سلسلة، أو الصق عنوانًا",
+    "searching": "جارٍ البحث…",
+    "seeAll": "عرض الكل",
+    "title": "المعرض",
+    "yourSeries": "سلاسلك"
   },
   "history": {
     "close": "إغلاق السجل",
@@ -364,6 +390,18 @@
     "cleanup": "تنظيف",
     "outline": "المخطط"
   },
+  "reader": {
+    "coverAlone": "الغلاف وحده",
+    "edit": "تحرير",
+    "loadFailed": "تعذّر تحميل الفصل",
+    "ltr": "من اليسار إلى اليمين",
+    "mode": "الوضع",
+    "next": "الصفحة التالية",
+    "noPages": "لا توجد صفحات بعد",
+    "previous": "الصفحة السابقة",
+    "read": "قراءة",
+    "rtl": "من اليمين إلى اليسار"
+  },
   "reasoning": {
     "high": "عالٍ",
     "low": "منخفض",
@@ -397,6 +435,16 @@
       "qualityLabel": "الجودة",
       "title": "التصدير",
       "webpQuality": "جودة WebP"
+    },
+    "gallery": {
+      "accounts": "الحسابات",
+      "description": "سجّل الدخول إلى موقع لتقرأ ما يتيحه حسابك، مثل الفصول التي اشتريتها.",
+      "noSignIn": "لا حاجة إلى حساب",
+      "signIn": "تسجيل الدخول",
+      "signOut": "تسجيل الخروج",
+      "signOutLabel": "تسجيل الخروج من {{site}}",
+      "signedIn": "مسجّل الدخول باسم {{name}}",
+      "title": "المعرض"
     },
     "loading": "جارٍ تحميل التفضيلات…",
     "pipeline": {
@@ -467,6 +515,7 @@
     "tabs": {
       "appearance": "المظهر",
       "export": "التصدير",
+      "gallery": "المعرض",
       "pipeline": "خط المعالجة",
       "providers": "المزوّدون",
       "typesetting": "محرك العرض"
@@ -510,6 +559,7 @@
     "search": "البحث في المشاريع",
     "storageHint": "تُخزَّن المشاريع محليًا على هذا الكمبيوتر.",
     "title": "المشاريع",
+    "views": "العرض",
     "yourProjects": "مشاريعك"
   },
   "startup": {
