@@ -1,5 +1,6 @@
-//! Export: every page as PNG or PSD files in a folder, or as a CBZ of PNG,
-//! JPEG, or WebP pages, telling its progress as it goes until stopped.
+//! Export: every page, or some of them, as PNG or PSD files in a folder, as a
+//! CBZ of PNG, JPEG, or WebP pages, or as a PDF, telling its progress as it
+//! goes until stopped.
 
 use std::{
     io::{Cursor, Write as _},
@@ -16,13 +17,14 @@ use image::{ImageFormat, RgbImage, RgbaImage, codecs::jpeg::JpegEncoder};
 use koharu_psd::Labels;
 use koharu_renderer::{Frame, Renderer};
 use koharu_scene::{PageId, Session};
+use krilla::{Document, geom::Size, image::Image, page::PageSettings};
 use parking_lot::Mutex;
 use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 use specta::Type;
 use tauri::{State, Window, ipc::Channel};
 use tauri_runtime_cef::CefRuntime;
 
-use super::Result;
+use super::{Result, import::PDF_SCALE};
 use crate::app::App;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type)]
@@ -31,6 +33,7 @@ pub enum ExportFormat {
     Png,
     Psd,
     Cbz,
+    Pdf,
 }
 
 // Fork addition: upstream writes a CBZ's pages as PNG only, and an export
@@ -110,7 +113,8 @@ pub fn stop_export() {
     STOPPING.store(true, Ordering::Relaxed);
 }
 
-/// Picks where the open project's pages go, and writes them there. `labels`
+/// Picks where the open project's pages go, and writes them there: `pages`
+/// alone, or every page when it's `None`, in the project's order. `labels`
 /// names a PSD's layers the scene names nothing, in the interface's language;
 /// `encoding` is a CBZ's pages'. `on_progress` hears each page written.
 #[tauri::command]
@@ -118,6 +122,7 @@ pub fn stop_export() {
 pub async fn export(
     app: State<'_, Arc<App>>,
     window: Window<CefRuntime>,
+    pages: Option<Vec<PageId>>,
     format: ExportFormat,
     labels: Labels,
     encoding: PageEncoding,
@@ -130,12 +135,17 @@ pub async fn export(
         .map(|project| project.name.clone())
         .context("no project is open")?;
     let dialog = rfd::AsyncFileDialog::new().set_parent(&window);
-    let destination = match format {
-        ExportFormat::Png | ExportFormat::Psd => dialog.pick_folder().await,
-        ExportFormat::Cbz => {
+    let extension = match format {
+        ExportFormat::Png | ExportFormat::Psd => None,
+        ExportFormat::Cbz => Some("cbz"),
+        ExportFormat::Pdf => Some("pdf"),
+    };
+    let destination = match extension {
+        None => dialog.pick_folder().await,
+        Some(extension) => {
             dialog
-                .set_file_name(format!("{name}.cbz"))
-                .add_filter("CBZ", &["cbz"])
+                .set_file_name(format!("{name}.{extension}"))
+                .add_filter(extension.to_uppercase(), &[extension])
                 .save_file()
                 .await
         }
@@ -154,6 +164,7 @@ pub async fn export(
             write(
                 &session,
                 &app.renderer,
+                pages.as_deref(),
                 format,
                 &labels,
                 encoding,
@@ -162,9 +173,9 @@ pub async fn export(
                 progress,
             )
         });
-        // A CBZ left unfinished, stopped or failed, is no archive anyone
+        // A CBZ or PDF left unfinished, stopped or failed, is no file anyone
         // could read; a folder export's files stay as written.
-        if format == ExportFormat::Cbz && !matches!(written, Ok(true)) {
+        if extension.is_some() && !matches!(written, Ok(true)) {
             let _ = fs_err::remove_file(&destination);
         }
         written.map(|_| ())
@@ -172,11 +183,12 @@ pub async fn export(
     .await??)
 }
 
-/// Writes every page; `false` when stopped first.
+/// Writes `pages`, or every page when it's `None`; `false` when stopped first.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn write(
     session: &Mutex<Session>,
     renderer: &Renderer,
+    pages: Option<&[PageId]>,
     format: ExportFormat,
     labels: &Labels,
     encoding: PageEncoding,
@@ -184,26 +196,47 @@ pub(crate) fn write(
     destination: &Path,
     progress: impl Fn(u32, u32),
 ) -> anyhow::Result<bool> {
-    let pages: Vec<PageId> = session
+    let order: Vec<PageId> = session
         .lock()
         .project()
         .pages()
         .map(|page| page.id)
         .collect();
-    let digits = pages.len().to_string().len().max(3);
+    let digits = order.len().to_string().len().max(3);
+    // A page keeps its number in the project whichever pages go with it, so
+    // one exported again replaces its own file.
+    let pages: Vec<(String, PageId)> = order
+        .iter()
+        .enumerate()
+        .filter(|(_, page)| pages.is_none_or(|pages| pages.contains(page)))
+        .map(|(index, &page)| (format!("{:0digits$}", index + 1), page))
+        .collect();
     let mut archive = match format {
         ExportFormat::Cbz => Some(::zip::ZipWriter::new(File::create(destination)?)),
-        ExportFormat::Png | ExportFormat::Psd => None,
+        ExportFormat::Png | ExportFormat::Psd | ExportFormat::Pdf => None,
     };
+    let mut document = (format == ExportFormat::Pdf).then(Document::new);
     let total = pages.len() as u32;
     progress(0, total);
-    for (index, &page) in pages.iter().enumerate() {
+    for (done, (number, page)) in pages.into_iter().enumerate() {
         if STOPPING.load(Ordering::Relaxed) {
             return Ok(false);
         }
-        let number = format!("{:0digits$}", index + 1);
         let frame = renderer.render(&session.lock(), page)?;
         match (format, &mut archive) {
+            (ExportFormat::Pdf, _) => {
+                let image = frame.rasterize()?.image;
+                let (width, height) = image.dimensions();
+                // Import's own scale, so a page read back keeps its pixels.
+                let size = Size::from_wh(width as f32 / PDF_SCALE, height as f32 / PDF_SCALE)
+                    .context("a page has no pixels")?;
+                document
+                    .as_mut()
+                    .expect("a PDF export has its document")
+                    .start_page_with(PageSettings::new(size))
+                    .surface()
+                    .draw_image(Image::from_rgba8(image.into_raw(), width, height), size);
+            }
             (ExportFormat::Psd, _) => {
                 let psd = koharu_psd::export(&session.lock(), renderer, page, labels)?;
                 fs_err::write(destination.join(format!("{number}.psd")), psd)?;
@@ -219,10 +252,13 @@ pub(crate) fn write(
                 fs_err::write(destination.join(format!("{number}.png")), png(&frame)?)?;
             }
         }
-        progress(index as u32 + 1, total);
+        progress(done as u32 + 1, total);
     }
     if let Some(archive) = archive {
         archive.finish()?;
+    }
+    if let Some(document) = document {
+        fs_err::write(destination, document.finish()?)?;
     }
     Ok(true)
 }

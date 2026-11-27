@@ -20,7 +20,7 @@ export function showPage(page: PageId): void {
   store.selectPages([page])
   if (page === queryClient.getQueryData<ProjectView | null>(projectKey)?.page) return
   store.selectLayers([])
-  send(commands.show, page)
+  send(commands.show, page, null)
 }
 
 /** The page `delta` steps from the shown one, or undefined past either end: paging past the last

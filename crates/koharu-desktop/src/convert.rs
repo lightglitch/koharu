@@ -15,7 +15,7 @@ use std::{
 
 use anyhow::{Context as _, Result};
 use koharu_pipeline::{Event, Outcome, Pipeline, PipelineConfig, Request, Stage, Target};
-use koharu_renderer::{Renderer, RendererConfig};
+use koharu_renderer::Renderer;
 use koharu_scene::Session;
 use parking_lot::Mutex;
 use tokio::sync::broadcast::error::RecvError;
@@ -97,7 +97,6 @@ pub async fn run(args: Args, identifier: &str) -> Result<bool> {
         .collect();
     let export: ExportConfig = koharu_config::get()?;
     let renderer = Renderer::get().clone();
-    renderer.set_config(koharu_config::get::<RendererConfig>()?);
     let pipeline = Pipeline::new(koharu_config::get::<PipelineConfig>()?);
     let output = args.output.as_deref().map(|path| (path, encoding, &export));
 
@@ -134,7 +133,7 @@ pub async fn run(args: Args, identifier: &str) -> Result<bool> {
         std::process::id(),
         koharu_scene::EXTENSION
     ));
-    let session = Arc::new(Mutex::new(Session::create(&path).with_context(|| {
+    let session = Arc::new(Mutex::new(Session::create(&path, crate::library::preferred()?).with_context(|| {
         format!("failed to create a project in {}", path.display())
     })?));
     let result = match pages(&[input], 0).and_then(|edit| Ok(session.lock().apply(edit)?)) {
@@ -245,6 +244,7 @@ async fn process(
         let written = write(
             &session,
             &renderer,
+            None,
             ExportFormat::Cbz,
             &labels,
             encoding,

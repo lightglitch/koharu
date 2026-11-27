@@ -1,3 +1,233 @@
+## [0.101.2](https://github.com/koharu-rs/koharu/compare/0.101.1..0.101.2) - 2026-11-27
+
+### 🐛 Bug Fixes
+
+- *(renderer)* Centre sideways text in a column on its font's em box, and a bracket turned among upright characters on its ink ([#1576](https://github.com/koharu-rs/koharu/issues/1576)) - ([b18a8d9](https://github.com/koharu-rs/koharu/commit/b18a8d99f306c8a86544b5ea6aab8f1949f9894d))
+
+## [0.101.1](https://github.com/koharu-rs/koharu/compare/0.101.0..0.101.1) - 2026-11-27
+
+### 🐛 Bug Fixes
+
+- *(ml)* Grow a text's box over the glyphs it cuts, whose rest clean-up left when the box ended inside a line ([#1572](https://github.com/koharu-rs/koharu/issues/1572)) - ([e1d22ae](https://github.com/koharu-rs/koharu/commit/e1d22aed238b9e5b89db3b8ae5d3a78081ae8128))
+
+## [0.101.0](https://github.com/koharu-rs/koharu/compare/0.100.3..0.101.0) - 2026-11-27
+
+### ⛰️  Features
+
+- Stand selected characters of a column upright, sideways, or in one cell, and set emphasis marks beside them, in project format 1.3.0 - ([962de5b](https://github.com/koharu-rs/koharu/commit/962de5b731a3e2c4c1a3c04ae6e461fd0ea1e4fb))
+
+## [0.100.3](https://github.com/koharu-rs/koharu/compare/0.100.2..0.100.3) - 2026-11-26
+
+### 🐛 Bug Fixes
+
+- *(updater)* Install Windows updates in passive mode, whose msiexec can ask for the admin rights an MSI install needs - ([f26a0cf](https://github.com/koharu-rs/koharu/commit/f26a0cf4e2f134be74b3ce063a1de19b6c5e31d0))
+- Take Show Original on the key a layout gives US \'s virtual key, º on a Spanish keyboard, which the View menu now names, and Fit on the 0 key wherever a layout puts it - ([c3137bc](https://github.com/koharu-rs/koharu/commit/c3137bcec0592899080ad4d798f283c5080a47ce))
+
+### 🧪 Testing
+
+- Expect a balloon text's room past its split and a margin narrowed at the page's size, and set a fuller sentence in the ellipse that shrinks it - ([8affd38](https://github.com/koharu-rs/koharu/commit/8affd38aa5386f129b9440728a0bee5af3ee8252))
+
+## [0.100.2](https://github.com/koharu-rs/koharu/compare/0.100.1..0.100.2) - 2026-11-26
+
+### 🐛 Bug Fixes
+
+- Centre vertical text in its balloon share, which reaches past the lines splitting a balloon, size a page by its balloon texts, set a balloon's like texts at one size, keep margins to three quarters, never letter in grey, and set ellipses, middle dots and AAT fonts' brackets right in vertical text - ([83cd4d9](https://github.com/koharu-rs/koharu/commit/83cd4d9659ee1f0cc90067b1cbe8fe324a383437))
+
+## [0.100.1](https://github.com/koharu-rs/koharu/compare/0.100.0..0.100.1) - 2026-11-26
+
+### 🐛 Bug Fixes
+
+- *(ui)* Keep what's typed in the Pipeline settings' text boxes, so an input method's composition no longer leaves each step behind - ([f2249e4](https://github.com/koharu-rs/koharu/commit/f2249e480714dc2fa799e390857992c6cd35c144))
+
+### 🧪 Testing
+
+- *(renderer)* Set a kernel style's test text in an installed sans-serif, which CI's Linux runner has in place of Arial - ([8dc3b93](https://github.com/koharu-rs/koharu/commit/8dc3b93f47b227e8af9ac9573b21a48f9d6ce844))
+
+## [0.100.0](https://github.com/koharu-rs/koharu/compare/0.99.0..0.100.0) - 2026-11-26
+
+### ⛰️  Features
+
+- Letter each translation in its source's kernel style, with styles the project keeps and Settings seeds, steadier font readings, and Chinese lines breaking around quotation marks - ([7955303](https://github.com/koharu-rs/koharu/commit/7955303e336fa0e3b71545d8a86b5333bd0bd73a))
+
+### 🐛 Bug Fixes
+
+- *(ml)* Keep upright lettering upright by re-averaging its tilt over the edges near it, and read a block of short columns wider than tall as vertical - ([3745d87](https://github.com/koharu-rs/koharu/commit/3745d87029652fadf6c024491ded6918837dd84c))
+- *(pipeline)* Grow a text its balloon would leave empty toward its source's size, break drawn-out sounds in their runs, overflow past a balloon's top and foot rather than its sides, outline every text, and cap outlines at an eighth of its size - ([c784a40](https://github.com/koharu-rs/koharu/commit/c784a404213b5218155e2a1d9b7b91dc7ebdc369))
+- *(pipeline)* Keep small text at its page's size, hyphenated from nine tenths of it and past its balloon where no hyphen lifts it, and shrink sound effects, free text, and overflow off other texts' letters - ([e101154](https://github.com/koharu-rs/koharu/commit/e1011543a0d639a377e5c4cf559fc6efd0cfb91f))
+- *(ui)* Take react-colorful 5.8.2 from npm in place of the fork pin - ([4016358](https://github.com/koharu-rs/koharu/commit/401635800669d865c0851746b40ac58b0b7b1ff1))
+- Type accents and input-method text on Linux, on a winit-gtk4 pin that gives its GTK 4 backend an input method - ([ede5017](https://github.com/koharu-rs/koharu/commit/ede501747112297edcac8fedd5d193ff9bef6516))
+
+### 📚 Documentation
+
+- Show the current editor in the README's screenshot, its window cut out with rounded, transparent corners - ([95532f8](https://github.com/koharu-rs/koharu/commit/95532f83aae7e153306b60d327f9fad4bdde6896))
+- Fold the top tabs into one flat sidebar of sections, with Reference last, as Mintlify's own docs have no tabs - ([f6d4935](https://github.com/koharu-rs/koharu/commit/f6d493546bb5f45116cc2af281fb28da4628f1ce))
+- Show the homepage's illustrations on the published site, where Mintlify rewrote the cards' image prop into a CDN address - ([32a421a](https://github.com/koharu-rs/koharu/commit/32a421a1273e6ab49181c89740d3473601c6b712))
+- Split the site into Guides, How it works, Reference, and Develop tabs with a How it works page on each stage, restyle it after Mintlify's own docs, fix what no longer matched the app, and give WinGet's package id - ([2ae5dce](https://github.com/koharu-rs/koharu/commit/2ae5dcecf718d9ecbbf30f328a77c2b27e5fb2ba))
+
+### ⚙️ Miscellaneous Tasks
+
+- *(docs)* Upgrade mint to 4.3.94, whose preview switches language - ([a9b0389](https://github.com/koharu-rs/koharu/commit/a9b0389a3d03c16bf20c270ef0ab8c3d67fee231))
+- Build macOS without an explicit target again - ([45afa38](https://github.com/koharu-rs/koharu/commit/45afa38260d7e68197110335fa7d1dc351d80fa4))
+- Save Rust caches from main only, give Test a cache apart from Lint's, build macOS for the release's target, and drop the bun caches - ([ec4c3dc](https://github.com/koharu-rs/koharu/commit/ec4c3dc6ae1fbd365651f8960d51b4a5f07de18b))
+
+## [0.99.0](https://github.com/koharu-rs/koharu/compare/0.98.1..0.99.0) - 2026-11-25
+
+### ⛰️  Features
+
+- *(ui)* Check for updates from Help, answered in the update dialog, which is more compact and no longer focuses a link in its notes - ([f723e79](https://github.com/koharu-rs/koharu/commit/f723e7988ddc47c47906e72f536a62831859c0a1))
+
+### 🐛 Bug Fixes
+
+- *(pipeline,llm)* Log why a run or page fails, drop the older half of a full history, ask an overloaded provider up to nine times, and leave the page image out for a model that reads none - ([eef34b0](https://github.com/koharu-rs/koharu/commit/eef34b092cba12e1cc15e410f12e6d376d2c9c1a))
+- *(runtime)* Download a Hugging Face file again when it breaks off, and wait longer before hf-hub gives up on a request - ([10e7a08](https://github.com/koharu-rs/koharu/commit/10e7a08e4fb46e3bbb355fcd3fd4cff62821d824))
+- *(ui)* Center the title bar's logo on the menus' words - ([7b47f92](https://github.com/koharu-rs/koharu/commit/7b47f92beae55f3b50fa329477bc739053c604c9))
+
+## [0.98.1](https://github.com/koharu-rs/koharu/compare/0.98.0..0.98.1) - 2026-11-25
+
+### 🐛 Bug Fixes
+
+- *(agent)* Run without a limit on model calls, fix corrections at two, and send a call to an unknown tool back to the model - ([8d5b7cb](https://github.com/koharu-rs/koharu/commit/8d5b7cbe07aaead7ec96c5ac00c216be72a57f0c))
+- *(pipeline,llm)* Go past a page whose translation fails, which ended the whole run, and first ask again for one whose answer repeats itself or is blocked - ([3cf6b96](https://github.com/koharu-rs/koharu/commit/3cf6b9646035d8a778bc89f8e4991382fe3ab221))
+
+### ⚙️ Miscellaneous Tasks
+
+- Install LLVM for Windows bindings with the action rust-bindgen's CI uses, since choco passed without installing it while its feed was down - ([58af0aa](https://github.com/koharu-rs/koharu/commit/58af0aaa564f864a2357e4a38069306cbf86180e))
+
+## [0.98.0](https://github.com/koharu-rs/koharu/compare/0.97.0..0.98.0) - 2026-11-25
+
+### ⛰️  Features
+
+- Set bold and italic in any font, faking a face it lacks, from the type bar and its shortcuts and into PSD - ([e924354](https://github.com/koharu-rs/koharu/commit/e92435418bfd1a7187ffe134684c3c585817bb77))
+
+## [0.97.0](https://github.com/koharu-rs/koharu/compare/0.96.2..0.97.0) - 2026-11-25
+
+### ⛰️  Features
+
+- *(ui)* Keep the type bar on one row, running past the canvas when the canvas is narrower - ([64621ea](https://github.com/koharu-rs/koharu/commit/64621ea5eadbf77070f255d840a18ba73863e014))
+- Set ruby over part of a text, and let the agent style and annotate parts of one, in project format 1.1.0 - ([62d0ac2](https://github.com/koharu-rs/koharu/commit/62d0ac2571d16ec2c900c71f407637d0dca362ac))
+
+### 📚 Documentation
+
+- Give the MCP address in the agent setup page, which the Agent panel no longer shows - ([f67226a](https://github.com/koharu-rs/koharu/commit/f67226aab971935ae6fb435aaa93552ca4fed5c7))
+
+## [0.96.2](https://github.com/koharu-rs/koharu/compare/0.96.1..0.96.2) - 2026-11-25
+
+### 🐛 Bug Fixes
+
+- *(desktop)* Release winit's window state before calling Windows' input method, where a message it caused hung the app as its window first took focus ([#1542](https://github.com/koharu-rs/koharu/issues/1542)) - ([e1d7fbd](https://github.com/koharu-rs/koharu/commit/e1d7fbd19e5546417f90b9ece998df669a5ad928))
+
+## [0.96.1](https://github.com/koharu-rs/koharu/compare/0.96.0..0.96.1) - 2026-11-25
+
+### 🐛 Bug Fixes
+
+- *(llm)* Wait for a provider's reply as long as it takes, which rig failed after five minutes of silence, as while a slow server read the agent's prompt - ([78c7151](https://github.com/koharu-rs/koharu/commit/78c71514a28b5fb294d4593729cb4fb2bc0af1f7))
+- *(pipeline)* Stop a translation while it summarizes its conversation - ([b99856a](https://github.com/koharu-rs/koharu/commit/b99856a9242646549079c22f6ef3b9b7522d149a))
+
+### 🧪 Testing
+
+- *(renderer)* Size the long word's boxes by its own width, which a fixed 300 px is under three quarters of in CI's wider font for Arial, so it hyphenated - ([2018db4](https://github.com/koharu-rs/koharu/commit/2018db4165991d6489707c81b80bb875c7123262))
+
+## [0.96.0](https://github.com/koharu-rs/koharu/compare/0.95.4..0.96.0) - 2026-11-25
+
+### ⛰️  Features
+
+- *(pipeline)* Bring a translation smaller than its page's up to it, by its balloon's margin or a wider frame outside one, outline text outside balloons, and hyphenate a long word where that keeps it a good deal larger ([#465](https://github.com/koharu-rs/koharu/issues/465)) - ([6140809](https://github.com/koharu-rs/koharu/commit/6140809dc75680c7858925afee4959384889deb5))
+
+### 🐛 Bug Fixes
+
+- *(agent)* Keep a local model's first request inside its context, with a layer's schema naming each type once, a project outline and get_page without what get_layer has, and Gemma's sliding window kept at its own length, where it was cached as long as the whole context - ([4b55dff](https://github.com/koharu-rs/koharu/commit/4b55dffaf97169bcf314516cbde4c4c201cad2cf))
+- *(desktop)* Let an idle app rest on Linux, where a GLib source CEF's pump leaves behind kept the main thread at a whole CPU core - ([3210ba9](https://github.com/koharu-rs/koharu/commit/3210ba9d564dd4011aca8526682df867c8b0fe0f))
+- *(ml)* Measure outlined lettering by its glyphs, whose outline was taken for the ink over dark art, inverting a translation's colours, and the art's dots for glyphs on a screentone, greying it - ([14b750d](https://github.com/koharu-rs/koharu/commit/14b750d417ee486869666f2bce95da8cac5c2ba5))
+- *(ml)* Give a glyph two masks take in to the lettering whose box is nearer it, as clean-up left the last glyphs of a conjoined balloon's text, which were in neither mask - ([2cac72f](https://github.com/koharu-rs/koharu/commit/2cac72fa033bfe964c92c74da249781a794c518d))
+- *(pipeline)* Letter a page at what its texts' rooms hold, even past its sources' size, which kept small text smaller ([#465](https://github.com/koharu-rs/koharu/issues/465)) - ([50bbb5a](https://github.com/koharu-rs/koharu/commit/50bbb5a277dbc21a77a57197de983e3205de8f72))
+- *(pipeline)* Widen a small sound effect's frame to its source's size, and try every margin and frame in whole words before hyphenating ([#465](https://github.com/koharu-rs/koharu/issues/465)) - ([ec73a05](https://github.com/koharu-rs/koharu/commit/ec73a058969a9ead0ed2f1cb16f842b3042ab3f6))
+
+## [0.95.4](https://github.com/koharu-rs/koharu/compare/0.95.3..0.95.4) - 2026-11-25
+
+### 🐛 Bug Fixes
+
+- *(ml)* Split a balloon moved or resized off whole pixels by its exact hull, where imageproc's cut the coordinates and could panic - ([67c01d6](https://github.com/koharu-rs/koharu/commit/67c01d6d55dddfabb9246d9bd280e033948de8d5))
+- *(pipeline)* Frame a balloon's translation in the few smooth anchors that keep its shape, where its traced outline had one every few pixels - ([fd0544b](https://github.com/koharu-rs/koharu/commit/fd0544bba64ccbfe75a9c93b526d229947033547))
+- *(runtime)* Run llama.cpp and stable-diffusion.cpp in turns on CUDA, and libtorch too on ROCm, where one spoiled the other's graph capture and ggml aborted the app - ([83af5a2](https://github.com/koharu-rs/koharu/commit/83af5a28b87408e79fc37e0e05f33074e8b7231d))
+
+## [0.95.3](https://github.com/koharu-rs/koharu/compare/0.95.2..0.95.3) - 2026-11-25
+
+### 🐛 Bug Fixes
+
+- *(agent)* Send an empty properties object for tools without arguments, which LM Studio refuses a request without - ([432fbb9](https://github.com/koharu-rs/koharu/commit/432fbb981af921c348f68e70d36b37a0b9045965))
+
+## [0.95.2](https://github.com/koharu-rs/koharu/compare/0.95.1..0.95.2) - 2026-11-25
+
+### 🐛 Bug Fixes
+
+- *(renderer)* Draw a zoomed-out image solid to its right and bottom edges, which faded where a halved level's side is odd - ([6a4fb67](https://github.com/koharu-rs/koharu/commit/6a4fb6789c214797e183b8fe4f5cea89cb6b7728))
+- *(renderer)* Draw layers larger than vello_gpu's default of 4096 px, as a 5K canvas or a large page has, and rasters in 4096 px pieces - ([decab3e](https://github.com/koharu-rs/koharu/commit/decab3e4f9934c9565745032ef6f48820dde5419))
+
+### ⚡ Performance
+
+- *(desktop)* Draw page thumbnails at twice their size instead of shrinking the whole page - ([802473e](https://github.com/koharu-rs/koharu/commit/802473e1ac8c15c85d44303df8acba5089200193))
+- *(renderer)* Upload an image once for all of a raster's pieces, and read each piece straight into place - ([93050f6](https://github.com/koharu-rs/koharu/commit/93050f69e8a5c59ca28245fbed282509b1e2d372))
+
+## [0.95.1](https://github.com/koharu-rs/koharu/compare/0.95.0..0.95.1) - 2026-11-24
+
+### 🐛 Bug Fixes
+
+- *(gallery)* Show a signed-in Kindle account without its name, as Amazon's store page it was read from can be a robot check instead - ([547fc5d](https://github.com/koharu-rs/koharu/commit/547fc5dba06bf48e1d625b5420f3e52261cabbeb))
+
+### 📚 Documentation
+
+- Say where the log file is in troubleshooting, and keep RUST_LOG for more detailed logs - ([31c8090](https://github.com/koharu-rs/koharu/commit/31c80900aed28b54cd6ef311d649da364a1ec94f))
+
+## [0.95.0](https://github.com/koharu-rs/koharu/compare/0.94.1..0.95.0) - 2026-11-24
+
+### ⛰️  Features
+
+- *(agent)* Let view_page show a page's scan alone, and a region of it enlarged (part of #1517) - ([6d61cb8](https://github.com/koharu-rs/koharu/commit/6d61cb8195a9a7142bf28657515733893ad0127a))
+- *(canvas)* Show a page's scan alone with Show Original, changing nothing in the project (part of #1517) - ([387b954](https://github.com/koharu-rs/koharu/commit/387b954bbc094bf6064651ebde1c6bb4887947a7))
+- *(canvas)* Draw a text block over text detection missed, and read or clean up one block from Story (part of #1517) - ([23fe490](https://github.com/koharu-rs/koharu/commit/23fe4901ece4a5345b2b78c63854f9bc012eac45))
+- *(canvas)* Put a Remove stroke on the selected raster or clean-up, or on one new raster that stays selected for the next (part of #1517) - ([3c2ea40](https://github.com/koharu-rs/koharu/commit/3c2ea40ac760bf1e0a245c200f94468805cc993f))
+- *(desktop)* Export to PDF, and export only the selected pages - ([2d882af](https://github.com/koharu-rs/koharu/commit/2d882afcf527b7d1a4aae1dd77c01f46a7412632))
+- *(llm)* Ask OpenAI and xAI not to store replies - ([5369aa1](https://github.com/koharu-rs/koharu/commit/5369aa1e766a4cd4efba3a64f7d865786ac0e613))
+- *(llm)* Update rig to 0.47, whose catalog has Claude Fable 5.2, GPT-6.2 and Gemini 4, and compact conversations its way, during an agent's run too - ([dc74e90](https://github.com/koharu-rs/koharu/commit/dc74e90a6a64282ebea170cf3db8263f592a625a))
+- *(ui)* Switch between Layers and Story with F7, each scrolled to what's selected, saving a field's edit as it goes (part of #1517) - ([3ff8214](https://github.com/koharu-rs/koharu/commit/3ff8214bde7d1301365c66c4b59401c72e1b74ed))
+
+### 🐛 Bug Fixes
+
+- *(desktop)* Keep the cookies' key in a keychain item of Koharu's own, as macOS asked for the password of the one Chromium apps share ([#1393](https://github.com/koharu-rs/koharu/issues/1393)) - ([34ab775](https://github.com/koharu-rs/koharu/commit/34ab775e02466feddf5855a9184c7f41e370de47))
+- *(llm)* Name Koharu on ChatGPT's sign-in page - ([596db8c](https://github.com/koharu-rs/koharu/commit/596db8cdd3f60c42df31b0090a7bac938f2daddd))
+- *(llm)* Never run a local model's call its token limit cut off, and give its reply all the time it needs - ([63037c7](https://github.com/koharu-rs/koharu/commit/63037c77bd2d553e2ca83fc336b2ae02bd5a7387))
+- *(llm)* Wait as long as a reply or its rate-limit headers ask, up to two minutes, send a request again whose connection was lost, and never one whose quota is spent - ([2870c37](https://github.com/koharu-rs/koharu/commit/2870c37be7d77a7af7d7ba3c5d7ed66dab3ecf4b))
+- *(llm,pipeline)* Read a translation in a code fence or prose, and ask once more for one that doesn't fit its page - ([d06891e](https://github.com/koharu-rs/koharu/commit/d06891e68cea483c3c84c62b368be234b5aa7e87))
+- *(ml)* Pad LaMa's input to a multiple of 128 on MPS, where libtorch keeps the graphs it compiles for each window size until Koharu runs out of memory ([#1295](https://github.com/koharu-rs/koharu/issues/1295)) - ([1672f93](https://github.com/koharu-rs/koharu/commit/1672f93caf8c624470f1f1ee9c6f732fd0af95eb))
+- *(pipeline)* Fill each piece of a lettering's mask from its own paper, leave lines and art under it to the model, and find the balloon's pixels once (part of #1517) - ([43ea786](https://github.com/koharu-rs/koharu/commit/43ea786db2dfb4c38dde4e90f38058fe23adfa41))
+- *(ui)* Keep the agent's conversation and the message being written through Settings and Read, until the project closes - ([ceafd09](https://github.com/koharu-rs/koharu/commit/ceafd09fd4753ab8937b87afe2a1a7fbbeef10cc))
+- *(ui)* Drag a selected layer once, with those inside it, so layers move with their masks and a group keeps its layers ([#1529](https://github.com/koharu-rs/koharu/issues/1529)) - ([e69998c](https://github.com/koharu-rs/koharu/commit/e69998c1a87a4af6bdc33f22ecbf3d24a7f135c3))
+- *(ui)* Delete a selected layer once, with those inside it, so a Shift range of layers and their masks no longer fails as not found ([#1529](https://github.com/koharu-rs/koharu/issues/1529)) - ([96f8130](https://github.com/koharu-rs/koharu/commit/96f81304b4bcdd74aeb45c9677abd1ee28814209))
+
+### ⚙️ Miscellaneous Tasks
+
+- Cancel the earlier Build, Lint and Test runs of a branch or pull request when a newer one starts - ([f2f01e4](https://github.com/koharu-rs/koharu/commit/f2f01e43213446bd8313b00058c14097e679e686))
+
+## [0.94.1](https://github.com/koharu-rs/koharu/compare/0.94.0..0.94.1) - 2026-11-24
+
+### 🐛 Bug Fixes
+
+- *(canvas)* Cut nothing at a caret while typing, so Ctrl+X no longer deletes the character before it ([#1495](https://github.com/koharu-rs/koharu/issues/1495)) - ([635c639](https://github.com/koharu-rs/koharu/commit/635c639629315ca29f9b855b7618af04f752c54b))
+- *(desktop)* Leave the keys an input method takes in a field to it, so PageUp and PageDown turn its candidates without scrolling the page ([#1514](https://github.com/koharu-rs/koharu/issues/1514)) - ([5a13f16](https://github.com/koharu-rs/koharu/commit/5a13f16ed6beb6aef07de3195d448d857b0bf2cc))
+- *(gallery)* Keep a long chapter's project name within Linux's 255-byte file names, cutting the series first ([#1516](https://github.com/koharu-rs/koharu/issues/1516)) - ([ed745a2](https://github.com/koharu-rs/koharu/commit/ed745a238cf62a5122ad5c42857dc966524f65ce))
+- *(pipeline)* Blur an edit's local tone differences without clamping, and leave out what the edit redrew - ([cb47e35](https://github.com/koharu-rs/koharu/commit/cb47e35994d4958bbac7913b93c812f99ace9ac4))
+- *(pipeline)* Leave a locked text block as it is on a rerun, so no stage fails its page ([#1503](https://github.com/koharu-rs/koharu/issues/1503)) - ([3dbef8c](https://github.com/koharu-rs/koharu/commit/3dbef8ce3188381627e7dd290655c8c995f14628))
+- *(scene)* Start a block's first translation in its source's place, whichever panel adds it ([#1494](https://github.com/koharu-rs/koharu/issues/1494)) - ([294e319](https://github.com/koharu-rs/koharu/commit/294e319bf1bd15f0fb52d87e606c33c0a98dc5f4))
+- *(scene)* Count a block as translated only when its translation has visible text ([#1500](https://github.com/koharu-rs/koharu/issues/1500)) - ([e58b9c6](https://github.com/koharu-rs/koharu/commit/e58b9c6387ae967d048fd1b7425fca0ca0e97f4a))
+- *(ui)* Refresh the thumbnail of each page a change names, not the shown page's ([#1496](https://github.com/koharu-rs/koharu/issues/1496)) - ([6c51328](https://github.com/koharu-rs/koharu/commit/6c51328e70d6b15b1c64246591e99d608d80fb8c))
+- *(ui)* Show the stored preferences again after a save fails ([#1498](https://github.com/koharu-rs/koharu/issues/1498)) - ([08f4888](https://github.com/koharu-rs/koharu/commit/08f48886810b52ccd8553c309dd6c4fb6574a5f1))
+- *(ui)* Fit or size each selected text in its own frame, a box or a path, from the type bar ([#1499](https://github.com/koharu-rs/koharu/issues/1499)) - ([baf9b1c](https://github.com/koharu-rs/koharu/commit/baf9b1c2963412e6de8b2a0c1cff60d652dade3c))
+
+### ⚙️ Miscellaneous Tasks
+
+- Update sponsors ([#1312](https://github.com/koharu-rs/koharu/issues/1312)) - ([b17d065](https://github.com/koharu-rs/koharu/commit/b17d0657b57afa0db4734dc5f6e0e7ecd770f737))
+- Remove standalone Kindle script - ([b4e87c0](https://github.com/koharu-rs/koharu/commit/b4e87c006ebc0cf63d3cfcb693e13bf501ff6b7f))
+
 ## [0.94.0](https://github.com/koharu-rs/koharu/compare/0.93.0..0.94.0) - 2026-11-23
 
 ### ⛰️  Features

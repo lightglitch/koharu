@@ -74,7 +74,7 @@ export function ActivityCenter() {
       <ScrollArea viewportClassName='max-h-80'>
         {activities.map((activity) =>
           // Fork addition: the export's row follows its pages and stops it.
-          activity.label === 'menu.export' ? (
+          activity.label === 'menu.export' || activity.label === 'menu.exportSelected' ? (
             <ExportItem key={activity.id} />
           ) : (
             <div

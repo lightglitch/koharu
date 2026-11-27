@@ -10,11 +10,18 @@ pub(crate) mod recognize;
 pub(crate) mod translate;
 pub(crate) mod validate;
 
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Instant,
+};
 
 use anyhow::anyhow;
-use image::DynamicImage;
-use koharu_scene::{Block, Edit, LayerId, Op, PageId, Project, Session};
+use image::{DynamicImage, GrayImage, Luma};
+use koharu_scene::{Block, Content, Edit, LayerId, Op, PageId, Project, Rect, Session};
+use kurbo::{BezPath, ParamCurve as _};
 use parking_lot::Mutex;
 use petgraph::stable_graph::NodeIndex;
 use serde_json::{Value, json};
@@ -24,7 +31,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::info_span;
 
 use crate::{
-    Error, Event, PipelineConfig, RunId, Stage,
+    Event, PipelineConfig, RunId, Stage,
     event::Events,
     gpu::{Gpu, Key, Models, Turn},
     scheduler::Priority,
@@ -43,6 +50,9 @@ pub(crate) struct Member {
     pub(crate) blocks: Option<Arc<[LayerId]>>,
     pub(crate) session: Arc<Mutex<Session>>,
     pub(crate) cancel: CancellationToken,
+    /// Whether the app was told the stage started on the page, which it's
+    /// told once, however many turns the stage takes.
+    pub(crate) started: Arc<AtomicBool>,
 }
 
 impl Member {
@@ -66,22 +76,24 @@ impl Member {
         Ok(Some((project, image::load_from_memory(&bytes)?)))
     }
 
-    /// The blocks of `project`'s page the task works on, in reading order.
+    /// The blocks of `project`'s page the task works on, in reading order,
+    /// but those locked or in a locked layer, which a run leaves as they are.
     pub(crate) fn blocks<'p>(&self, project: &'p Project) -> Vec<(LayerId, &'p Block)> {
         let mut blocks = project.blocks(self.page).unwrap_or_default();
+        blocks.retain(|(id, _)| project.locked_at(*id).is_none());
         if let Some(only) = &self.blocks {
             blocks.retain(|(id, _)| only.contains(id));
         }
         blocks
     }
 
-    /// Applies the ops `write` makes of the project as it is then, which a
-    /// layer removed meanwhile isn't in, as one undo step named for `stage`;
-    /// nothing once the run stopped.
+    /// Applies the ops `write` makes of the session as it is then, whose
+    /// project a layer removed meanwhile isn't in, as one undo step named for
+    /// `stage`; nothing once the run stopped.
     pub(crate) async fn apply(
         &self,
         stage: Stage,
-        write: impl FnOnce(&Project) -> anyhow::Result<Vec<Op>> + Send + 'static,
+        write: impl FnOnce(&Session) -> anyhow::Result<Vec<Op>> + Send + 'static,
     ) -> anyhow::Result<()> {
         let member = self.clone();
         tokio::task::spawn_blocking(move || {
@@ -90,7 +102,7 @@ impl Member {
             if member.cancel.is_cancelled() {
                 return Ok(());
             }
-            let ops = write(&session.project())?;
+            let ops = write(&session)?;
             if !ops.is_empty() {
                 session.apply(Edit {
                     label: stage.to_string(),
@@ -100,6 +112,19 @@ impl Member {
             Ok(())
         })
         .await?
+    }
+}
+
+/// Block `id` as `project` holds it when a stage writes, if it's still there
+/// and neither it nor a layer it's in is locked: a lock can come on while the
+/// stage runs, and the scene refuses a page's whole edit for one locked write.
+pub(crate) fn writable(project: &Project, id: LayerId) -> Option<&Block> {
+    if project.locked_at(id).is_some() {
+        return None;
+    }
+    match &project.layer(id).ok()?.content {
+        Content::Block(block) => Some(block),
+        _ => None,
     }
 }
 
@@ -113,6 +138,11 @@ pub(crate) struct Task {
     pub(crate) events: Events,
 }
 
+/// A stage's failure on one page alone, which its run goes past.
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub(crate) struct Failed(pub(crate) anyhow::Error);
+
 /// A stage's end once its run stopped, which isn't a failure.
 #[derive(Debug, thiserror::Error)]
 #[error("the run stopped")]
@@ -120,8 +150,9 @@ pub(crate) struct Stopped;
 
 impl Task {
     /// `work` on the GPU thread at the task's place in line, with `members`
-    /// started then. A stopped run's work is dropped unrun, and a panicking
-    /// model fails its run rather than the thread every model is on.
+    /// started then, on their first turn. A stopped run's work is dropped
+    /// unrun, and a panicking model fails its run rather than the thread every
+    /// model is on.
     pub(crate) async fn inference<T: Send + 'static>(
         &self,
         members: &[&Member],
@@ -165,9 +196,11 @@ impl Task {
         }
     }
 
+    /// The Started events of `members` not yet started, which are then.
     fn started_events(&self, members: &[&Member]) -> Vec<Event> {
         members
             .iter()
+            .filter(|member| !member.started.swap(true, Ordering::Relaxed))
             .map(|member| Event::Started {
                 run: member.run,
                 page: member.page,
@@ -185,11 +218,10 @@ pub(crate) struct Inputs {
     pub(crate) conversation: Option<OwnedMutexGuard<translate::Conversation>>,
 }
 
-/// Runs `task`'s stage: its failure, if any, as the run reports it.
-pub(crate) async fn run(task: Task, inputs: Inputs) -> Result<(), String> {
-    let stage = task.stage;
+/// Runs `task`'s stage; a stopped run's end isn't a failure.
+pub(crate) async fn run(task: Task, inputs: Inputs) -> anyhow::Result<()> {
     let config = &inputs.config;
-    let result = match stage {
+    let result = match task.stage {
         Stage::Detect => detect::detect(&task, config).await,
         Stage::Recognize => recognize::recognize(&task, config).await,
         Stage::Inpaint => inpaint::inpaint(&task, config, inputs.area).await,
@@ -202,14 +234,8 @@ pub(crate) async fn run(task: Task, inputs: Inputs) -> Result<(), String> {
         Stage::Validate => validate::validate(&task, config).await,
     };
     match result {
-        Err(error) if !error.is::<Stopped>() => {
-            let error = anyhow::Error::from(Error::Stage {
-                stage,
-                source: error,
-            });
-            Err(format!("{error:#}"))
-        }
-        _ => Ok(()),
+        Err(error) if error.is::<Stopped>() => Ok(()),
+        result => result,
     }
 }
 
@@ -259,4 +285,41 @@ pub(crate) fn action(action: &str, model: &str, parameters: Option<Value>) -> Va
         value["parameters"] = parameters;
     }
     value
+}
+
+/// The pixels of `rect` whose centres `outline` holds, as `Shape::contains`
+/// tells them, a row at a time.
+pub(crate) fn held(outline: &BezPath, rect: Rect) -> GrayImage {
+    let mut lines = BezPath::new();
+    kurbo::flatten(outline, 0.1, |element| lines.push(element));
+    // Where the outline crosses each row's middle, and which way.
+    let mut crossings = vec![Vec::new(); rect.height as usize];
+    let row = |y: f64| (y - f64::from(rect.y) - 0.5).ceil().max(0.0) as usize;
+    for line in lines.segments() {
+        let (start, end) = (line.start(), line.end());
+        let (top, bottom, way) = match start.y < end.y {
+            true => (start, end, 1),
+            false => (end, start, -1),
+        };
+        for at in row(top.y)..row(bottom.y).min(crossings.len()) {
+            let y = f64::from(rect.y) + at as f64 + 0.5;
+            let x = top.x + (bottom.x - top.x) * (y - top.y) / (bottom.y - top.y);
+            crossings[at].push((x - f64::from(rect.x), way));
+        }
+    }
+    let mut pixels = GrayImage::new(rect.width, rect.height);
+    for (y, crossings) in crossings.iter_mut().enumerate() {
+        crossings.sort_by(|(left, _), (right, _)| left.total_cmp(right));
+        let mut winding = 0;
+        for pair in crossings.windows(2) {
+            winding += pair[0].1;
+            if winding != 0 {
+                let column = |x: f64| ((x - 0.5).ceil().max(0.0) as u32).min(rect.width);
+                for x in column(pair[0].0)..column(pair[1].0) {
+                    pixels.put_pixel(x, y as u32, Luma([255]));
+                }
+            }
+        }
+    }
+    pixels
 }

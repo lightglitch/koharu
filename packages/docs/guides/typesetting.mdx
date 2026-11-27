@@ -1,7 +1,6 @@
 ---
 title: 'Typeset a translation'
 description: 'Fit text with suitable fonts, writing direction, alignment, color, and border.'
-icon: 'font'
 ---
 
 Typography is saved in the project. The canvas and every export draw the page the same way.
@@ -11,7 +10,9 @@ Typography is saved in the project. The canvas and every export draw the page th
     Translation places each block's text in its room in the balloon, or in its source's frame when it has no balloon, so resizing the frame reflows the text. To add text yourself, click with **Text** for point text or drag for a text box.
   </Step>
   <Step title="Choose fonts with the right coverage">
-    The font list includes your installed fonts and the families of Koharu's font dataset, which download when a text first needs them. If a font lacks a glyph, Koharu tries the preferred fonts in **Settings → Renderer**, then Arial, then the system's fallback for the text's script, then symbol and emoji fonts.
+    The font list includes your installed fonts and the families of Koharu's font dataset, which download when a text first needs them. A text with no font of its own takes its style's font for its script, as Japanese editors set each kind of line in its own kind of face. Translation gives a text or a sound effect the style of its original's typeface, such as **Mincho**, **Rounded**, or **Brush**, when detection is sure of it, and **Antique** otherwise. Speech balloons keep one of **Antique** and **Mincho** for the whole project, as a book keeps its dialogue in one, while shouts, thoughts, and narration boxes keep their own style. A project keeps its own styles, which it starts with from **Settings → Renderer**. Change a text's style in the style menu of the bar beside it. To change a style for the whole project, set one of its texts the way you want and choose **Update** *style* **to match** there, and every text of that style follows, as in Google Docs. A **+** after the style's name marks a text that sets its own font, weight, or italic, and **Clear overrides** returns it to the style. **File → Use Default Styles** gives the project Settings' styles again, and **File → Save Styles as Default** makes the project's the ones new projects start with.
+
+    If a font lacks a glyph, Koharu tries the Antique font of the text's script, then Latin's, then Arial, then the system's fallback for the text's script, then symbol and emoji fonts.
 
     Use fonts that cover the target script. A Latin display font alone is insufficient for Japanese or Chinese dialogue.
 
@@ -19,7 +20,13 @@ Typography is saved in the project. The canvas and every export draw the page th
   <Step title="Fit and style the text">
     Select text blocks or text layers with **Select**, **Direct Selection**, or **Text**, and set the font, color, size, weight, style, alignment, direction, and border in the bar that appears beside them. Changes apply to every character of every selected text. While you type into a text, the font, color, size, weight, style, and border apply to the characters you've selected, or to the next ones you type, as Photoshop's Character panel does. A setting the characters don't share shows empty.
 
-    **Auto** size grows or shrinks the text to the largest size its box or balloon holds. New translations fit the same way, starting from the page's typical lettering size. Typing a size draws the text at exactly that size, as Photoshop does, so texts set to the same size look the same; text too long for its box runs past it, and a **+** on the box's top-left corner, beside its number while **Story** is open, marks it until you resize the box.
+    **Auto** size grows or shrinks the text to the largest size its box or balloon holds. New translations fit the same way. One that would come out smaller than is typical for its page gets a narrower margin in its balloon, or a wider box outside one, and a border where it lies on the artwork. A long word is hyphenated when it would otherwise leave the text small, and a balloon's text that still won't fit keeps the page's size, running past its balloon with a border. Typing a size draws the text at exactly that size, as Photoshop does, so texts set to the same size look the same; text too long for its box runs past it, and a **+** on the box's top-left corner, beside its number while **Story** is open, marks it until you resize the box.
+
+    **Bold** and **Italic** work in any font. A font that has the face uses it; for one that doesn't, Koharu thickens or slants the face it has, and the button's tooltip says **Faux Bold** or **Faux Italic**. Both stay on when you change the font. A font whose only face is already bold gets no bolder.
+
+    To set ruby, such as a word's reading, select the characters while typing, open **Ruby** in the bar, and type it. It goes over a line, or on the right of a vertical column, at half the size. With the caret in a word that has ruby, **Ruby** changes it, and an empty one takes it off.
+
+    In vertical text, **Character orientation** sets how the selected characters stand: **Upright** stands Latin letters and digits one under another, **Sideways** turns any characters a quarter clockwise, and **Tate-chu-yoko** sets them side by side in one character's space, narrowed to fit. **Auto** turns Latin sideways and sets a number of one or two digits, and `!?`, in one space. **Emphasis marks** puts a mark, such as a dot or a sesame, beside each selected character but spaces and punctuation: on the right of a column, over a Japanese line, or under a Chinese one.
 
   </Step>
   <Step title="Review at reading size">
@@ -29,11 +36,11 @@ Typography is saved in the project. The canvas and every export draw the page th
 
 ## Vertical CJK text
 
-Vertical columns run right to left. Latin letters and digits turn a quarter clockwise, `!` and `?` set full width, and a run of two or three of them sits upright in one cell. A translation is vertical only when its source is and the target is Japanese or Chinese; any other language runs horizontally, turned by its source's tilt.
+Vertical columns run right to left. Latin letters and digits turn a quarter clockwise, `!` and `?` set full width, and a run of two or three of them sits upright in one cell. A faux italic slants upright characters to the right, and sideways ones along the column. A translation is vertical only when its source is and the target is Japanese or Chinese; any other language runs horizontally, turned by its source's tilt.
 
-Inspect punctuation, emphasis marks, Latin runs, and small kana individually. Font coverage, vertical metrics, and translation length still determine the quality of the result. Right-to-left scripts are laid out in their own direction.
+Inspect punctuation, emphasis marks, Latin runs, and small kana individually. Font coverage, vertical metrics, and translation length still determine the quality of the result. Right-to-left scripts are laid out in their own direction. See [fitting translations](/how-it-works/lettering) for how a translation gets its size and [drawing the page](/how-it-works/rendering) for vertical text and fonts.
 
 <Tip>
-  Use [PNG or CBZ for delivery and PSD for layered editing](/guides/export), and retain the Koharu
-  project for future changes to text and fitting.
+  Use [PNG, CBZ, or PDF for delivery and PSD for layered editing](/guides/export), and retain the
+  Koharu project for future changes to text and fitting.
 </Tip>

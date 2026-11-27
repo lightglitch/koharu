@@ -8,6 +8,7 @@ use icu_properties::{
     props::{Script as IcuScript, VerticalOrientation},
 };
 use icu_segmenter::GraphemeClusterSegmenter;
+use koharu_scene::Orientation as Set;
 use unicode_bidi::Level;
 
 use super::{breaks::LINE_ENDS, style::Styled};
@@ -25,6 +26,12 @@ pub(super) struct Run {
     pub orientation: Orientation,
     /// Its glyphs in `ShapedText::glyphs`, in visual order.
     pub glyphs: Range<usize>,
+    /// The space before and after a tate-chu-yoko run's cell, under a ruby
+    /// longer than its base.
+    pub space: (f32, f32),
+    /// How much a tate-chu-yoko run's glyphs narrow to fit its cell; 1 for
+    /// any other run.
+    pub squeeze: f32,
 }
 
 /// How a run stands in a vertical column. Horizontal text's runs are all
@@ -56,15 +63,19 @@ pub(super) fn itemize(styled: &Styled, levels: &[Level]) -> (Vec<Run>, Vec<char>
             let (_, font) = fonts.iter().find(|(cut, _)| cut.contains(&at))?;
             styled.spans[span].fonts.get(*font)
         };
-        let parts = match styled.vertical {
-            true => upright_groups(&styled.text, piece)
+        // A span that says how it stands stands so throughout, as CSS's
+        // `text-orientation` and `text-combine-upright: all` set an element.
+        let parts = match (styled.vertical, styled.spans[span].orientation) {
+            (false, _) | (true, Set::Upright) => vec![(piece, Orientation::Upright)],
+            (true, Set::Sideways) => vec![(piece, Orientation::Sideways)],
+            (true, Set::TateChuYoko) => vec![(piece, Orientation::TateChuYoko)],
+            (true, Set::Mixed) => upright_groups(&styled.text, piece)
                 .into_iter()
                 .flat_map(|(part, group)| match group {
                     true => vec![(part, Orientation::TateChuYoko)],
                     false => orientations(&styled.text, part, font_at),
                 })
                 .collect(),
-            false => vec![(piece, Orientation::Upright)],
         };
         for (part, orientation) in parts {
             // Vertical text stands upright top to bottom whatever its
@@ -73,7 +84,13 @@ pub(super) fn itemize(styled: &Styled, levels: &[Level]) -> (Vec<Run>, Vec<char>
                 (false, _) | (true, Orientation::Sideways) => levels[part.start],
                 (true, Orientation::Upright | Orientation::TateChuYoko) => Level::ltr(),
             };
-            for (range, script) in script_runs(&styled.text, part) {
+            // A tate-chu-yoko cell is one run whatever its scripts, so a
+            // font change alone cuts it into two cells.
+            let mut scripts = script_runs(&styled.text, part.clone());
+            if orientation == Orientation::TateChuYoko {
+                scripts = vec![(part, scripts[0].1)];
+            }
+            for (range, script) in scripts {
                 runs.extend(fonts.iter().filter_map(|(cut, font)| {
                     let (start, end) = (cut.start.max(range.start), cut.end.min(range.end));
                     (start < end).then(|| Run {
@@ -84,6 +101,8 @@ pub(super) fn itemize(styled: &Styled, levels: &[Level]) -> (Vec<Run>, Vec<char>
                         script: harfrust_script(script),
                         orientation,
                         glyphs: 0..0,
+                        space: (0.0, 0.0),
+                        squeeze: 1.0,
                     })
                 }));
             }
@@ -218,7 +237,8 @@ fn script_runs(text: &str, range: Range<usize>) -> Vec<(Range<usize>, IcuScript)
 /// Photoshop and CSS's `text-orientation: mixed` set it; the rest stands
 /// upright, `vert` giving the characters it transforms their vertical forms.
 /// What it transforms or else rotates (`Tr`), such as `〜` or a bracket,
-/// turns sideways in a font without a vertical form for it. `!` and `?`
+/// turns sideways in a font without a vertical form for it, and so does an
+/// ellipsis, which UAX #50 rotates. `!` and `?`
 /// stand upright in full width, as manga sets them, and so does an emoji: a
 /// grapheme with the emoji variation selector or a keycap, which UAX #50
 /// keeps upright.
@@ -234,11 +254,16 @@ fn orientations<'a>(
     for pair in boundaries.windows(2) {
         let grapheme = &part[pair[0]..pair[1]];
         let first = grapheme.chars().next().expect("a grapheme has a character");
+        let formless =
+            || font_at(range.start + pair[0]).is_some_and(|font| !font.has_vertical_form(first));
         let rotated = match orientation.get(first) {
+            // An ellipsis takes its font's vertical form, as Japanese and
+            // Chinese set one, and turns only without it. Turned, the horizontal
+            // form a face's `morx` gave it, already vertical, ran across the
+            // column.
+            _ if matches!(first, '…' | '‥' | '⋯') => formless(),
             VerticalOrientation::Rotated => true,
-            VerticalOrientation::TransformedRotated => {
-                font_at(range.start + pair[0]).is_some_and(|font| !font.has_vertical_form(first))
-            }
+            VerticalOrientation::TransformedRotated => formless(),
             _ => false,
         };
         let turned =
@@ -345,6 +370,7 @@ mod tests {
                 size: 16.0,
                 fill: Color::BLACK,
                 stroke: None,
+                orientation: koharu_scene::Orientation::Mixed,
             }],
             vertical: false,
             align: Align::Start,
@@ -352,6 +378,8 @@ mod tests {
             hyphenation: None,
             chinese: false,
             frame: Frame::Point,
+            ruby: Vec::new(),
+            marks: Vec::new(),
         }
     }
 
@@ -374,6 +402,7 @@ mod tests {
             size: 16.0,
             fill: Color::BLACK,
             stroke: None,
+            orientation: koharu_scene::Orientation::Mixed,
         };
         let styled = Styled {
             spans: vec![span(0..4), span(4..text.len())],
@@ -422,6 +451,47 @@ mod tests {
         assert_eq!(hebrew.orientation, Orientation::Sideways);
         assert!(hebrew.level.is_rtl());
         assert!(!runs[0].level.is_rtl());
+    }
+
+    #[test]
+    fn a_span_that_says_how_it_stands_stands_so_throughout() {
+        // Upright, then sideways, then one cell, each over what the text
+        // would choose itself.
+        let text = "OK15東京100%";
+        let mut styled = Styled {
+            vertical: true,
+            ..styled(text)
+        };
+        let font = styled.spans[0].fonts.clone();
+        styled.spans = [
+            (0..4, Set::Upright),
+            (4..10, Set::Sideways),
+            (10..14, Set::TateChuYoko),
+        ]
+        .into_iter()
+        .map(|(range, orientation)| Span {
+            range,
+            fonts: font.clone(),
+            size: 16.0,
+            fill: Color::BLACK,
+            stroke: None,
+            orientation,
+        })
+        .collect();
+        let levels = BidiInfo::new(&styled.text, None).levels;
+        let (runs, _) = itemize(&styled, &levels);
+        let parts: Vec<(&str, Orientation)> = runs
+            .iter()
+            .map(|run| (&text[run.range.clone()], run.orientation))
+            .collect();
+        assert_eq!(
+            parts,
+            [
+                ("OK15", Orientation::Upright),
+                ("東京", Orientation::Sideways),
+                ("100%", Orientation::TateChuYoko),
+            ]
+        );
     }
 
     #[test]

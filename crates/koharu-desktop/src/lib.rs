@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use anyhow::{Context as _, Result};
 use koharu_pipeline::{Pipeline, PipelineConfig};
-use koharu_renderer::{Gpu, Renderer, RendererConfig};
+use koharu_renderer::{Gpu, Renderer};
 use sentry::protocol::GpuContext;
 use tauri::Manager as _;
 use tauri_plugin_log::{Target, TargetKind, log::LevelFilter};
@@ -47,7 +47,6 @@ pub fn run(context: tauri::Context<CefRuntime>) -> Result<()> {
 
     // The process's, which the pipeline draws a painted area's page with.
     let renderer = Renderer::get().clone();
-    renderer.set_config(koharu_config::get::<RendererConfig>()?);
     // The window composites with it from its first frame.
     let gpu = Gpu::get()?;
     let adapter = gpu.adapter.get_info();
@@ -81,8 +80,15 @@ pub fn run(context: tauri::Context<CefRuntime>) -> Result<()> {
     });
 
     let cef = Cef::default()
-        // Lets the main webview render off-screen; a process-wide setting.
-        .with_settings(|settings| settings.windowless_rendering_enabled = 1)
+        .with_settings(|settings| {
+            // Lets the main webview render off-screen; a process-wide setting.
+            settings.windowless_rendering_enabled = 1;
+            // The macOS keychain item holding the cookies' key. Every Chromium
+            // app shares the default one, and macOS asks for the user's
+            // password when another app made it.
+            settings.keychain_service_name = "Koharu Safe Storage".into();
+            settings.keychain_account_name = "Koharu".into();
+        })
         .on_window_event({
             let app = Arc::clone(&app);
             move |label, _, window, event| screen::on_window_event(&app, label, window, event)

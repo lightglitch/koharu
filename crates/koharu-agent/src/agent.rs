@@ -4,34 +4,33 @@
 use std::{
     collections::HashMap,
     sync::{
-        Arc, Mutex, PoisonError,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Result, anyhow};
 use futures::StreamExt;
 use indoc::indoc;
 use rig_agent::{
     agent::{
         AgentBuilder, AgentHook, CompletionCallAction, CompletionCallEvent, DispatchAction,
-        DispatchEvent, HookContext, ModelTurnAction, ModelTurnFinished, MultiTurnStreamItem,
-        OutcomeAction, OutcomeEvent, RequestPatch,
+        DispatchEvent, HookContext, InvalidToolCallAction, InvalidToolCallContext,
+        InvalidToolCallReason, MultiTurnStreamItem, OutcomeAction, OutcomeEvent, RequestPatch,
     },
     completion::PromptError,
     tool::server::ToolServer,
 };
 use rig_core::{
-    catalog::ModelSpec,
     completion::{Document, GenerationOptions, Message, Reasoning, Usage},
     driver::DynModel,
     effect::{Answered, EffectKind},
     operation::Completion,
     streaming::{Item, StreamEvent},
 };
-use rig_memory::{CompactReason, CompactionPolicy, estimate_tokens};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use tokio::sync::Mutex;
 
 use koharu_llm::{Context, KOHARU};
 
@@ -46,9 +45,8 @@ const PROMPT: &str = indoc! {"
     All project changes are revisioned and reversible. Do not ask for permission. Continue using tools until the request is complete or cannot be completed.
     Do not invent identifiers. Preserve artwork and existing authored content unless the user asks to change them."};
 
-/// `[agent]`: the agent's model, how much it reasons, and how long a run
-/// goes.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+/// `[agent]`: the agent's model and how much it reasons.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(default)]
 #[derive(specta::Type)]
 pub struct AgentConfig {
@@ -61,22 +59,6 @@ pub struct AgentConfig {
     #[serde(with = "koharu_llm::reasoning")]
     #[specta(type = Option<String>)]
     pub reasoning: Option<Reasoning>,
-    /// How many model calls a run makes at most.
-    pub max_turns: usize,
-    /// How many times a run lets the model correct a call it wrote wrong.
-    pub corrections: usize,
-}
-
-impl Default for AgentConfig {
-    fn default() -> Self {
-        Self {
-            model: None,
-            reasoning: None,
-            // rig's default is one, which ends a run at its first tool call.
-            max_turns: 20,
-            corrections: 2,
-        }
-    }
 }
 
 impl koharu_config::Section for AgentConfig {
@@ -139,13 +121,10 @@ impl Agent {
         prompt: &str,
         events: impl Fn(Event) + Send + Sync + 'static,
     ) -> Result<String> {
-        self.context.fit(&self.model).await?;
         let events: Events = Arc::new(events);
         match self.attempt(prompt, &events).await {
             Err(Failure::Overflow(_)) => {
-                self.context
-                    .compact(&self.model, CompactReason::Overflow)
-                    .await?;
+                self.context.compact(&self.model).await?;
                 self.attempt(prompt, &events)
                     .await
                     .map_err(|failure| match failure {
@@ -159,12 +138,12 @@ impl Agent {
 
     async fn attempt(&mut self, prompt: &str, events: &Events) -> Result<String, Failure> {
         let acted = Arc::new(AtomicBool::new(false));
-        let spec = self
-            .model
-            .spec()
-            .context("the model says nothing of its limits")
-            .map_err(Failure::Other)?
-            .clone();
+        let earlier = self.context.messages().len();
+        let run = Arc::new(Mutex::new(Run {
+            context: self.context.clone(),
+            seen: earlier,
+            usage: Usage::default(),
+        }));
         let toolset = Tools::toolset();
         let calls = Calls {
             schemas: toolset
@@ -180,12 +159,19 @@ impl Agent {
         let mut agent = AgentBuilder::new(self.model.clone())
             .preamble(PROMPT)
             .tool_server_handle(tools)
-            .add_hook(Window::new(self.context.policy(&spec), spec.clone()))
+            .add_hook(Window {
+                model: self.model.clone(),
+                run: Arc::clone(&run),
+            })
             .add_hook(calls);
         if let Some(reasoning) = self.config.reasoning {
             agent = agent.options(GenerationOptions::default().reasoning(reasoning));
         }
-        if spec.provider.vendor() == KOHARU {
+        if self
+            .model
+            .spec()
+            .is_some_and(|spec| spec.provider.vendor() == KOHARU)
+        {
             // The catalog's settings are for translation: a repeat penalty
             // would penalize repeated call markers.
             agent = agent.additional_params(json!({"repeat_penalty": 1.0}));
@@ -208,9 +194,11 @@ impl Agent {
                 additional_props: Default::default(),
             })
             .tool_context(self.tools.tool_context())
-            .max_turns(self.config.max_turns)
-            .max_invalid_tool_call_retries(self.config.corrections)
-            .max_consecutive_malformed_tool_calls(self.config.corrections)
+            // rig always has a limit, and its default of one ends a run at its
+            // first tool call.
+            .max_turns(usize::MAX)
+            .max_invalid_tool_call_retries(2)
+            .max_consecutive_malformed_tool_calls(2)
             .stream();
         while let Some(item) = stream.next().await {
             let item = match item {
@@ -229,13 +217,15 @@ impl Agent {
                     text,
                     ..
                 })) => events(Event::Reasoning { delta: text }),
+                // Every call tells its usage here, one rig asks again for
+                // included, which finishes no turn.
+                MultiTurnStreamItem::CompletionCall(call) => run.lock().await.usage = call.usage,
                 MultiTurnStreamItem::FinalResponse(response) => {
-                    let usage = response
-                        .completion_calls()
-                        .last()
-                        .map_or_else(Usage::default, |call| call.usage);
                     let answer = response.output();
-                    self.context.record([(response.messages, usage)]);
+                    let mut run = run.lock().await;
+                    let seen = run.seen - earlier;
+                    run.record(response.messages.into_iter().skip(seen).collect());
+                    self.context = run.context.clone();
                     return Ok(answer);
                 }
                 _ => {}
@@ -254,7 +244,8 @@ fn overflowed(error: &PromptError) -> bool {
 }
 
 /// Holds each tool call to its tool's schema, as rig-agent doesn't and a
-/// local model has no grammar holding it to, and tells the panel about it.
+/// local model has no grammar holding it to, sends one to a tool that isn't
+/// there back to the model, and tells the panel about the rest.
 struct Calls {
     schemas: HashMap<String, Value>,
     events: Events,
@@ -263,6 +254,22 @@ struct Calls {
 }
 
 impl AgentHook for Calls {
+    async fn on_invalid_tool_call(
+        &self,
+        _ctx: &HookContext,
+        event: &InvalidToolCallContext,
+    ) -> Option<InvalidToolCallAction> {
+        // rig sends malformed arguments back by itself, but ends a run at a
+        // tool it doesn't have.
+        matches!(event.reason, InvalidToolCallReason::UnknownTool).then(|| {
+            InvalidToolCallAction::retry(format!(
+                "no tool is named {}; the tools are {}",
+                event.tool_name,
+                event.available_tools.join(", ")
+            ))
+        })
+    }
+
     async fn on_dispatch(&self, _ctx: &HookContext, event: DispatchEvent<'_>) -> DispatchAction {
         let EffectKind::ToolCall { name, args } = event.kind else {
             return DispatchAction::proceed();
@@ -306,26 +313,28 @@ impl AgentHook for Calls {
     }
 }
 
-/// Keeps a run inside the model's window: over the threshold, a turn is sent
-/// with older tool outputs cleared on a copy of its history. Clearing needs no
-/// model call, and any earlier would drop outputs for no reason and invalidate
-/// prompt caches.
+/// Keeps a run inside the model's window, as rig's own agent does: before each
+/// model call, older messages are summarized if the call wouldn't fit.
 struct Window {
-    policy: CompactionPolicy,
-    spec: ModelSpec,
-    /// How long the history was at the last model call.
-    asked: AtomicUsize,
-    /// The tokens the last turn reported, and how many messages they cover.
-    count: Mutex<Option<(u64, usize)>>,
+    model: DynModel<Completion>,
+    run: Arc<Mutex<Run>>,
 }
 
-impl Window {
-    fn new(policy: CompactionPolicy, spec: ModelSpec) -> Self {
-        Self {
-            policy,
-            spec,
-            asked: AtomicUsize::new(0),
-            count: Mutex::new(None),
+/// A run's own copy of the conversation, which goes with a run that fails.
+struct Run {
+    context: Context,
+    /// How much of rig's history of the run it has.
+    seen: usize,
+    /// What the last model call reported, which covers its reply.
+    usage: Usage,
+}
+
+impl Run {
+    /// Adds what rig's history gained, which ends in the last reply.
+    fn record(&mut self, messages: Vec<Message>) {
+        if !messages.is_empty() {
+            self.seen += messages.len();
+            self.context.record([(messages, self.usage)]);
         }
     }
 }
@@ -336,41 +345,25 @@ impl AgentHook for Window {
         _ctx: &HookContext,
         event: CompletionCallEvent<'_>,
     ) -> CompletionCallAction {
-        let history = event.history;
-        self.asked.store(history.len(), Ordering::Relaxed);
-        let count = *self.count.lock().unwrap_or_else(PoisonError::into_inner);
-        let earlier = match count {
-            Some((tokens, through)) => {
-                tokens.saturating_add(estimate_tokens(history.get(through..).unwrap_or_default()))
-            }
-            None => estimate_tokens(history),
-        };
-        let tokens = earlier.saturating_add(estimate_tokens(std::slice::from_ref(event.prompt)));
-        if !self.policy.over_threshold(tokens, &self.spec) {
-            return CompletionCallAction::continue_run();
-        }
-        let mut history = history.to_vec();
-        self.policy.clearing.clear(&mut history);
+        let mut run = self.run.lock().await;
+        let gained = event.history.get(run.seen..).unwrap_or_default();
+        run.record(
+            gained
+                .iter()
+                .map(|message| Message::clone(message))
+                .collect(),
+        );
+        run.context.fit(&self.model, event.prompt).await;
         let mut patch = RequestPatch::new();
-        patch.history = Some(history);
+        patch.history = Some(run.context.messages().to_vec());
         CompletionCallAction::patch(patch)
-    }
-
-    async fn on_model_turn_finished(
-        &self,
-        _ctx: &HookContext,
-        event: ModelTurnFinished<'_>,
-    ) -> ModelTurnAction {
-        // It covers the history, the prompt, and the reply.
-        let through = self.asked.load(Ordering::Relaxed) + 2;
-        *self.count.lock().unwrap_or_else(PoisonError::into_inner) =
-            event.usage.context_tokens().map(|tokens| (tokens, through));
-        ModelTurnAction::Continue
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Mutex, PoisonError};
+
     use rig_core::{
         catalog::ModelSpec,
         providers::registry::ProviderId,
@@ -382,8 +375,11 @@ mod tests {
     /// Tools on a project with one page, and the page.
     fn project() -> (tempfile::TempDir, Tools, koharu_scene::PageId) {
         let dir = tempfile::tempdir().expect("a folder");
-        let mut session =
-            koharu_scene::Session::create(dir.path().join("test.khr")).expect("a project");
+        let mut session = koharu_scene::Session::create(
+            dir.path().join("test.khr"),
+            koharu_scene::Meta::default(),
+        )
+        .expect("a project");
         let page = json!({"op": "add_page", "index": 0, "size": {"width": 100, "height": 100}});
         let change = session
             .apply(koharu_scene::Edit {
@@ -397,7 +393,7 @@ mod tests {
         let tools = Tools::new(
             Arc::new(parking_lot::Mutex::new(session)),
             koharu_pipeline::Pipeline::new(koharu_pipeline::PipelineConfig::default()),
-            koharu_renderer::Renderer::new(koharu_renderer::RendererConfig::default()),
+            koharu_renderer::Renderer::new(),
         );
         (dir, tools, id)
     }
@@ -423,6 +419,12 @@ mod tests {
             MockStreamEvent::tool_call(id, tool, arguments),
             MockStreamEvent::final_response_with_default_usage(),
         ]
+    }
+
+    fn usage(tokens: u64) -> Usage {
+        let mut usage = Usage::default();
+        usage.input_tokens = Some(tokens);
+        usage
     }
 
     #[tokio::test]
@@ -479,6 +481,46 @@ mod tests {
         assert_eq!(answer, "Done.");
         let second = format!("{:?}", model.requests()[1]);
         assert!(second.contains("the arguments don't fit the tool's schema"));
+    }
+
+    /// The summary goes out between the run's calls, in place of older
+    /// messages, and the call it was made for keeps its tool call and result.
+    #[tokio::test]
+    async fn a_run_that_fills_the_window_is_summarized_and_goes_on() {
+        let (_dir, tools, page) = project();
+        let model = model(vec![
+            vec![
+                MockStreamEvent::tool_call("1", "get_page", json!({"page": page})),
+                MockStreamEvent::final_response(usage(13_000)),
+            ],
+            reply("The story so far."),
+            reply("Done."),
+        ]);
+        let mut context = Context::default();
+        let earlier = (0..20)
+            .flat_map(|_| {
+                [
+                    Message::user("x".repeat(1000)),
+                    Message::assistant("y".repeat(1000)),
+                ]
+            })
+            .collect();
+        context.record([(earlier, usage(10_000))]);
+        let mut agent = Agent::new(tools, model.clone().erase(), context);
+        let answer = agent
+            .run("Read the page.", |_| {})
+            .await
+            .expect("an answer");
+        assert_eq!(answer, "Done.");
+        assert_eq!(model.request_count(), 3);
+        let last = format!("{:?}", model.requests()[2].chat_history);
+        assert!(last.contains("The story so far."));
+        assert!(last.contains("ToolCall") && last.contains("ToolResult"));
+        // The conversation goes on from the summary, with the whole run.
+        let kept = agent.context().messages();
+        assert!(kept.len() < 40, "{}", kept.len());
+        assert!(format!("{:?}", kept[0]).contains("The story so far."));
+        assert_eq!(*kept[kept.len() - 4], Message::user("Read the page."));
     }
 
     #[tokio::test]

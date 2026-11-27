@@ -161,6 +161,7 @@
     "close": "Cerrar historia",
     "opened": "Al abrir",
     "steps": {
+      "add_layer": "Nueva capa",
       "add_text": "Añadir texto",
       "delete_layers": "Eliminar capas",
       "delete_pages": "Eliminar páginas",
@@ -182,7 +183,9 @@
       "set_text": "Editar texto",
       "set_visibility": "Mostrar u ocultar",
       "translate": "Traducción",
-      "update_layer": "Cambiar capa"
+      "update_layer": "Cambiar capa",
+      "update_style": "Actualizar estilo",
+      "use_default_styles": "Usar estilos predeterminados"
     },
     "title": "Historia"
   },
@@ -230,15 +233,40 @@
     "borderWidth": "Ancho del contorno",
     "chooseBorderWidth": "Elegir ancho del contorno",
     "chooseFontSize": "Elegir tamaño de fuente",
+    "emphasis": "Marcas de énfasis",
+    "emphasisMarks": {
+      "circle": "Círculo",
+      "dot": "Punto",
+      "double_circle": "Doble círculo",
+      "none": "Ninguna",
+      "open_circle": "Círculo hueco",
+      "open_dot": "Punto hueco",
+      "open_double_circle": "Doble círculo hueco",
+      "open_sesame": "Sésamo hueco",
+      "open_triangle": "Triángulo hueco",
+      "sesame": "Sésamo",
+      "triangle": "Triángulo"
+    },
     "font": "Fuente",
     "fontSize": "Tamaño de fuente",
     "fontStyles": {
+      "bold": "Negrita",
+      "fauxBold": "Negrita falsa",
+      "fauxItalic": "Cursiva falsa",
       "italic": "Cursiva",
       "oblique": "Oblicua"
     },
     "fontWeight": "Grosor de fuente",
     "horizontal": "Horizontal",
     "opacity": "Opacidad",
+    "orientation": "Orientación de los caracteres",
+    "orientations": {
+      "sideways": "De lado",
+      "tate_chu_yoko": "Tate-chu-yoko",
+      "upright": "Erguidos"
+    },
+    "removeRuby": "Quitar ruby",
+    "ruby": "Ruby",
     "selectPage": "Selecciona una página para inspeccionar sus capas.",
     "source": "Texto original",
     "text": "Texto",
@@ -292,12 +320,14 @@
   },
   "menu": {
     "about": "Acerca de",
+    "checkForUpdates": "Buscar actualizaciones",
     "closeProject": "Cerrar proyecto",
     "delete": "Eliminar selección",
     "discord": "Discord",
     "donate": "Donar",
     "edit": "Editar",
     "export": "Exportar proyecto",
+    "exportSelected": "Exportar páginas seleccionadas",
     "feedback": "Enviar comentarios",
     "file": "Archivo",
     "fit": "Ajustar a la ventana",
@@ -305,11 +335,14 @@
     "help": "Ayuda",
     "history": "Historia",
     "import": "Importar páginas",
+    "original": "Mostrar original",
     "redo": "Rehacer",
+    "saveDefaultStyles": "Guardar estilos como predeterminados",
     "selectAllLayers": "Seleccionar todas las capas",
     "settings": "Ajustes",
     "undo": "Deshacer",
     "unloadModels": "Liberar los modelos",
+    "useDefaultStyles": "Usar estilos predeterminados",
     "view": "Ver"
   },
   "model": {
@@ -522,19 +555,14 @@
     },
     "title": "Ajustes",
     "typesetting": {
-      "addFallback": "Añadir una alternativa",
-      "addFamily": "Añadir familia tipográfica",
-      "description": "Define la pila ordenada de fuentes usada cuando una capa de texto no tiene una familia asignada.",
-      "empty": "No hay familias predeterminadas. Koharu usará la alternativa del sistema.",
-      "fallbacks": "Alternativas",
-      "fallbacksDescription": "Se usan en orden para los caracteres que le faltan a la principal. Arrastra para reordenar, o sobre Principal para intercambiarlas.",
-      "familyLabel": "Familia tipográfica predeterminada {{index}}",
-      "fontFallback": "Fuentes preferidas",
-      "fontFallbackDescription": "Koharu usa la primera familia disponible compatible con el texto.",
-      "loadError": "No se pudieron cargar las fuentes. Las familias existentes aún se pueden eliminar.",
-      "loadingFonts": "Cargando fuentes…",
-      "primary": "Principal",
-      "removeFamily": "Eliminar {{family}}",
+      "description": "Los estilos con los que empieza cada proyecto nuevo, por sistema de escritura. Después, el proyecto conserva los suyos: Archivo → Usar estilos predeterminados le vuelve a dar estos.",
+      "loadError": "No se pudieron cargar las fuentes. Las fuentes ya definidas se siguen usando.",
+      "restore": "Restaurar predeterminados",
+      "restoreDescription": "Los estilos de todos los sistemas de escritura vuelven a los de Koharu. Se pierden las fuentes que hayas fijado aquí; los proyectos conservan los suyos.",
+      "restoreTitle": "¿Restaurar los estilos predeterminados?",
+      "script": "Sistema de escritura",
+      "styles": "Estilos",
+      "stylesDescription": "Una traducción toma el estilo del tipo de letra de su original. Un estilo en Predeterminada toma la fuente de Antique en el mismo sistema de escritura.",
       "title": "Renderizador"
     }
   },
@@ -577,7 +605,44 @@
     "title": "Guion",
     "translate": "Traducir {{name}}"
   },
+  "styles": {
+    "clearOverrides": "Borrar modificaciones",
+    "default": "Predeterminada (la de Antique: {{name}})",
+    "defaultWeight": "Predeterminado",
+    "font": "Fuente de {{name}}",
+    "groups": {
+      "brush": "Estilos de pincel",
+      "design": "Estilos de diseño",
+      "mincho": "Estilos mincho"
+    },
+    "italic": "{{name}} en cursiva",
+    "kernel": "Estilo",
+    "kernels": {
+      "antique": "Antique",
+      "brush": "Pincel",
+      "decorative": "Decorativa",
+      "design": "Diseño",
+      "fangsong": "Fangsong",
+      "gothic": "Gótica",
+      "gyokai": "Semirregular",
+      "gyosho": "Semicursiva",
+      "handwriting": "Manuscrita",
+      "kaisho": "Regular",
+      "kointai": "Kointai",
+      "mincho": "Mincho",
+      "pop": "Pop",
+      "reisho": "Clerical",
+      "rounded": "Redondeada",
+      "sosho": "Cursiva",
+      "tensho": "De sello",
+      "textbook": "Escolar",
+      "weibei": "Estela Wei"
+    },
+    "updateToMatch": "Actualizar {{name}} para que coincida",
+    "weight": "Grosor de {{name}}"
+  },
   "tools": {
+    "block": "Bloque de texto",
     "brushSize": "Tamaño del pincel",
     "brushSizeInput": "Tamaño del pincel",
     "brushSizePixels": "Tamaño del pincel: {{size}} píxeles",
@@ -610,6 +675,10 @@
       "title": "Error de actualización"
     },
     "later": "Más tarde",
+    "latest": {
+      "description": "Koharu <strong>{{version}}</strong> es la versión más reciente",
+      "title": "No hay actualizaciones"
+    },
     "noNotes": "No se proporcionaron notas de versión.",
     "retry": "Reintentar",
     "update": "Actualizar"

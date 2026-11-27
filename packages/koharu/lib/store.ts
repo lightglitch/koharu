@@ -113,6 +113,8 @@ interface KoharuStore {
   processingScope: PipelineScope
   processingStages: Stage[]
   settingsOpen: boolean
+  /** Whether the canvas shows the page's scan alone. */
+  original: boolean
   /** Whether the History window shows over the canvas. */
   historyOpen: boolean
   /** Whether the start view shows the gallery, not the projects. */
@@ -127,6 +129,7 @@ interface KoharuStore {
   setProcessingScope: (scope: PipelineScope) => void
   setProcessingStages: (stages: Stage[]) => void
   setSettingsOpen: (open: boolean) => void
+  setOriginal: (original: boolean) => void
   setHistoryOpen: (open: boolean) => void
   setGalleryOpen: (open: boolean) => void
   setReading: (reading: boolean) => void
@@ -158,6 +161,7 @@ export const useKoharuStore = create<KoharuStore>()(
       processingScope: 'project',
       processingStages: [...defaultStages],
       settingsOpen: false,
+      original: false,
       historyOpen: false,
       galleryOpen: false,
       reading: false,
@@ -168,6 +172,7 @@ export const useKoharuStore = create<KoharuStore>()(
       setProcessingScope: (processingScope) => set({ processingScope }),
       setProcessingStages: (processingStages) => set({ processingStages }),
       setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+      setOriginal: (original) => set({ original }),
       setHistoryOpen: (historyOpen) => set({ historyOpen }),
       setGalleryOpen: (galleryOpen) => set({ galleryOpen }),
       setReading: (reading) => set({ reading }),

@@ -33,7 +33,7 @@ fix writes.
 
 | Element | Model | Cite |
 |---|---|---|
-| project | ordered pages, imported files, and a `version` | a Clip Studio Paint EX work is one management file over its pages [CSP pages]; a Figma file keeps each image once, fetched by hash with `getImageByHash` [Figma image paint]; an OpenRaster image must carry a `version` [OpenRaster] |
+| project | ordered pages, imported files, a `version`, and `meta`: what it holds beyond its pages, as one value, so holding more is adding a field to it. Its `styles` are its own face for each kernel in each script, which it starts with from Preferences and keeps | a Clip Studio Paint EX work is one management file over its pages [CSP pages]; a Figma file keeps each image once, fetched by hash with `getImageByHash` [Figma image paint]; an OpenRaster image must carry a `version` [OpenRaster]; an MBTiles file keeps its own facts in its `metadata` table [MBTiles]; an InDesign document holds its own character styles [InDesign character styles], taking the styles made with none open when it's new [InDesign styles], and a Google Docs document keeps its own until Use my default styles [Google Docs styles] |
 | page | a stored id, a `size`, a `background`, its layers, and their pixels | each Clip Studio Paint page has its own canvas size [CSP page size]; a PSD document has a width and height [PSD spec]; each Photoshop artboard has its own size [Photoshop artboards]; a Figma page is a node with an `id` [Figma nodes] |
 | `background` | none, or an imported file's content hash and `visible`; drawn first, under every layer, at the page's origin. A page made from a file has that file as its background, at its size | Photoshop's Background is the bottom-most layer, an image has only one, and its stacking order, blending mode, and opacity can't change [Photoshop Background] |
 
@@ -103,7 +103,10 @@ translation.
 
 | Property | Model | Cite |
 |---|---|---|
-| `content` | rich text: spans in order, each a string with its character marks; a plain string is one unmarked span | Figma `characterStyleOverrides` and `styleOverrideTable` [Figma nodes]; Clip Studio Paint colours selected letters [CSP text editing] |
+| `content` | rich text: spans in order, each a string with its character marks and its ruby; a plain string is one unmarked span | Figma `characterStyleOverrides` and `styleOverrideTable` [Figma nodes]; Clip Studio Paint colours selected letters [CSP text editing] |
+| `ruby` | a span's: a string set small beside its characters, such as their reading; neighbouring spans with the same ruby are one base, which it's set over once, so one base can hold several styles | Clip Studio Paint's Reading string, which goes over a selected target string [CSP vertical text]; InDesign's `rubyString`, on characters and not on a character style [InDesign characters] [InDesign character styles] |
+| `orientation` | a character key: how characters stand in a vertical column, `mixed` (Latin letters and digits sideways and the rest upright, a number of one or two digits and two or three `!` and `?` in one cell), `upright`, `sideways`, or `tate_chu_yoko`, side by side in one upright cell; horizontal text has no use for it | CSS `text-orientation` and `text-combine-upright: all` [CSS writing modes]; Clip Studio Paint's TateChuYoko on the selected text [CSP font]; Photoshop's Tate-Chu-Yoko and Standard Vertical Roman Alignment [Photoshop Asian type]; InDesign's `tatechuyoko`, on characters and character styles [InDesign characters] [InDesign character styles] |
+| `emphasis` | a character key: the mark set beside each character, `none` or one of CSS's five shapes, filled or open: `dot`, `circle`, `double_circle`, `triangle`, and `sesame`, and `open_dot` and so on | CSS `text-emphasis-style` [CSS text decoration]; InDesign's Kenten, one list of marks, on characters and character styles [InDesign kenten] [InDesign character styles] |
 | `style` | the layer-wide character and paragraph values | Figma `TypeStyle` on the node [Figma property types]; Photoshop formats "selected characters or an entire type layer" [Photoshop characters] |
 | `frame` | none (point text), a box (paragraph text), or a closed path that the text fills; a box or path frame also has a `fit` and an `anchor` | Photoshop point type, paragraph type [Photoshop type], and text inside a shape [Photoshop text in shapes]; Figma `textAutoResize` `WIDTH_AND_HEIGHT` and `NONE` [Figma text resize]; Clip Studio Paint point text and text boxes [CSP text] and balloon text [CSP balloons] |
 | `fit` | `shrink` (the default): text that would overflow shrinks just enough to fit, down to half its set size, and past that it overflows; `none`: the set size always; `grow`, for a box only: the box keeps its inline size, and its block size follows the text, growing away from its `anchor`; `best`: the text grows or shrinks to the largest size the frame holds, shrinking as `shrink` does down to half its set size and then on until it fits | PowerPoint shrinks placeholder text "as you type" by default, and with fitting stopped the text "will overfill the box" [PowerPoint placeholders] [PowerPoint autofit]; Google Slides "Shrink text on overflow" and "Resize shape to fit text" [Google Slides fitting]; Keynote fits text to most text boxes by default [Keynote autosize]; Figma `HEIGHT` [Figma text resize]; InDesign Auto-Size [InDesign auto-size]; a SwiftUI minimum scale factor of 0.5 draws text "as small as half" [SwiftUI minimum scale]; Publisher's Best Fit shrinks or grows text to fill its box [Publisher copyfitting] |
@@ -112,7 +115,7 @@ translation.
 | `language` | one BCP 47 tag; `und` when undetermined | SVG `systemLanguage` [SVG structure]; C2PA `sourceLanguage` and `targetLanguage` [C2PA actions] |
 
 The character keys are font family, weight, italic, size, fill colour, stroke
-colour, and stroke width. Each is both a `style` key and a mark key, and a mark
+colour, stroke width, orientation, and emphasis. Each is both a `style` key and a mark key, and a mark
 wins over `style` for its span. Alignment is a paragraph key that lives only in
 `style` and applies to the whole text, like `textAlignHorizontal` in a Figma
 node's `TypeStyle` [Figma property types]. Its values are `start`, `center`,
@@ -124,16 +127,53 @@ Studio Paint's line space can be "a percentage of the character size" [CSP text
 frame]. Photoshop's leading [Photoshop leading] and Figma's line height [Figma
 text properties] are the same setting; manga letterers set it tighter than
 Photoshop's 120% Auto, at the size or 1 pt more, so dialogue reads evenly
-[Manga balloon basics]. Styling with no characters selected writes `style` and
+[Manga balloon basics]. `kernel` is the third key only `style` holds: the kind
+of face a text is lettered in, as its source's was, since Japanese editors set
+each kind of line in its own kind of face [Manga font kinds], and as InDesign
+applies a named character style to text [InDesign characters]. Its values are
+the 19 kernels font detection reads, as Morisawa, Founder, and DynaComware
+classify their faces [YuzuMarker kernels], grouped by look so Settings sets a
+group at once: `mincho` with `fangsong`, `kaisho`, and `textbook`; `brush` with
+the calligraphic hands, `gyosho`, `gyokai`, `sosho`, `reisho`, `tensho`,
+`kointai`, and `weibei`; `design` with `pop` and `decorative`; and `antique`,
+`gothic`, `rounded`, and `handwriting` alone. A kernel's face, for the script
+of the text's language, gives the family, weight, and italic that the text's
+`style` and marks leave out; the face is the project's `meta.styles` for that
+kernel and script, and what it leaves out is `antique`'s,
+as is a text's with no kernel. Styling with
+no characters selected writes `style` and
 drops that key's marks, so every character takes it, as Photoshop styles a
 selected type layer [Photoshop type]; styling selected characters writes marks.
 A typed character takes the marks of the one before it, or the first one's at
 the start, as typing does in an editor, and spans whose marks end up alike
 join.
 
-A text holds its own values. Nothing is shared between texts, because a
-balloon's text length and size differ from its neighbours', so no one style
-fits them all.
+Weight and italic are what a text asks for, whether or not its family has such
+a face. One it lacks is faked, as CSS synthesizes faces [CSS font synthesis] and
+as Photoshop's Bold and Italic shortcuts set Faux Bold and Faux Italic in a font
+without the style [Photoshop type shortcuts], so a text keeps both when its font
+changes. Clip Studio Paint's Bold and Italic are styles of the text too, apart
+from its font [CSP font].
+
+A ruby reads its base, so it's no style: a character typed inside a base is part
+of it, and one typed at its edge isn't. Typing out some of a base leaves its ruby
+on the rest, one reworded loses it, as a translation rerun rewords a text, and one
+given a ruby on only some of its characters loses its own on the rest. White space
+at a base's ends has no ruby. Ruby has no size or place of its own: it's half its base's size,
+over a line or on the right of a column, as JLREQ sets it in principle [JLREQ].
+
+Orientation and emphasis are styles, unlike ruby, as Photoshop keeps
+tate-chu-yoko in a style run [Photoshop Asian type] and InDesign's character
+styles hold tate-chu-yoko and kenten [InDesign character styles], so a character
+typed beside marked ones takes their marks. `mixed` and `none` are values of
+their own, so a mark can undo a text's style, as `italic: false` does. An
+emphasis mark has no size or place of its own: it's half its character's size,
+over a line, on the right of a column, or under a Chinese line, as CSS prefers
+by language, and past a ruby on its side [CSS text decoration].
+
+A text holds its own values. Only a kernel's face is shared, and only its
+family, weight, and italic: nothing else is, because a balloon's text length and
+size differ from its neighbours', so no one style fits them all.
 
 A size is the size a text is set at. A `shrink` frame draws its spans smaller,
 all at one scale, only while they would otherwise overflow, so dialogue keeps one
@@ -151,10 +191,11 @@ size across a page and shrinks only where a translation runs long:
   slide placeholder, so `shrink` is the default.
 
 So a set size comes from the source text, not from the balloon, and the
-balloon only bounds it. A translation is the exception: it can't know the
-page's dialogue size, and its length differs from its source's, so it's
-written `best` and takes the size its room holds, as Publisher's Best Fit
-fills a box [Publisher copyfitting]. Typing a size gives it one again, drawn at
+balloon only bounds it. A translation is the exception: its length differs from
+its source's, so it's written `best` and takes the size its room holds, as
+Publisher's Best Fit fills a box [Publisher copyfitting], and where that's under
+the page's size its room gives way first: its balloon's margin, or its frame
+outside one. Typing a size gives it one again, drawn at
 that size, so it turns the fitting off with `none`, as Photoshop and Clip Studio
 Paint draw a text at the size it's set [Photoshop type] [CSP text]: two texts
 set alike look alike, and one too long for its frame runs past it until the
@@ -270,6 +311,9 @@ each is cleaned, translated, fixed, and removed on its own:
   new lettering.
 - Painting its mask hides its clean-up there at once, so an over-reaching
   clean-up is fixed where it happened, without a rerun.
+- A translation starts as its source without its words or its language,
+  whether a text edit or a patch adds it, so new lettering lies where the
+  original did.
 - Each text gets its own translation, framed by its own room in its balloon, or
   by its source's frame when it's free, and filling it. Texts never flow from one frame into
   another, as Clip Studio Paint adds several texts to one balloon [CSP text
@@ -370,7 +414,7 @@ fields of them.
 | Detection | the background | a `panel` for each panel it finds; a `balloon` for each balloon, inside the panel it's read in, though it crosses the border, or on the page when it's read in none; a `block` for each text or sound effect, inside its balloon if it has one, else free in its panel or on the page, with its `role`, its source's frame, tilt, and direction, and its mask; all in reading order |
 | OCR | the background inside each block's source frame | the source's `content` and `language` |
 | Inpainting | the background, each block's mask, and its balloon's outline when it has one | the block's clean-up, only in the tiles it changes |
-| Translation | the page's sources in reading order, for context, and in a balloon, the balloon's outline and its other texts | each given block's translation: `content` and `language`; its `frame`, its room in its balloon, or its source's frame when it's free, with `best` fit; `anchor` and `direction` |
+| Translation | the page's sources in reading order, for context, and in a balloon, the balloon's outline and its other texts | each given block's translation: `content` and `language`; its `frame`, its room in its balloon, with the margin its size needs, or its source's frame when it's free, as wide as its size needs, with `best` fit; `anchor` and `direction`; and its `kernel`, its source's as detection read it, with `weight` 700 when its source is heavier than the dialogue |
 
 Each model also writes its `c2pa` action on the layers it wrote.
 
@@ -415,11 +459,12 @@ Each model also writes its `c2pa` action on the layers it wrote.
 - **Translation places a balloon's texts from its outline, and a free text from
   its source's frame**, and resizing the frame reflows the text, as resizing a
   Clip Studio Paint balloon moves its text [CSP balloons].
-- **Translation stores its decisions, not their result:** the frame, the
-  anchor, the direction, and `best` fit. The size a `best` or `shrink` frame
-  draws at is worked out at each render, and PSD export writes the size it
-  drew. PowerPoint caches its shrink as `fontScale` [OOXML autofit], but Koharu
-  has one renderer, and a cached scale would go stale when a font loads.
+- **Translation stores its decisions, not their result:** the frame and its
+  margin, the anchor, the direction, and `best` fit. The size a `best` or
+  `shrink` frame draws at is worked out at each render, and PSD export writes
+  the size it drew. PowerPoint caches its shrink as `fontScale` [OOXML autofit],
+  but Koharu has one renderer, and a cached scale would go stale when a font
+  loads.
 - **Reruns find their fields by kind.** A translation rerun rewrites each given
   block's translation, its wording and its placement. Whether a rerun leaves alone what you changed is
   the workflow's choice ([Writes](#writes)).
@@ -437,7 +482,8 @@ Each model also writes its `c2pa` action on the layers it wrote.
   isn't visible [CSP Story Editor]. Editing a row edits that layer; a text is
   deleted from the Layers panel or the canvas.
 - **Agent tools** read a page as `get_page` answers it, its layers nested in
-  reading order, and edit one block at a time by its id.
+  reading order, and edit one block at a time by its id, its translation as plain
+  text or as spans.
 
 ## 5. Editing
 
@@ -475,7 +521,9 @@ agent.
   minor version, and a reader opens any version up to its own with the same
   major version, since an addition needs no decoder. Writing to an older file
   raises its version, so an older build refuses what it can't read as too new.
-  A change that removes or redefines core data raises the major version, and
+  What a version added to the tables, such as the project's `meta` column, an
+  older file takes in that write's transaction, so one that fails leaves the
+  file as it was, and reads as its default until then. A change that removes or redefines core data raises the major version, and
   once a release has written a version, the change ships an upgrade to it. The
   patch stays 0, since stored data has no bug fixes. A newer version, a
   pre-release, or unknown core data fails to open; unknown attributes never do.
@@ -485,37 +533,43 @@ agent.
 Read in October and November 2026.
 
 - Adobe: [PSD spec], [Photoshop Background], [Photoshop type], [Photoshop
-  characters], [Photoshop text in shapes], [Photoshop smart objects],
+  characters], [Photoshop type shortcuts], [Photoshop text in shapes],
+  [Photoshop smart objects],
   [Photoshop Smart Object copies], [Photoshop artboards], [Photoshop Generative
   Fill], [Photoshop Content-Aware Fill], [Photoshop Content Credentials],
   [Photoshop leading], [Photoshop History panel], [Photoshop combine
   variations], [Photoshop transform], [Lightroom masking],
-  [InDesign auto-size], [InDesign alignment], [Acrobat OCR]
+  [InDesign auto-size], [InDesign alignment], [InDesign characters], [InDesign
+  character styles], [InDesign styles], [InDesign kenten], [Photoshop Asian
+  type], [Acrobat OCR]
 - Clip Studio Paint: [CSP pages], [CSP page size], [CSP layers], [CSP layer
   masks], [CSP file objects], [CSP text], [CSP text editing], [CSP vertical
-  text], [CSP balloons], [CSP text frame], [CSP text tool], [CSP frames], [CSP
-  Story Editor], [CSP file format]
+  text], [CSP balloons], [CSP text frame], [CSP text tool], [CSP font], [CSP
+  frames], [CSP Story Editor], [CSP file format]
 - Figma: [Figma nodes], [Figma node properties], [Figma property types],
   [Figma image paint], [Figma text resize], [Figma text properties], [Figma
   plugin data], [Figma multiplayer]
 - Microsoft: [PowerPoint placeholders], [PowerPoint autofit], [OOXML anchor],
   [OOXML autofit], [Publisher copyfitting]
-- Google and Apple: [Google Slides fitting], [Keynote autosize], [SwiftUI
-  minimum scale]
+- Google and Apple: [Google Slides fitting], [Google Docs styles], [Keynote
+  autosize], [SwiftUI minimum scale]
 - W3C: [SVG structure], [SVG rendering], [SVG paths], [SVG image], [SVG text
   inside shapes dropped], [CSS masking], [CSS text], [CSS align], [CSS
-  line-height]
+  line-height], [CSS font synthesis], [CSS writing modes], [CSS text
+  decoration], [JLREQ]
 - Document and translation formats: [PAGE-XML], [XLIFF]
 - Lettering and manga translation: [Comics Kingdom], [Manga balloon basics],
-  [Search and Destroy letters], [Manga translation II]
+  [Search and Destroy letters], [Manga translation II], [Manga font kinds],
+  [YuzuMarker kernels]
 - Others: [OpenRaster], [Krita layers], [Krita file], [Krita tiles], [GIMP
   XCF], [GIMP parasites], [Blender custom properties], [C2PA actions],
-  [SemVer], [RFC 7396]
+  [SemVer], [RFC 7396], [MBTiles]
 
 [PSD spec]: https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/
 [Photoshop Background]: https://web.archive.org/web/20241224024227/https://helpx.adobe.com/photoshop/using/layer-basics.html
 [Photoshop type]: https://helpx.adobe.com/photoshop/desktop/text-typography/type-layers-creation/type-layers-in-photoshop.html
 [Photoshop characters]: https://helpx.adobe.com/photoshop/desktop/text-typography/characters-glyphs/format-characters.html
+[Photoshop type shortcuts]: https://jkost.com/blog/2020/09/30-tips-tricks-and-shortcuts-for-working-with-type-in-photoshop.html
 [Photoshop text in shapes]: https://helpx.adobe.com/photoshop/desktop/text-typography/text-on-paths-shapes/add-text-along-paths-or-inside-shapes.html
 [Photoshop smart objects]: https://helpx.adobe.com/photoshop/desktop/create-manage-layers/smart-objects/export-the-contents-of-an-embedded-smart-object.html
 [Photoshop Smart Object copies]: https://helpx.adobe.com/photoshop/desktop/create-manage-layers/smart-objects/duplicate-an-embedded-smart-object.html
@@ -526,6 +580,12 @@ Read in October and November 2026.
 [Lightroom masking]: https://helpx.adobe.com/lightroom-classic/desktop/process-and-develop-photos/masking.html
 [InDesign auto-size]: https://web.archive.org/web/20260209035437/https://helpx.adobe.com/indesign/using/text-frame-fitting.html
 [InDesign alignment]: https://helpx.adobe.com/indesign/using/aligning-text.html
+[InDesign characters]: https://developer.adobe.com/indesign/dom/api/c/Character/
+[InDesign character styles]: https://developer.adobe.com/indesign/dom/api/c/CharacterStyle/
+[InDesign styles]: https://helpx.adobe.com/sg/indesign/using/paragraph-character-styles.html
+[InDesign kenten]: https://helpx.adobe.com/indesign/desktop/language-and-proofing/chinese-japanese-and-korean/apply-kenten-to-text.html
+[Photoshop Asian type]: https://helpx.adobe.com/photoshop-elements/using/asian-type.html
+[Google Docs styles]: https://support.google.com/docs/answer/1663349
 [Photoshop transform]: https://helpx.adobe.com/photoshop/using/free-transformations-images-shapes-paths.html
 [Photoshop leading]: https://helpx.adobe.com/photoshop/desktop/text-typography/characters-glyphs/adjust-line-and-character-spacing.html
 [Photoshop History panel]: https://helpx.adobe.com/photoshop/desktop/get-started/set-up-toolbars-panels/history-panel-overview.html
@@ -540,6 +600,7 @@ Read in October and November 2026.
 [CSP balloons]: https://help.clip-studio.com/en-us/manual_en/540_comic/Balloons.htm
 [CSP text frame]: https://help.clip-studio.com/en-us/manual_en/810_subtools/L.htm
 [CSP text tool]: https://help.clip-studio.com/en-us/manual_en/810_subtools/E.htm
+[CSP font]: https://www.clip-studio.com/site/gd_en/csp/toolguide/csp_toolguide/100_reference/Font.htm
 [CSP frames]: https://help.clip-studio.com/en-us/manual_en/540_comic/Frames_and_Panels.htm
 [CSP Story Editor]: https://help.clip-studio.com/en-us/manual_en/570_pages/Use_Story_Editor.htm
 [CSP file format]: https://docs.rs/crate/csp-format/latest/source/src/lib.rs
@@ -569,14 +630,21 @@ Read in October and November 2026.
 [CSS masking]: https://www.w3.org/TR/css-masking-1/#the-mask-composite
 [CSS text]: https://www.w3.org/TR/css-text-3/#text-align-property
 [CSS align]: https://www.w3.org/TR/css-align-3/#distribution-block
+[CSS font synthesis]: https://www.w3.org/TR/css-fonts-4/#font-synthesis-intro
 [CSS line-height]: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/line-height
+[CSS writing modes]: https://www.w3.org/TR/css-writing-modes-4/
+[CSS text decoration]: https://www.w3.org/TR/css-text-decor-3/#emphasis-marks
+[JLREQ]: https://www.w3.org/TR/jlreq/
 [PAGE-XML]: https://www.primaresearch.org/schema/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd
 [XLIFF]: https://docs.oasis-open.org/xliff/xliff-core/v2.1/os/xliff-core-v2.1-os.html#segment
 [Comics Kingdom]: https://comicskingdom.com/trending/blog/2024/07/22/do-you-speak-comics-part-2-balloons-and-bubbles
 [Manga balloon basics]: https://www.linkedin.com/pulse/manga-lettering-balloon-basics-phil-christie
 [Search and Destroy letters]: https://yattatachi.com/the-manga-letters-search-and-destroy
+[Manga font kinds]: https://manga.jp.net/knowhow/150924font/
+[YuzuMarker kernels]: https://huggingface.co/mayocream/yuzumarker-fontdetection/tree/c58f09e7151904f5b6d3f1e6c5678558a16d5ea9
 [Manga translation II]: https://wordswithoutborders.org/read/article/2009-02/manga-translation-only-poets-need-apply-part-ii/
 [OpenRaster]: https://www.openraster.org/baseline/layer-stack-spec.html
+[MBTiles]: https://github.com/mapbox/mbtiles-spec/blob/682fed797a346a41cecf123484f3f214f05b5b57/1.3/spec.md#metadata
 [Krita layers]: https://docs.krita.org/en/reference_manual/layers_and_masks.html
 [Krita file]: https://invent.kde.org/graphics/krita/-/blob/master/plugins/impex/libkra/kis_kra_savexml_visitor.cpp
 [Krita tiles]: https://invent.kde.org/graphics/krita/-/blob/master/libs/image/tiles3/swap/kis_tile_compressor_2.cpp

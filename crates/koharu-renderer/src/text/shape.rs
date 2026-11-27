@@ -6,10 +6,13 @@ use std::ops::Range;
 use anyhow::{Context, Result};
 use harfrust::{Buffer, Direction, Feature, ShapeOptions, ShaperFont, Tag};
 use icu_properties::props::Script as IcuScript;
+use icu_segmenter::GraphemeClusterSegmenter;
 use unicode_bidi::{BidiInfo, Level, ParagraphInfo};
 
 use super::{
+    emphasis::{self, ShapedMark},
     itemize::{Orientation, Run, itemize},
+    ruby::{self, ShapedRuby},
     style::Styled,
 };
 use crate::{fonts::Font, script::harfrust_script};
@@ -39,6 +42,10 @@ pub(super) struct ShapedText<'a> {
     pub glyphs: Vec<Glyph>,
     /// Each span's hyphen, when the text's language hyphenates.
     pub hyphens: Vec<Option<Run>>,
+    /// Its ruby, in text order.
+    pub ruby: Vec<ShapedRuby<'a>>,
+    /// Its emphasis marks, as `Styled::marks` has them.
+    pub marks: Vec<ShapedMark<'a>>,
     /// Characters no font of their span has, in code point order.
     pub uncovered: Vec<char>,
 }
@@ -54,6 +61,10 @@ impl<'a> ShapedText<'a> {
         for run in &mut runs {
             let shaped = shape_run(styled, &mut buffer, run, run.range.clone())?;
             run.glyphs = glyphs.len()..glyphs.len() + shaped.len();
+            if run.orientation == Orientation::TateChuYoko {
+                let width: f32 = shaped.iter().map(|glyph| glyph.advance).sum();
+                run.squeeze = (styled.spans[run.span].size / width).min(1.0);
+            }
             glyphs.extend(shaped);
         }
         // Each span's hyphen, shaped in the first of its fonts that has one.
@@ -75,20 +86,27 @@ impl<'a> ShapedText<'a> {
                 script: harfrust_script(IcuScript::Common),
                 orientation: Orientation::Upright,
                 glyphs: 0..0,
+                space: (0.0, 0.0),
+                squeeze: 1.0,
             };
-            let shaped = shape_text(styled, &mut buffer, "-", &run, |_| 0)?;
+            let shaped = shape_text(styled, &mut buffer, "-", &run, None, |_| 0)?;
             run.glyphs = glyphs.len()..glyphs.len() + shaped.len();
             glyphs.extend(shaped);
             hyphens.push(Some(run));
         }
-        Ok(Self {
+        let mut shaped = Self {
             styled,
             paragraphs,
             runs,
             glyphs,
             hyphens,
+            ruby: Vec::new(),
+            marks: Vec::new(),
             uncovered,
-        })
+        };
+        shaped.ruby = ruby::shape(&mut shaped)?;
+        shaped.marks = emphasis::shape(&shaped)?;
+        Ok(shaped)
     }
 
     pub(super) fn glyphs(&self, run: &Run) -> &[Glyph] {
@@ -97,6 +115,11 @@ impl<'a> ShapedText<'a> {
 
     pub(super) fn font(&self, run: &Run) -> &Font {
         &self.styled.spans[run.span].fonts[run.font]
+    }
+
+    /// The advance of a tate-chu-yoko run's cell, as long as its size is.
+    pub(super) fn cell(&self, run: &Run) -> f32 {
+        run.space.0 + self.styled.spans[run.span].size + run.space.1
     }
 
     /// The advance of span `span`'s hyphen.
@@ -141,18 +164,38 @@ pub(super) fn shape_run(
         ),
         false => (source.to_owned(), (0..source.len()).collect()),
     };
-    shape_text(styled, buffer, &text, run, |cluster| {
-        range.start + clusters.get(cluster).copied().unwrap_or(0)
+    let cluster = |cluster| range.start + clusters.get(cluster).copied().unwrap_or(0);
+    let glyphs = shape_text(styled, buffer, &text, run, None, cluster)?;
+    // A tate-chu-yoko cell wider than an em takes its font's half-, third-, or
+    // quarter-width forms for two, three, or four characters where they
+    // narrow it, as CSS fits combined text into an em; `ShapedText` squeezes
+    // what's still too wide.
+    let width = |glyphs: &[Glyph]| glyphs.iter().map(|glyph| glyph.advance).sum::<f32>();
+    if run.orientation != Orientation::TateChuYoko || width(&glyphs) <= styled.spans[run.span].size
+    {
+        return Ok(glyphs);
+    }
+    let tag = match GraphemeClusterSegmenter::new().segment_str(&text).count() - 1 {
+        2 => b"hwid",
+        3 => b"twid",
+        4 => b"qwid",
+        _ => return Ok(glyphs),
+    };
+    let narrowed = shape_text(styled, buffer, &text, run, Some(Tag::new(tag)), cluster)?;
+    Ok(match width(&narrowed) < width(&glyphs) {
+        true => narrowed,
+        false => glyphs,
     })
 }
 
-/// `text` shaped as `run` says, each glyph's cluster mapped by `cluster` from
-/// a byte of `text` to one of the text.
+/// `text` shaped as `run` says, with the feature `width` on, each glyph's
+/// cluster mapped by `cluster` from a byte of `text` to one of the text.
 fn shape_text(
     styled: &Styled,
     buffer: &mut Buffer,
     text: &str,
     run: &Run,
+    width: Option<Tag>,
     cluster: impl Fn(usize) -> usize,
 ) -> Result<Vec<Glyph>> {
     // Sideways runs and tate-chu-yoko shape as horizontal text.
@@ -164,11 +207,16 @@ fn shape_text(
     } else {
         Direction::LeftToRight
     };
-    let features = [
-        Feature::new(Tag::new(b"vert"), 1, ..),
-        Feature::new(Tag::new(b"vrt2"), 1, ..),
-    ];
-    let features: &[Feature] = if vertical { &features } else { &[] };
+    // `vert` alone, as CSS sets upright text: `vrt2` also swaps proportional
+    // Latin for glyphs its font has already turned, which stood upright Latin
+    // sideways, and runs are turned here, by Unicode's orientations.
+    let columns = [Feature::new(Tag::new(b"vert"), 1, ..)];
+    let narrow = width.map(|width| [Feature::new(width, 1, ..)]);
+    let features: &[Feature] = match (vertical, &narrow) {
+        (true, _) => &columns,
+        (false, Some(narrow)) => narrow,
+        (false, None) => &[],
+    };
     let span = &styled.spans[run.span];
     let font = &span.fonts[run.font];
     buffer.clear();
@@ -194,7 +242,7 @@ fn shape_text(
     )
     .context("failed to shape text with HarfRust")?;
     let scale = font.scale(span.size);
-    Ok(buffer
+    let mut glyphs: Vec<Glyph> = buffer
         .glyph_infos()
         .iter()
         .zip(buffer.glyph_positions())
@@ -209,7 +257,26 @@ fn shape_text(
             y_offset: position.y_offset as f32 * scale,
             unsafe_to_break: info.unsafe_to_break(),
         })
-        .collect())
+        .collect();
+    // A faux bold takes the room its glyphs grow into, as HarfBuzz's synthetic
+    // bold does. A full em keeps its width, as it does in a CJK family's own
+    // bold, and so do a column's cells.
+    let growth = font.growth(span.size);
+    if growth > 0.0 && !vertical && run.orientation != Orientation::TateChuYoko {
+        for glyphs in glyphs.chunk_by_mut(|a, b| a.cluster == b.cluster) {
+            let advance: f32 = glyphs.iter().map(|glyph| glyph.advance).sum();
+            if advance <= 0.0 || (advance - span.size).abs() < span.size * 1e-3 {
+                continue;
+            }
+            for glyph in &mut *glyphs {
+                glyph.x_offset += growth;
+            }
+            if let Some(last) = glyphs.last_mut() {
+                last.advance += growth * 2.0;
+            }
+        }
+    }
+    Ok(glyphs)
 }
 
 /// `text` with `!` and `?` in their full-width forms, or in their
@@ -258,6 +325,7 @@ mod tests {
                 size: 16.0,
                 fill: Color::BLACK,
                 stroke: None,
+                orientation: koharu_scene::Orientation::Mixed,
             }],
             vertical: false,
             align: Align::Start,
@@ -265,6 +333,8 @@ mod tests {
             hyphenation: None,
             chinese: false,
             frame: Frame::Point,
+            ruby: Vec::new(),
+            marks: Vec::new(),
         }
     }
 

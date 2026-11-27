@@ -4,14 +4,13 @@
 mod layers;
 mod pages;
 mod pixels;
-mod schema;
 mod text;
 
 use std::collections::HashMap;
 
-use schemars::JsonSchema;
+use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema, schema_for};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use specta::Type;
 
 use crate::{
@@ -45,8 +44,8 @@ pub struct Edit {
     pub ops: Vec<Op>,
 }
 
-/// One op of an edit. Variants skipped by schemars carry bytes or the rich
-/// editor's spans, which tools never send.
+/// One op of an edit. Variants skipped by schemars carry bytes, which tools
+/// never send.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Op {
@@ -81,6 +80,7 @@ pub enum Op {
         #[serde(default)]
         parent: Option<Ref>,
         index: usize,
+        #[schemars(schema_with = "new_layer")]
         layer: Box<NewLayer>,
     },
     /// Copy a layer with everything inside it, its pixels, text, and
@@ -105,10 +105,15 @@ pub enum Op {
     RemoveLayer { layer: Ref },
     /// Change a layer's values with a JSON Merge Patch (RFC 7396): `null`
     /// clears an optional value, and `{"translation": null}` removes a
-    /// block's translation.
+    /// block's translation. A patch into a missing one merges into the one
+    /// `set_text` adds.
     UpdateLayer {
         layer: Ref,
-        #[schemars(schema_with = "schema::layer_patch")]
+        /// The values to change, as `add_layer` takes them, such as
+        /// `{"translation": {"style": {"chars": {"stroke_width": 8}}}}` for the
+        /// border of a block's lettering; not `kind`, `attributes`, or what
+        /// `set_text` writes.
+        #[schemars(with = "Map<String, Value>")]
         patch: Value,
     },
     /// Transform a layer by an affine in page space, by its kind, as
@@ -117,11 +122,13 @@ pub enum Op {
     /// a panel's or a balloon's `outline`. A raster, a mask, and a block's
     /// `cleanup` or `mask` only move, by whole pixels. A group fails.
     TransformLayer { layer: Ref, transform: Transform },
-    /// Replace a text layer's text, or a block's translation, adding one if
-    /// the block has none. Styling on unchanged characters is kept.
+    /// Replace a text layer's text, or a block's translation. A block without
+    /// one gets one with its source's frame, transform, direction, and style.
+    /// Styling and ruby on unchanged characters are kept.
     SetText { layer: Ref, text: String },
-    /// Replace a text's spans, from the rich editor.
-    #[schemars(skip)]
+    /// Replace a text as `set_text` does, with spans, to style some of its
+    /// characters or set ruby over them. The spans are the whole text in order,
+    /// and a value a span's `attributes` leave out comes from the text's style.
     SetRichText { layer: Ref, spans: Vec<Span> },
     /// Set one attribute of a layer, or remove it when `value` is null.
     /// Attributes are data for tools: provenance goes under `c2pa`, by step.
@@ -135,7 +142,8 @@ pub enum Op {
     /// Replace pixels of a layer's picture, in its own pixel coordinates:
     /// RGBA8 for a raster or a block's `cleanup`, grey8 for a mask or a
     /// block's `mask`, each named by its own id. A block's parts take the
-    /// labels `$label.mask` and `$label.cleanup` from the block's.
+    /// labels `$label.mask` and `$label.cleanup` from the label, or the id, it's
+    /// added under.
     #[schemars(skip)]
     WritePixels {
         layer: Ref,
@@ -145,6 +153,24 @@ pub enum Op {
     /// Add an imported file, stored once by its content hash.
     #[schemars(skip)]
     AddFile { bytes: Vec<u8> },
+    /// Change what the project holds beyond its pages with a JSON Merge
+    /// Patch (RFC 7396), as `update_layer` changes a layer, such as
+    /// `{"styles": {"rounded": {"Latn": {"italic": true}}}}` for the face a
+    /// kernel's style has in a script, an ISO 15924 code, which every text of
+    /// that style takes; `null` in its place clears it.
+    UpdateMeta {
+        #[schemars(with = "Map<String, Value>")]
+        patch: Value,
+    },
+}
+
+/// A new layer's schema as agents get it, described by its own, which names each
+/// type once. Some providers refuse a schema that refers to definitions, and
+/// with every type inlined wherever it's held, a layer's takes more than a small
+/// model's context.
+fn new_layer(_: &mut SchemaGenerator) -> Schema {
+    let schema = schema_for!(NewLayer).to_value();
+    json_schema!({"type": "object", "description": schema.to_string()})
 }
 
 pub(crate) struct Run<'a, 'c> {
@@ -361,6 +387,13 @@ impl Run<'_, '_> {
                 pixels,
             } => self.write_pixels(index, layer, *rect, pixels),
             Op::AddFile { bytes } => self.add_file(bytes),
+            Op::UpdateMeta { patch } => {
+                let mut meta = serde_json::to_value(&self.project.meta).expect("meta serializes");
+                json_patch::merge(&mut meta, patch);
+                self.project.meta = serde_json::from_value(meta)
+                    .map_err(|error| Error::invalid(index, error.to_string()))?;
+                Ok(())
+            }
         }
     }
 }

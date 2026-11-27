@@ -19,10 +19,13 @@ export function setRunner(next: Runner): void {
   runner = next
 }
 
-/**
- *  `[agent]`: the agent's model, how much it reasons, and how long a run
- *  goes.
- */
+/**  An account signed in to a site. */
+export type Account = {
+  /**  `None` when the site doesn't say it. */
+  name: string | null
+}
+
+/**  `[agent]`: the agent's model and how much it reasons. */
 export type AgentConfig = {
   /**  A `vendor/model` reference, as koharu-llm connects one. */
   model?: string | null
@@ -33,10 +36,6 @@ export type AgentConfig = {
    *  can't stop reasoning.
    */
   reasoning?: string | null
-  /**  How many model calls a run makes at most. */
-  max_turns?: number
-  /**  How many times a run lets the model correct a call it wrote wrong. */
-  corrections?: number
 }
 
 /**
@@ -191,7 +190,16 @@ export type ChapterLink = {
 }
 
 /**  One of the values a character's style holds. */
-export type CharKey = 'family' | 'weight' | 'italic' | 'size' | 'fill' | 'stroke' | 'stroke_width'
+export type CharKey =
+  | 'family'
+  | 'weight'
+  | 'italic'
+  | 'size'
+  | 'fill'
+  | 'stroke'
+  | 'stroke_width'
+  | 'orientation'
+  | 'emphasis'
 
 /**
  *  Character values; each is also a mark key on a span, and a mark wins for
@@ -205,6 +213,10 @@ export type CharStyle = {
   fill?: Rgba | null
   stroke?: Rgba | null
   stroke_width?: number | null
+  /**  How the characters stand in a vertical column. */
+  orientation?: Orientation | null
+  /**  The mark set beside each character. */
+  emphasis?: Emphasis | null
 }
 
 /**  The app's theme colours the canvas draws with. */
@@ -288,6 +300,20 @@ export type Edit = {
   ops: Op[]
 }
 
+/**  An emphasis mark. */
+export type Emphasis =
+  | 'none'
+  | 'dot'
+  | 'open_dot'
+  | 'circle'
+  | 'open_circle'
+  | 'double_circle'
+  | 'open_double_circle'
+  | 'triangle'
+  | 'open_triangle'
+  | 'sesame'
+  | 'open_sesame'
+
 /**
  *  A vendor's server: where rig, or Koharu for LM Studio, puts it while
  *  `base_url` is unset, as in an empty table.
@@ -323,12 +349,22 @@ export type ExportConfig = {
   webp_quality?: number
 }
 
-export type ExportFormat = 'png' | 'psd' | 'cbz'
+export type ExportFormat = 'png' | 'psd' | 'cbz' | 'pdf'
 
 /**  The pages written so far, of `total`. */
 export type ExportProgress = {
   done: number
   total: number
+}
+
+/**
+ *  The font a kernel's style sets for one script; each value it leaves out
+ *  is antique's.
+ */
+export type Face = {
+  family?: string | null
+  weight?: number | null
+  italic?: boolean | null
 }
 
 /**  The page facing the shown one in a two-page spread, and its side. */
@@ -498,6 +534,56 @@ export type InpainterConfig = {
 }
 
 /**
+ *  The kind of face a text is lettered in, as its source's was: one of the
+ *  kernels Morisawa, Founder, and DynaComware classify their faces by, as
+ *  font detection reads them. Declared by group, each group's first naming
+ *  it.
+ */
+export type Kernel =
+  /**
+   *  アンチック: antique kana, manga's commonest dialogue face; a text's
+   *  style when detection isn't sure of its source's, and what every other
+   *  style leaves out.
+   */
+  | 'antique'
+  /**  明朝体, 宋体. */
+  | 'mincho'
+  /**  仿宋体. */
+  | 'fangsong'
+  /**  楷書体, 楷体. */
+  | 'kaisho'
+  /**  教科書体. */
+  | 'textbook'
+  /**  ゴシック体, 黑体. */
+  | 'gothic'
+  /**  丸ゴシック体, 圆体. */
+  | 'rounded'
+  /**  手書き: hand-lettered faces. */
+  | 'handwriting'
+  /**  筆書体: brush faces. */
+  | 'brush'
+  /**  行書体: running script. */
+  | 'gyosho'
+  /**  行楷体: running regular script. */
+  | 'gyokai'
+  /**  草書体: cursive script. */
+  | 'sosho'
+  /**  隷書体: clerical script. */
+  | 'reisho'
+  /**  篆書体: seal script. */
+  | 'tensho'
+  /**  古印体: the worn strokes of old seals. */
+  | 'kointai'
+  /**  魏碑体: Wei stele script. */
+  | 'weibei'
+  /**  デザイン書体: design faces. */
+  | 'design'
+  /**  ポップ体. */
+  | 'pop'
+  /**  Decorative faces, such as horror's. */
+  | 'decorative'
+
+/**
  *  The names of the layers a PSD needs where the scene has none, in the app's
  *  language. A type layer takes its text as its name, as Photoshop names it.
  */
@@ -592,6 +678,15 @@ export type Mask = {
 
 export type MaskMode = 'add' | 'subtract' | 'intersect'
 
+/**
+ *  What a project holds beyond its pages, kept as one value, so holding more
+ *  is adding a field.
+ */
+export type Meta = {
+  /**  The faces it sets in place of Preferences', by kernel, then script. */
+  styles?: Partial<{ [key in Kernel]: { [key in string]: Face } }>
+}
+
 /**  A model the translator or the agent can use, as rig's catalog describes it. */
 export type Model = {
   /**  A `vendor/model` reference, as the preferences hold one. */
@@ -627,8 +722,8 @@ export type Offset = {
 }
 
 /**
- *  One op of an edit. Variants skipped by schemars carry bytes or the rich
- *  editor's spans, which tools never send.
+ *  One op of an edit. Variants skipped by schemars carry bytes, which tools
+ *  never send.
  */
 export type Op =
   /**
@@ -673,9 +768,20 @@ export type Op =
   /**
    *  Change a layer's values with a JSON Merge Patch (RFC 7396): `null`
    *  clears an optional value, and `{"translation": null}` removes a
-   *  block's translation.
+   *  block's translation. A patch into a missing one merges into the one
+   *  `set_text` adds.
    */
-  | { op: 'update_layer'; layer: Ref; patch: Value }
+  | {
+      op: 'update_layer'
+      layer: Ref
+      /**
+       *  The values to change, as `add_layer` takes them, such as
+       *  `{"translation": {"style": {"chars": {"stroke_width": 8}}}}` for the
+       *  border of a block's lettering; not `kind`, `attributes`, or what
+       *  `set_text` writes.
+       */
+      patch: Value
+    }
   /**
    *  Transform a layer by an affine in page space, by its kind, as
    *  Photoshop's Free Transform does: a text's or an image's `transform`,
@@ -685,11 +791,16 @@ export type Op =
    */
   | { op: 'transform_layer'; layer: Ref; transform: Transform }
   /**
-   *  Replace a text layer's text, or a block's translation, adding one if
-   *  the block has none. Styling on unchanged characters is kept.
+   *  Replace a text layer's text, or a block's translation. A block without
+   *  one gets one with its source's frame, transform, direction, and style.
+   *  Styling and ruby on unchanged characters are kept.
    */
   | { op: 'set_text'; layer: Ref; text: string }
-  /**  Replace a text's spans, from the rich editor. */
+  /**
+   *  Replace a text as `set_text` does, with spans, to style some of its
+   *  characters or set ruby over them. The spans are the whole text in order,
+   *  and a value a span's `attributes` leave out comes from the text's style.
+   */
   | { op: 'set_rich_text'; layer: Ref; spans: Span[] }
   /**
    *  Set one attribute of a layer, or remove it when `value` is null.
@@ -700,11 +811,20 @@ export type Op =
    *  Replace pixels of a layer's picture, in its own pixel coordinates:
    *  RGBA8 for a raster or a block's `cleanup`, grey8 for a mask or a
    *  block's `mask`, each named by its own id. A block's parts take the
-   *  labels `$label.mask` and `$label.cleanup` from the block's.
+   *  labels `$label.mask` and `$label.cleanup` from the label, or the id, it's
+   *  added under.
    */
   | { op: 'write_pixels'; layer: Ref; rect: Rect; pixels: number[] }
   /**  Add an imported file, stored once by its content hash. */
   | { op: 'add_file'; bytes: number[] }
+  /**
+   *  Change what the project holds beyond its pages with a JSON Merge
+   *  Patch (RFC 7396), as `update_layer` changes a layer, such as
+   *  `{"styles": {"rounded": {"Latn": {"italic": true}}}}` for the face a
+   *  kernel's style has in a script, an ISO 15924 code, which every text of
+   *  that style takes; `null` in its place clears it.
+   */
+  | { op: 'update_meta'; patch: Value }
 
 /**  An opacity, from 0 to 1. */
 export type Opacity = number
@@ -714,6 +834,9 @@ export type Opened = {
   url: string
   series: Series
 }
+
+/**  How characters stand in a vertical column. */
+export type Orientation = 'mixed' | 'upright' | 'sideways' | 'tate_chu_yoko'
 
 export type Outcome =
   | { kind: 'done' }
@@ -773,7 +896,11 @@ export type PageSummary = {
   background: Background | null
   /**  Its blocks, hidden ones too. */
   texts: number
-  /**  Its blocks that hold a translation. */
+  /**
+   *  Its blocks whose translation isn't blank. A cleared translation keeps
+   *  its style, and styling an untranslated block makes an empty one, so
+   *  neither counts.
+   */
   translated: number
 }
 
@@ -802,14 +929,14 @@ export type PipelineConfig = {
 }
 
 /**
- *  A run was queued, a stage started or finished on a page, or a run ended.
- *  A stage starts when the GPU takes it, or for a hosted translation when
- *  it's sent.
+ *  A run was queued, a stage started, finished, or failed on a page, or a run
+ *  ended. A stage starts when the GPU takes it, or for a hosted translation
+ *  when it's sent.
  */
 export type PipelineEvent =
   /**
    *  The run's first event: the page stages it does, each of which starts
-   *  and finishes once unless the run ends first.
+   *  once, and finishes or fails, unless the run ends first.
    */
   | { kind: 'queued'; run: RunId; steps: number }
   | { kind: 'started'; run: RunId; page: PageId; stage: Stage }
@@ -822,6 +949,17 @@ export type PipelineEvent =
   /**  Fork addition: what validation flagged on a page. */
   | { kind: 'flagged'; run: RunId; page: PageId; flags: Flag[] }
   | { kind: 'ended'; run: RunId; outcome: Outcome }
+
+/**
+ *  The key standing for a US punctuation key, by its `KeyboardEvent.code`,
+ *  which winit's key names are, and what it types unshifted. The page's
+ *  `navigator.keyboard` can't say: CEF's windowless view leaves its layout
+ *  map empty.
+ */
+export type Place = {
+  code: string
+  label: string
+}
 
 export type Preferences = {
   pipeline: PipelineConfig
@@ -836,6 +974,7 @@ export type ProjectAnswer = {
   /**  The format version the file holds. */
   version: string
   pages: PageSummary[]
+  meta: Meta
 }
 
 /**  A project, stored once when it is created. */
@@ -851,7 +990,8 @@ export type Providers = { [key in string]: Endpoint }
 export type Query =
   /**
    *  List the pages in order, with their sizes, backgrounds, and how many
-   *  of their blocks are translated.
+   *  of their blocks are translated, and what the project holds beyond
+   *  them, such as the faces it sets.
    */
   | { query: 'get_project' }
   /**
@@ -920,7 +1060,12 @@ export type Rect = {
 export type Ref = string
 
 export type RendererConfig = {
-  font_families?: string[]
+  /**
+   *  The styles a new project starts with, and a file from before projects
+   *  held their own takes: each kernel's face in each script, by ISO 15924
+   *  code. A project keeps its own from then on.
+   */
+  styles?: Partial<{ [key in Kernel]: { [key in string]: Face } }>
 }
 
 export type Result<T, E> = ({ Ok: T } & { Err?: never }) | ({ Err: E } & { Ok?: never })
@@ -942,6 +1087,11 @@ export type Rgba = [number, number, number, number]
 export type RichText = {
   insert: string
   attributes?: CharStyle
+  /**
+   *  The small text set beside `insert`, such as its reading. Neighbouring
+   *  spans with the same ruby are one base, which it's set over once.
+   */
+  ruby?: string | null
 }[]
 
 /**
@@ -949,6 +1099,29 @@ export type RichText = {
  *  nature of its text.
  */
 export type Role = 'text' | 'sfx'
+
+/**
+ *  The characters a ruby goes over, as Clip Studio Paint shows a reading's
+ *  target string.
+ */
+export type RubyBase = {
+  text: string
+  ruby: string | null
+}
+
+/**  What the type bar's ruby field does to the text being typed. */
+export type RubyEdit =
+  /**
+   *  Opens on the selected characters, or on the base the caret is in, which
+   *  its ruby goes over until it closes.
+   */
+  | { kind: 'open' }
+  /**  Sets its ruby, or takes it off. */
+  | { kind: 'set'; ruby: string | null }
+  /**  Closes, keeping the ruby. */
+  | { kind: 'keep' }
+  /**  Closes, putting back the text as it opened on it. */
+  | { kind: 'cancel' }
 
 /**  A run, numbered in the order runs were asked for. */
 export type RunId = number
@@ -1004,10 +1177,15 @@ export type Size = {
   height: number
 }
 
-/**  A string with its character marks. */
+/**  A string with its character marks and its ruby. */
 export type Span = {
   insert: string
   attributes?: CharStyle
+  /**
+   *  The small text set beside `insert`, such as its reading. Neighbouring
+   *  spans with the same ruby are one base, which it's set over once.
+   */
+  ruby?: string | null
 }
 
 /**  A stage, in the order a page's stages run. */
@@ -1050,7 +1228,8 @@ export type Target =
   /**  Recognition, inpainting, or translation on blocks. */
   | ({ blocks: LayerId[] } & { area?: never; pages?: never })
   /**
-   *  Inpainting only: a new raster layer limited by a layer mask to the
+   *  Inpainting only, onto `layer`, a raster or a block's clean-up, whose
+   *  mask opens there, or a new raster layer limited by a layer mask to the
    *  area, as Photoshop's Generative Fill and Content-Aware Fill write one.
    *  Its prompt goes ahead of the inpainter section's; LaMa, which takes
    *  none, ignores it.
@@ -1060,6 +1239,7 @@ export type Target =
         page: PageId
         area: Area
         prompt: string | null
+        layer: LayerId | null
       }
     } & { blocks?: never; pages?: never })
 
@@ -1085,6 +1265,14 @@ export type TextStyle = {
   align?: Align | null
   /**  A paragraph key: a multiple of each line's largest size. */
   line_height?: number | null
+  /**
+   *  A text key: the kind of face it's lettered in, whose style sets its
+   *  family, weight, and italic where `chars` and the marks don't. Agents
+   *  never set it, translation and the type bar do, so their schema leaves
+   *  out its nineteen documented values, which would crowd a small model's
+   *  context.
+   */
+  kernel?: Kernel | null
 }
 
 export type Tool =
@@ -1098,6 +1286,8 @@ export type Tool =
   /**  Photoshop's Lasso: marks a freehand shape of the page's pixels. */
   | 'lasso'
   | 'text'
+  /**  Draws a text block, for a text detection missed. */
+  | 'block'
   | 'draw'
   | 'eraser'
   | 'color_picker'
@@ -1136,7 +1326,7 @@ export type TranslatorConfig = {
   /**
    *  Whether each page's turn shows the model the page itself beside its
    *  texts, as an image goes with a chat message to OpenAI's and Gemini's
-   *  models; only for a model that reads images.
+   *  models; a model that reads no images goes without it.
    */
   vision?: boolean
   /**
@@ -1162,6 +1352,16 @@ export type Typed = {
    *  empty.
    */
   mixed: CharKey[]
+  /**
+   *  The selected characters, or the base the caret is in; `None` at a caret
+   *  in none.
+   */
+  base: RubyBase | null
+  /**
+   *  Whether the ruby field is open on `base`: anything else that changes
+   *  the text or moves the caret closes it.
+   */
+  annotating: boolean
 }
 
 /**
@@ -1271,7 +1471,7 @@ export const commands = {
   redo: () => runner('redo', (options) => invoke<null>('redo', {}, options)),
   /** Goes to the project as it was after `step` steps, as a click in Photoshop's History panel does; 0 is the project as it opened. */
   goTo: (step: number) => runner('go_to', (options) => invoke<null>('go_to', { step }, options)),
-  /** The page as it renders, `HEIGHT` pixels tall, as WebP. */
+  /** The page as it renders, `HEIGHT` pixels tall, as WebP: drawn twice as large and shrunk, as masks' edges are jagged drawn at that size. */
   getPageThumbnail: (page: PageId) =>
     runner('get_page_thumbnail', (options) =>
       invoke<ArrayBuffer>('get_page_thumbnail', { page }, options),
@@ -1346,9 +1546,9 @@ export const commands = {
     runner('sign_in_site', (options) => invoke<null>('sign_in_site', { site }, options)),
   signOutSite: (site: string) =>
     runner('sign_out_site', (options) => invoke<null>('sign_out_site', { site }, options)),
-  /** The name of the account signed in to the site `site`, `None` when no one is. */
+  /** The account signed in to the site `site`, `None` when no one is. */
   getAccount: (site: string) =>
-    runner('get_account', (options) => invoke<string | null>('get_account', { site }, options)),
+    runner('get_account', (options) => invoke<Account | null>('get_account', { site }, options)),
   /** Opens the chapter at `url` as the open project, and loads its pages into it, which `chapter` tells how far it went with; says how it reads. */
   readChapter: (url: string) =>
     runner('read_chapter', (options) => invoke<Reading>('read_chapter', { url }, options)),
@@ -1362,18 +1562,24 @@ export const commands = {
   /** Picks files or a folder and adds their pages after the project's last: the files in name order, numbers by value, an archive's or a PDF's own pages in theirs. */
   import: (source: ImportSource) =>
     runner('import', (options) => invoke<null>('import', { source }, options)),
-  /** Picks where the open project's pages go, and writes them there. `labels` names a PSD's layers the scene names nothing, in the interface's language; `encoding` is a CBZ's pages'. `on_progress` hears each page written. */
+  /** Picks where the open project's pages go, and writes them there: `pages` alone, or every page when it's `None`, in the project's order. `labels` names a PSD's layers the scene names nothing, in the interface's language; `encoding` is a CBZ's pages'. `on_progress` hears each page written. */
   export: (
+    pages: PageId[] | null,
     format: ExportFormat,
     labels: Labels,
     encoding: PageEncoding,
     onProgress: Channel<ExportProgress>,
   ) =>
     runner('export', (options) =>
-      invoke<null>('export', { format, labels, encoding, onProgress }, options),
+      invoke<null>('export', { pages, format, labels, encoding, onProgress }, options),
     ),
   /** Stops the export going on before its next page; a CBZ it leaves unfinished is deleted. */
   stopExport: () => runner('stop_export', (options) => invoke<null>('stop_export', {}, options)),
+  /** Where the user's layout puts each US punctuation key, by `KeyboardEvent.code`: the key a shortcut on the US key takes instead, and what it types. Read on the main thread, whose layout its window's keys arrive in. */
+  getKeyboard: () =>
+    runner('get_keyboard', (options) =>
+      invoke<{ [key in string]: Place }>('get_keyboard', {}, options),
+    ),
   /** The canvas element's rectangle, in CSS pixels from the window's corner. */
   setViewport: (x: number, y: number, width: number, height: number) =>
     runner('set_viewport', (options) =>
@@ -1388,9 +1594,15 @@ export const commands = {
   /** Whether the Story panel shows, and the text whose entry the pointer is on, which the canvas numbers and outlines. */
   setStory: (story: Story) =>
     runner('set_story', (options) => invoke<null>('set_story', { story }, options)),
+  /** Whether the page shows its scan alone, as Lightroom's Before view shows a photo without its edits. */
+  setOriginal: (original: boolean) =>
+    runner('set_original', (options) => invoke<null>('set_original', { original }, options)),
   /** The type bar's character settings for the text being typed: the selected characters take them, or at a caret the next ones typed. */
   styleTyping: (patch: CharStyle) =>
     runner('style_typing', (options) => invoke<null>('style_typing', { patch }, options)),
+  /** What the type bar's ruby field does to the text being typed: it opens on the selected characters, or on the base the caret is in, sets their ruby, and closes. */
+  annotateTyping: (edit: RubyEdit) =>
+    runner('annotate_typing', (options) => invoke<null>('annotate_typing', { edit }, options)),
   /** Fits the page in the canvas, as the fit shortcut does. */
   fit: () => runner('fit', (options) => invoke<null>('fit', {}, options)),
   /** Zooms about the canvas's centre, `zoom` CSS pixels to a page pixel, as the status bar's slider sets it. */

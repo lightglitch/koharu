@@ -3,7 +3,7 @@
 //! and a layer its children, as values, so the tree can't disagree with
 //! itself; an index of which page holds each layer is derived from them.
 
-use std::slice;
+use std::{collections::BTreeMap, slice};
 
 use imbl::{OrdMap, Vector};
 use schemars::JsonSchema;
@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::{
-    Block, Content, Error, Hash, Layer, LayerId, LayerKind, Offset, PageId, PixelFormat, ProjectId,
-    Result, Size,
+    Block, Content, Error, Face, Hash, Kernel, Layer, LayerId, LayerKind, Offset, PageId,
+    PixelFormat, ProjectId, Result, Script, Size,
 };
 
 /// A picture's stored tiles: tile position, then the hash of its compressed
@@ -29,6 +29,18 @@ pub struct Project {
     pub(crate) index: OrdMap<LayerId, PageId>,
     /// Each picture's tiles, under the id of the layer that owns it.
     pub(crate) tiles: OrdMap<LayerId, TileMap>,
+    pub(crate) meta: Meta,
+}
+
+/// What a project holds beyond its pages, kept as one value, so holding more
+/// is adding a field.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, Type)]
+#[serde(deny_unknown_fields)]
+pub struct Meta {
+    /// The faces it sets in place of Preferences', by kernel, then script.
+    #[serde(default)]
+    #[specta(type = BTreeMap<Kernel, BTreeMap<String, Face>>)]
+    pub styles: OrdMap<Kernel, OrdMap<Script, Face>>,
 }
 
 /// A page: its size, the scan under it, and its layers with everything
@@ -114,7 +126,8 @@ pub(crate) fn ids(layers: &[Layer]) -> Vec<LayerId> {
 }
 
 /// The first locked layer in `layer`'s subtree.
-pub(crate) fn locked_inside(layer: &Layer) -> Option<LayerId> {
+#[must_use]
+pub fn locked_inside(layer: &Layer) -> Option<LayerId> {
     depth_first(slice::from_ref(layer))
         .into_iter()
         .find(|layer| layer.locked)
@@ -172,7 +185,13 @@ impl Project {
             pages: OrdMap::new(),
             index: OrdMap::new(),
             tiles: OrdMap::new(),
+            meta: Meta::default(),
         }
+    }
+
+    #[must_use]
+    pub fn meta(&self) -> &Meta {
+        &self.meta
     }
 
     #[must_use]
@@ -285,8 +304,10 @@ impl Project {
         self.tiles.get(&layer)
     }
 
-    /// The first of `layer` and the layers above it that is locked.
-    pub(crate) fn locked_at(&self, layer: LayerId) -> Option<LayerId> {
+    /// The first of `layer` and the layers above it that is locked; `None`
+    /// for one outside the pages' trees, such as a block's part.
+    #[must_use]
+    pub fn locked_at(&self, layer: LayerId) -> Option<LayerId> {
         let (page, path) = self.place(layer)?;
         let page = &self.pages[&page];
         (1..=path.len())

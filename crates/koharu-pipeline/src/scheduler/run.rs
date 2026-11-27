@@ -107,7 +107,12 @@ impl Plan {
                     area: None,
                 }
             }
-            Target::Area { page, area, prompt } => {
+            Target::Area {
+                page,
+                area,
+                prompt,
+                layer,
+            } => {
                 if stages.iter().ne([Stage::Inpaint].iter()) {
                     return Err(Error::invalid("an area takes inpainting only"));
                 }
@@ -130,6 +135,7 @@ impl Plan {
                     area: Some(Arc::new(AreaWork {
                         area: area.clone(),
                         prompt: prompt.map(str::to_owned),
+                        layer: *layer,
                     })),
                 }
             }
@@ -241,7 +247,8 @@ mod tests {
     /// removed with it.
     fn project() -> anyhow::Result<(tempfile::TempDir, Session, PageId, LayerId)> {
         let dir = tempfile::tempdir()?;
-        let mut session = Session::create(dir.path().join("test.khr"))?;
+        let mut session =
+            Session::create(dir.path().join("test.khr"), koharu_scene::Meta::default())?;
         let ops = [
             json!({"op": "add_page", "index": 0, "size": {"width": 100, "height": 100}}),
             json!({"op": "add_page", "id": "$p", "index": 1, "size": {"width": 100, "height": 100}}),
@@ -292,6 +299,7 @@ mod tests {
                 pixels: vec![255, 0],
             },
             prompt: None,
+            layer: None,
         };
         assert!(Plan::new(&project, &area, &stages(&[Stage::Translate])).is_err());
         assert!(Plan::new(&project, &area, &stages(&[Stage::Inpaint])).is_ok());

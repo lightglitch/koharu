@@ -161,6 +161,7 @@
     "close": "关闭历史记录",
     "opened": "打开时",
     "steps": {
+      "add_layer": "新建图层",
       "add_text": "添加文字",
       "delete_layers": "删除图层",
       "delete_pages": "删除页面",
@@ -182,7 +183,9 @@
       "set_text": "编辑文字",
       "set_visibility": "显示或隐藏",
       "translate": "翻译",
-      "update_layer": "更改图层"
+      "update_layer": "更改图层",
+      "update_style": "更新书体",
+      "use_default_styles": "使用默认书体"
     },
     "title": "历史记录"
   },
@@ -230,15 +233,40 @@
     "borderWidth": "描边宽度",
     "chooseBorderWidth": "选择描边宽度",
     "chooseFontSize": "选择字体大小",
+    "emphasis": "着重号",
+    "emphasisMarks": {
+      "circle": "实心圆",
+      "dot": "实心点",
+      "double_circle": "实心双圆",
+      "none": "无",
+      "open_circle": "空心圆",
+      "open_dot": "空心点",
+      "open_double_circle": "空心双圆",
+      "open_sesame": "空心芝麻点",
+      "open_triangle": "空心三角",
+      "sesame": "实心芝麻点",
+      "triangle": "实心三角"
+    },
     "font": "字体",
     "fontSize": "字体大小",
     "fontStyles": {
+      "bold": "粗体",
+      "fauxBold": "仿粗体",
+      "fauxItalic": "仿斜体",
       "italic": "斜体",
       "oblique": "倾斜"
     },
     "fontWeight": "字体粗细",
     "horizontal": "横排",
     "opacity": "不透明度",
+    "orientation": "字符朝向",
+    "orientations": {
+      "sideways": "旋转",
+      "tate_chu_yoko": "直排内横排",
+      "upright": "直立"
+    },
+    "removeRuby": "移除注音",
+    "ruby": "注音",
     "selectPage": "选择一个页面以检查其图层。",
     "source": "原文",
     "text": "文本",
@@ -292,12 +320,14 @@
   },
   "menu": {
     "about": "关于",
+    "checkForUpdates": "检查更新",
     "closeProject": "关闭项目",
     "delete": "删除所选项",
     "discord": "Discord",
     "donate": "捐赠",
     "edit": "编辑",
     "export": "导出项目",
+    "exportSelected": "导出所选页面",
     "feedback": "发送反馈",
     "file": "文件",
     "fit": "适应窗口",
@@ -305,11 +335,14 @@
     "help": "帮助",
     "history": "历史记录",
     "import": "导入页面",
+    "original": "显示原图",
     "redo": "重做",
+    "saveDefaultStyles": "将书体存为默认",
     "selectAllLayers": "选择所有图层",
     "settings": "设置",
     "undo": "撤销",
     "unloadModels": "卸载模型",
+    "useDefaultStyles": "使用默认书体",
     "view": "视图"
   },
   "model": {
@@ -522,19 +555,14 @@
     },
     "title": "设置",
     "typesetting": {
-      "addFallback": "添加备用字体",
-      "addFamily": "添加字体系列",
-      "description": "设置文本图层未指定字体系列时使用的有序字体堆栈。",
-      "empty": "没有默认字体系列。Koharu 将使用系统后备字体。",
-      "fallbacks": "备用字体",
-      "fallbacksDescription": "主字体缺少的字符按顺序使用备用字体。拖动可调整顺序，拖到主字体上即可互换。",
-      "familyLabel": "默认字体系列 {{index}}",
-      "fontFallback": "首选字体",
-      "fontFallbackDescription": "Koharu 使用第一个支持该文本的可用字体系列。",
-      "loadError": "无法加载字体。仍可删除现有字体系列。",
-      "loadingFonts": "正在加载字体…",
-      "primary": "主字体",
-      "removeFamily": "删除 {{family}}",
+      "description": "各书写系统中新项目开始时使用的书体。之后项目保留自己的书体，“文件 → 使用默认书体”可再次套用这些。",
+      "loadError": "无法加载字体。已设置的字体仍会使用。",
+      "restore": "恢复默认",
+      "restoreDescription": "所有书写系统的书体都会恢复为 Koharu 的默认值，这里设置的字体将丢失；项目保留自己的书体。",
+      "restoreTitle": "要恢复默认书体吗？",
+      "script": "书写系统",
+      "styles": "书体",
+      "stylesDescription": "译文沿用原文的书体。保持默认的书体使用同一书写系统中日漫黑体的字体。",
       "title": "渲染器"
     }
   },
@@ -577,7 +605,44 @@
     "title": "故事",
     "translate": "翻译 {{name}}"
   },
+  "styles": {
+    "clearOverrides": "清除覆盖",
+    "default": "默认（日漫黑体：{{name}}）",
+    "defaultWeight": "默认",
+    "font": "{{name}}的字体",
+    "groups": {
+      "brush": "书法类",
+      "design": "美术类",
+      "mincho": "宋体类"
+    },
+    "italic": "{{name}}斜体",
+    "kernel": "书体",
+    "kernels": {
+      "antique": "日漫黑体",
+      "brush": "书法体",
+      "decorative": "装饰体",
+      "design": "美术体",
+      "fangsong": "仿宋",
+      "gothic": "黑体",
+      "gyokai": "行楷",
+      "gyosho": "行书",
+      "handwriting": "手写体",
+      "kaisho": "楷体",
+      "kointai": "古印体",
+      "mincho": "宋体",
+      "pop": "POP体",
+      "reisho": "隶书",
+      "rounded": "圆体",
+      "sosho": "草书",
+      "tensho": "篆书",
+      "textbook": "教科书体",
+      "weibei": "魏碑"
+    },
+    "updateToMatch": "按此文本更新{{name}}",
+    "weight": "{{name}}字重"
+  },
   "tools": {
+    "block": "文本块",
     "brushSize": "画笔大小",
     "brushSizeInput": "画笔大小",
     "brushSizePixels": "画笔大小：{{size}} 像素",
@@ -610,6 +675,10 @@
       "title": "更新失败"
     },
     "later": "稍后",
+    "latest": {
+      "description": "Koharu <strong>{{version}}</strong> 已是最新版本",
+      "title": "没有可用更新"
+    },
     "noNotes": "未提供发行说明。",
     "retry": "重试",
     "update": "更新"

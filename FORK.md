@@ -153,7 +153,11 @@ Code: `components/editor/LayersHeader.tsx` and
 - The interface then runs the Run control's ticked stages after detection
   (OCR, clean-up, translation; all three when none is ticked) on that block
   only.
-- Upstream's marked area only feeds Generative Fill.
+- Upstream's marked area only feeds Generative Fill. Since 0.95 upstream has
+  its own **Text block** tool (`koharu-canvas` `tools/block.rs`): it drags a
+  rectangle, links the block to the balloon under it, and leaves reading and
+  clean-up to the block's Story menu. Add text keeps any marked shape as the
+  mask and runs the stages itself, so both stay.
 
 ### Translate a book from the command line
 
@@ -190,6 +194,11 @@ Code: `components/editor/LayersHeader.tsx` and
   Lettering over hair or a tone has that art, as dark as its ink, inside its
   mask, so upstream measured the rings from the art's edge and found no
   outline, and the translation had none either.
+- Since 0.96 upstream first looks for outlined lettering by its glyphs
+  (`outlined.rs`), and measures its outline there; `outline()` is the
+  fallback where it finds none, and that's where the fork's changes apply.
+  `outlined()` calls `outline()` with `in_bubble` set, which keeps
+  upstream's own rule for the glyphs it tuned against it.
 - The fork leaves out of the glyphs the ink-coloured areas that reach the
   measuring window's edge, which run on past the lettering, and the specks
   smaller than (size / 12)² pixels, a tone's dots. An outline keeps the
@@ -217,8 +226,8 @@ Code: `components/editor/LayersHeader.tsx` and
     `big` × the median; sound effects never);
   - text that overflows its box;
   - a sound effect over dialogue, or dialogue over dialogue, measured on
-    each line's letters, not the boxes (`ResolvedText::strips` in
-    `koharu-renderer/src/text/arrange.rs`), turned with the text;
+    each line's letters, not the boxes (upstream's `ResolvedText::lines`,
+    which replaced the fork's own `strips`), turned with the text;
   - text off the page or out of its balloon;
   - a runaway translation: a word repeated 8 times in a row, or a long text
     ten times its source's length. Only retranslating fixes it, so the model
@@ -275,7 +284,14 @@ Code: `components/editor/LayersHeader.tsx` and
 ### Pipeline, Activity and translation (Rust)
 
 - **Keep running when a page fails** (`crates/koharu-pipeline`: `scheduler/mod.rs`
-  `done()`, `scheduler/run.rs` `Run::abandon`, `event.rs`).
+  `done()` and `leave()`, `scheduler/run.rs` `Run::abandon`, `event.rs`).
+  - Since 0.99 upstream goes past a page whose translation the model blocks
+    or can't answer (`stages::Failed`), and ends the run at any other
+    failure. The fork treats every failure as the page's alone, so
+    `Failed` only matters upstream; upstream's `fail()` and
+    `Outcome::Failed { page, stage, reason }` are replaced by the fork's.
+  - The interface keeps the fork's `Job.failures` (page, stage, reason),
+    not upstream's `Job.failed` and `Job.error`.
   - A failed stage drops only that page's remaining jobs, and the run goes on.
   - The translation chain is bridged over the failed page, so the next page's
     translation still waits for the one before it.
@@ -286,7 +302,10 @@ Code: `components/editor/LayersHeader.tsx` and
   - The pipeline README section 5 and the processing and rendering docs describe
     this. Upstream ends the run at its first failure.
 - **Translator repair** (`crates/koharu-pipeline/src/stages/translate/repair.rs`,
-  hooked in `turn.rs` `Turn::read`).
+  hooked in `turn.rs` `Turn::read`, which `Turn::ask` calls where upstream
+  fails the page with `stages::Failed`). Upstream's own retries (without the
+  history, halved, warmer) run first, and upstream now also finds JSON in a
+  code fence or prose (`json_in_text`) before the repair is needed.
   - It runs only when the strict parse refuses an answer, and recovers:
     - a key whose quote swallowed the colon;
     - unescaped quotes inside a value;
@@ -309,7 +328,12 @@ Code: `components/editor/LayersHeader.tsx` and
   - An `[export]` settings section holds `jpeg_quality` (default 90) and
     `webp_quality` (default 85), each from 1 to 100. The UI is
     `components/preferences/ExportPreferences.tsx`, on a Settings tab.
-  - The format is chosen in `components/app/ExportCbzDialog.tsx`.
+  - The format is chosen in `components/app/ExportCbzDialog.tsx`, which the
+    title bar holds open (`cbzPages` in `TitleBar.tsx`) for upstream's
+    **Export** and **Export selected** menus alike.
+  - Upstream's PDF export and its selected pages (0.95) go through the same
+    `write`, so a PDF shows its progress and stops too, and one left
+    unfinished is deleted.
   - Activity shows the pages written, and Stop ends the export
     (`lib/exportProgress.ts`).
   - A CBZ that is stopped or fails is deleted.

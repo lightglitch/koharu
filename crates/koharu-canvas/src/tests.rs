@@ -1,10 +1,11 @@
 //! The canvas's behaviour, through its public API, on a real project and
 //! GPU.
 
-use std::sync::Arc;
+use std::{io::Cursor, sync::Arc};
 
-use koharu_renderer::{Gpu, Renderer, RendererConfig};
-use koharu_scene::{Edit, LayerId, Op, PageId, Ref, Rgba, Session};
+use image::{ImageFormat, Rgb, RgbImage};
+use koharu_renderer::{Gpu, Renderer};
+use koharu_scene::{Background, Edit, Hash, LayerId, Op, PageId, Ref, Rgba, Session};
 use kurbo::{Affine, BezPath, Point, Rect, Shape as _, TranslateScale, Vec2};
 use parking_lot::Mutex;
 use serde_json::{Value, json};
@@ -17,15 +18,11 @@ use ui_events::{
     },
 };
 
-use crate::{Brush, Canvas, CharKey, Colors, Effect, Notice, Tool};
+use crate::{Brush, Canvas, CharKey, Colors, Effect, Notice, RubyEdit, Tool};
 
 /// One renderer for every test, as the app has one, setting text in
 /// installed fonts so no test downloads one.
-static RENDERER: std::sync::LazyLock<Renderer> = std::sync::LazyLock::new(|| {
-    Renderer::new(RendererConfig {
-        font_families: Vec::new(),
-    })
-});
+static RENDERER: std::sync::LazyLock<Renderer> = std::sync::LazyLock::new(Renderer::new);
 
 /// A project of one page, its renderer, and a canvas showing it.
 struct Fixture {
@@ -50,7 +47,8 @@ impl Fixture {
 /// `$page`), shown on a canvas; `None` without a GPU.
 fn fixture(size: (u32, u32), ops: Vec<Value>) -> Option<Fixture> {
     let dir = tempfile::tempdir().expect("a folder");
-    let mut session = Session::create(dir.path().join("test.khr")).expect("a project");
+    let mut session = Session::create(dir.path().join("test.khr"), koharu_scene::Meta::default())
+        .expect("a project");
     let page = json!({"op": "add_page", "id": "$page", "index": 0,
         "size": {"width": size.0, "height": size.1}});
     let ops: Vec<Op> = std::iter::once(page)
@@ -116,6 +114,49 @@ fn a_page_shows_where_the_camera_puts_it() {
     assert_eq!(at(75, 75), [255, 0, 0, 255]);
     assert_eq!(at(25, 25), [255; 4]);
     assert_eq!(at(350, 250), [0, 0, 255, 255]);
+}
+
+/// Showing the original draws the scan alone, and leaves the page as it was.
+#[test]
+fn the_original_shows_the_scan_without_the_layers() {
+    let Some(mut fixture) = unscaled_of((200, 200), red_square()) else {
+        return;
+    };
+    let mut scan = Vec::new();
+    RgbImage::from_pixel(200, 200, Rgb([0, 0, 255]))
+        .write_to(&mut Cursor::new(&mut scan), ImageFormat::Png)
+        .expect("a PNG");
+    let background = Background {
+        file: Hash::of(&scan),
+        visible: true,
+    };
+    let ops = vec![
+        Op::AddFile { bytes: scan },
+        Op::SetBackground {
+            page: Ref::from(fixture.page),
+            background: Some(background),
+        },
+    ];
+    fixture
+        .session
+        .lock()
+        .apply(Edit {
+            label: "test".into(),
+            ops,
+        })
+        .expect("a scan");
+    fixture.render();
+    for (original, square) in [
+        (false, [255, 0, 0, 255]),
+        (true, [0, 0, 255, 255]),
+        (false, [255, 0, 0, 255]),
+    ] {
+        fixture.canvas.set_original(original);
+        assert!(fixture.canvas.draw().expect("a draw").is_some());
+        let snapshot = fixture.canvas.snapshot().expect("pixels");
+        assert_eq!(snapshot.get_pixel(75, 75).0, square);
+        assert_eq!(snapshot.get_pixel(25, 25).0, [0, 0, 255, 255]);
+    }
 }
 
 /// A shape of `width`×`height` at `(x, y)`, drawn in order at `index`,
@@ -653,7 +694,13 @@ fn a_remove_stroke_asks_to_inpaint_what_it_covered() {
     fixture.canvas.set_tool(Tool::Remove);
     fixture.canvas.set_brush(brush(8.0, [0.0, 0.0, 0.0, 1.0]));
     let effects = gesture(&mut fixture.canvas, (20.0, 20.0), (40.0, 20.0));
-    let [Effect::Inpaint { page, rect, mask }] = &effects[..] else {
+    let Some(Effect::Inpaint {
+        page,
+        layer,
+        rect,
+        mask,
+    }) = effects.last()
+    else {
         panic!("{effects:?}");
     };
     assert_eq!(*page, fixture.page);
@@ -661,6 +708,100 @@ fn a_remove_stroke_asks_to_inpaint_what_it_covered() {
     assert!(rect.x + rect.width as i32 >= 44 && rect.y + rect.height as i32 >= 24);
     let at = ((20 - rect.y) * rect.width as i32 + (30 - rect.x)) as usize;
     assert_eq!(mask[at], 255);
+
+    // Onto a raster it adds and selects, which the next stroke goes onto.
+    let layer = *layer;
+    assert_eq!(apply(&mut fixture, effects), ["add_layer"]);
+    assert_eq!(layers(&fixture), [layer]);
+    assert_eq!(fixture.canvas.selection(), [layer]);
+    let effects = gesture(&mut fixture.canvas, (60.0, 60.0), (70.0, 60.0));
+    assert!(matches!(effects[..], [Effect::Inpaint { layer: next, .. }] if next == layer));
+}
+
+/// The remove tool paints a selected clean-up, and no mask.
+#[test]
+fn a_remove_stroke_goes_onto_the_selected_cleanup() {
+    let Some((mut fixture, block, cleanup)) = painted_cleanup() else {
+        return;
+    };
+    let mask: LayerId =
+        serde_json::from_value(layer(&fixture, block)["mask"]["id"].clone()).expect("a mask");
+    fixture.canvas.set_tool(Tool::Remove);
+    fixture.canvas.set_brush(brush(8.0, [0.0, 0.0, 0.0, 1.0]));
+    fixture.canvas.select(vec![cleanup]);
+    let effects = gesture(&mut fixture.canvas, (40.0, 40.0), (60.0, 40.0));
+    assert!(matches!(effects[..], [Effect::Inpaint { layer, .. }] if layer == cleanup));
+    fixture.canvas.select(vec![mask]);
+    let effects = gesture(&mut fixture.canvas, (40.0, 40.0), (60.0, 40.0));
+    assert!(matches!(
+        effects[..],
+        [
+            Effect::Edit(_),
+            Effect::Selection(_),
+            Effect::Inpaint { .. }
+        ]
+    ));
+}
+
+/// A box drawn with the text block tool adds a block in the balloon under it,
+/// else in the panel, else on the page: its source's frame and its mask are
+/// the box. A click adds nothing.
+#[test]
+fn a_drawn_box_adds_a_text_block_where_it_lies() {
+    let Some(mut fixture) = unscaled_of(
+        (200, 200),
+        vec![
+            json!({"op": "add_layer", "id": "$panel", "page": "$page", "index": 0, "layer": {
+                "kind": "panel", "outline": "M0 0 H100 V200 H0 Z",
+            }}),
+            json!({"op": "add_layer", "page": "$page", "parent": "$panel", "index": 0, "layer": {
+                "kind": "balloon", "outline": "M10 10 H90 V90 H10 Z",
+            }}),
+        ],
+    ) else {
+        return;
+    };
+    let panel = layers(&fixture)[0];
+    let balloon = fixture
+        .session
+        .lock()
+        .project()
+        .layer(panel)
+        .expect("a panel")
+        .children[0]
+        .id;
+    fixture.canvas.set_tool(Tool::Block);
+    let effects = gesture(&mut fixture.canvas, (20.0, 20.0), (20.0, 20.0));
+    assert!(effects.is_empty(), "{effects:?}");
+    for (from, to, holder) in [
+        ((20.0, 20.0), (40.0, 60.0), Some(balloon)),
+        ((20.0, 120.0), (60.0, 140.0), Some(panel)),
+        ((120.0, 20.0), (160.0, 40.0), None),
+    ] {
+        let effects = gesture(&mut fixture.canvas, from, to);
+        assert_eq!(apply(&mut fixture, effects), ["add_text"]);
+        let [id] = fixture.canvas.selection()[..] else {
+            panic!("the block selected");
+        };
+        let session = fixture.session.lock();
+        let project = session.project();
+        let parent = project
+            .parent(id)
+            .expect("a parent")
+            .1
+            .map(|layer| layer.id);
+        assert_eq!(parent, holder);
+        let blocks = project.blocks(fixture.page).expect("blocks");
+        let (_, block) = blocks
+            .iter()
+            .find(|(found, _)| *found == id)
+            .expect("a block");
+        let drawn = kurbo::Rect::from_points(from, to);
+        assert_eq!(block.source.bounds(), Some(drawn));
+        let rect = koharu_scene::Rect::covering(drawn, 200, 200).expect("a box");
+        let mask = session.pixels(block.mask.id, rect).expect("a mask");
+        assert!(mask.iter().all(|&value| value == 255));
+    }
 }
 
 #[test]
@@ -1712,6 +1853,84 @@ fn styling_a_typed_selection_marks_those_characters_and_a_caret_holds_it() {
             (" world", None, None),
             ("!", None, Some(30.0))
         ]
+    );
+}
+
+#[test]
+fn ruby_goes_over_the_base_its_field_opened_on_until_anything_else_changes() {
+    let Some(mut fixture) = unscaled(typed_text(json!([
+        {"insert": "Hel"}, {"insert": "lo", "ruby": "o"}, {"insert": " world"},
+    ]))) else {
+        return;
+    };
+    let text = layers(&fixture)[0];
+    fixture.canvas.set_tool(Tool::Text);
+    gesture(&mut fixture.canvas, (101.0, 220.0), (101.0, 220.0));
+    let key = |fixture: &mut Fixture, key, code, modifiers| {
+        press_key(&mut fixture.canvas, key, code, modifiers);
+    };
+    let ruby = |fixture: &mut Fixture, edit: RubyEdit| {
+        fixture.canvas.annotate_typing(&edit).expect("a ruby");
+    };
+    let set = |ruby: &str| RubyEdit::Set {
+        ruby: (!ruby.is_empty()).then(|| ruby.to_owned()),
+    };
+    let base = |fixture: &Fixture| {
+        let typing = fixture.canvas.typing().expect("typing");
+        let base = typing.base?;
+        Some((base.text, base.ruby, typing.annotating))
+    };
+    let based = |text: &str, ruby: Option<&str>, open: bool| {
+        Some((text.to_owned(), ruby.map(str::to_owned), open))
+    };
+    let none = Modifiers::default();
+    key(&mut fixture, NamedKey::Home, Code::Home, none);
+    assert_eq!(base(&fixture), None);
+    for _ in 0..3 {
+        key(&mut fixture, NamedKey::ArrowRight, Code::ArrowRight, SHIFT);
+    }
+    ruby(&mut fixture, RubyEdit::Open);
+    assert_eq!(base(&fixture), based("Hel", None, true));
+    // Passing through the neighbour's ruby joins nothing, and one taken off
+    // leaves the field on its base.
+    for typed in ["o", "oh", ""] {
+        ruby(&mut fixture, set(typed));
+    }
+    assert_eq!(base(&fixture), based("Hel", None, true));
+    ruby(&mut fixture, set("he"));
+    ruby(&mut fixture, RubyEdit::Keep);
+    assert_eq!(base(&fixture), based("Hel", Some("he"), false));
+    // Closed, it sets nothing.
+    ruby(&mut fixture, set("late"));
+    assert_eq!(base(&fixture), based("Hel", Some("he"), false));
+    // Over parts of two bases, cancelling puts both back.
+    key(&mut fixture, NamedKey::Home, Code::Home, none);
+    key(&mut fixture, NamedKey::ArrowRight, Code::ArrowRight, none);
+    for _ in 0..3 {
+        key(&mut fixture, NamedKey::ArrowRight, Code::ArrowRight, SHIFT);
+    }
+    ruby(&mut fixture, RubyEdit::Open);
+    ruby(&mut fixture, set("x"));
+    assert_eq!(base(&fixture), based("ell", Some("x"), true));
+    ruby(&mut fixture, RubyEdit::Cancel);
+    // A caret in a base, at its end included, opens on it; the caret moving on
+    // closes the field.
+    key(&mut fixture, NamedKey::Home, Code::Home, none);
+    for _ in 0..5 {
+        key(&mut fixture, NamedKey::ArrowRight, Code::ArrowRight, none);
+    }
+    ruby(&mut fixture, RubyEdit::Open);
+    assert_eq!(base(&fixture), based("lo", Some("o"), true));
+    key(&mut fixture, NamedKey::ArrowRight, Code::ArrowRight, none);
+    assert_eq!(base(&fixture), None);
+    ruby(&mut fixture, set("late"));
+    let effects = press_key(&mut fixture.canvas, NamedKey::Enter, Code::Enter, CONTROL);
+    assert_eq!(apply(&mut fixture, effects), ["set_text"]);
+    assert_eq!(
+        layer(&fixture, text)["content"],
+        json!([
+            {"insert": "Hel", "ruby": "he"}, {"insert": "lo", "ruby": "o"}, {"insert": " world"},
+        ])
     );
 }
 

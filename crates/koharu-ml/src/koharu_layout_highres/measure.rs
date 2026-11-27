@@ -16,23 +16,26 @@ use imageproc::{
 use koharu_leptonica::{color_segment, find_stroke_width, otsu_adaptive_threshold};
 use serde::Serialize;
 
-use super::{Lettering, Mask};
+use super::{Lettering, Mask, outlined::outlined};
 
 /// What a detection's lettering shows.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct Typography {
     /// Whether the lines run down the page: the lettering's block is longer
-    /// that way, at its tilt.
+    /// that way, at its tilt, or its ink stands in columns, as a balloon of
+    /// several short columns, wider than tall, has it.
     pub vertical: bool,
     /// How far the lines turn clockwise from horizontal, or from vertical for
     /// vertical lines, in degrees within ±45°: the commonest direction of the
-    /// block's edges. A turn that moves the lines' far end by less than a
-    /// stroke is 0: it can't be told from the glyphs' ragged edges.
+    /// block's edges. A turn under `UPRIGHT`, or one that moves the lines'
+    /// far end by less than a stroke, is 0: it can't be told from the glyphs'
+    /// ragged edges, and lettering is upright far more often than not.
     pub tilt: f32,
     /// How broad the lines are across, in pixels, about a CJK glyph's em:
     /// the ink's profile across the lines splits into a run for each, and
-    /// the run holding the median of the ink is the size, so ruby or a
-    /// stray mark doesn't count.
+    /// of the runs at least as broad as the one holding the median of the
+    /// ink, the one holding their median is the size, so neither ruby, a
+    /// stray mark, nor a line of kana narrower than the em counts.
     pub size: f32,
     pub stroke_width: Option<f32>,
     /// The commonest colour segment under the ink, and around it.
@@ -56,14 +59,19 @@ impl Lettering {
     /// no ink.
     pub fn typography(&self, page: &RgbImage) -> Option<Typography> {
         let block = block(&self.mask, page.width(), page.height());
-        let (crop, ink, [left, top]) = ink(&block, page, 0, None)?;
+        let (crop, ink, [left, top], _) = ink(&block, page, 0, None)?;
         let (width, height) = (block.width, block.height);
         let inside = |x: u32, y: u32| block.pixels[(y * width + x) as usize] != 0;
 
         // The block's edges are the sides and ends of its lines, and their
         // commonest direction, modulo 90°, is the lines' tilt. The edges'
         // gradients are averaged at four times their angle, which folds sides
-        // and ends onto one direction. Leptonica's skew finder, scoring the
+        // and ends onto one direction, then again over only the edges within
+        // `TILT_REACH` of that average, until it settles. Glyphs narrower
+        // than a column's widest, such as ー, っ, and !!, make its sides
+        // ragged, and their leaning edges pulled the plain average of 41
+        // upright texts on 8 Manga109 spreads up to 7° off; a turned block
+        // turns all of its edges. Leptonica's skew finder, scoring the
         // ink's profiles, flipped direction on 14% of blocks turned by up to
         // 20° and followed only 82% of the turn; the block's hull, by its
         // minimum-area rectangle or narrowest side, tilted wherever columns
@@ -89,19 +97,47 @@ impl Lettering {
         });
         let smooth = gaussian_blur_f32(&body_image, 1.5);
         let (across, down) = (horizontal_sobel(&smooth), vertical_sobel(&smooth));
-        let (mut cosine, mut sine) = (0.0f64, 0.0f64);
-        for (gx, gy) in across.pixels().zip(down.pixels()) {
-            let (gx, gy) = (f64::from(gx.0[0]), f64::from(gy.0[0]));
-            let strength = gx.hypot(gy);
-            if strength > 0.0 {
-                let angle = 4.0 * gy.atan2(gx);
-                cosine += strength * angle.cos();
-                sine += strength * angle.sin();
+        // A direction in degrees, modulo 90°, within ±45°.
+        let fold = |degrees: f64| (degrees + 45.0).rem_euclid(90.0) - 45.0;
+        let edges: Vec<(f64, f64)> = across
+            .pixels()
+            .zip(down.pixels())
+            .map(|(gx, gy)| (f64::from(gx.0[0]), f64::from(gy.0[0])))
+            .filter(|&(gx, gy)| gx != 0.0 || gy != 0.0)
+            .map(|(gx, gy)| (fold(gy.atan2(gx).to_degrees()), gx.hypot(gy)))
+            .collect();
+        let (cosine, sine) =
+            edges
+                .iter()
+                .fold((0.0, 0.0), |(cosine, sine), &(direction, strength)| {
+                    let angle = 4.0 * direction.to_radians();
+                    (
+                        cosine + strength * angle.cos(),
+                        sine + strength * angle.sin(),
+                    )
+                });
+        let mut angle = (f64::atan2(sine, cosine) / 4.0).to_degrees();
+        for _ in 0..8 {
+            let (turn, weight) = edges
+                .iter()
+                .map(|&(direction, strength)| (fold(direction - angle), strength))
+                .filter(|(turn, _)| turn.abs() <= TILT_REACH)
+                .fold((0.0, 0.0), |(turn, weight), (by, strength)| {
+                    (turn + by * strength, weight + strength)
+                });
+            if weight == 0.0 {
+                break;
+            }
+            let shift = turn / weight;
+            angle = fold(angle + shift);
+            if shift.abs() < 0.01 {
+                break;
             }
         }
-        let angle = (sine.atan2(cosine) / 4.0).to_degrees() as f32;
+        let angle = angle as f32;
 
-        // The lines run along the body's longer extent at that angle.
+        // The lines run along the body's longer extent at that angle, or
+        // down its columns.
         let (sin, cos) = angle.to_radians().sin_cos();
         let (mut along_x, mut along_y) = ((f32::MAX, f32::MIN), (f32::MAX, f32::MIN));
         for (x, y, part) in parts.enumerate_pixels() {
@@ -113,56 +149,34 @@ impl Lettering {
             }
         }
         let (extent_x, extent_y) = (along_x.1 - along_x.0 + 1.0, along_y.1 - along_y.0 + 1.0);
-        let vertical = if (extent_x - extent_y).abs() < 1.0 {
+        // By its shape alone, every misreading found among 647 letterings on
+        // 24 Manga109 spreads and 8 Chinese pages, 17 of them, was a block of
+        // columns wider than tall read as horizontal; so only a block read as
+        // horizontal is asked whether its ink stands in columns.
+        let longer_down = if (extent_x - extent_y).abs() < 1.0 {
             height > width
         } else {
             extent_y > extent_x
         };
-        let stroke_width = find_stroke_width(&ink, 0.15);
-        let length = extent_x.max(extent_y);
-        let resolution = (stroke_width.unwrap_or(1.0) / length).atan().to_degrees();
-        let tilt = if angle.abs() < resolution { 0.0 } else { angle };
-
-        let (sin, cos) = tilt.to_radians().sin_cos();
-        let across: Vec<f32> = ink
-            .enumerate_pixels()
-            .filter(|(_, _, pixel)| pixel.0[0] != 0)
-            .map(|(x, y, _)| {
-                let (x, y) = (x as f32, y as f32);
-                match vertical {
-                    true => x * cos + y * sin,
-                    false => y * cos - x * sin,
-                }
-            })
-            .collect();
-        let low = across.iter().copied().fold(f32::MAX, f32::min);
-        let mut profile = Vec::<u32>::new();
-        for position in &across {
-            let bin = (position - low) as usize;
-            if profile.len() <= bin {
-                profile.resize(bin + 1, 0);
-            }
-            profile[bin] += 1;
-        }
-        // Close lines' anti-aliased edges can meet, so a gap is where the
-        // profile falls below an eighth of its peak.
-        let gap = profile.iter().copied().max().unwrap_or(0) / 8;
-        let mut runs: Vec<(usize, u32)> = profile
-            .split(|count| *count <= gap)
-            .filter(|run| !run.is_empty())
-            .map(|run| (run.len(), run.iter().sum()))
-            .collect();
-        runs.sort_unstable();
-        let total: u32 = runs.iter().map(|(_, ink)| ink).sum();
-        let mut seen = 0;
-        let size = runs
-            .iter()
-            .find(|(_, ink)| {
-                seen += ink;
-                2 * seen >= total
-            })
-            .map(|(length, _)| *length)
-            .expect("the profile's peak is a run") as f32;
+        let vertical =
+            longer_down || columns(&ink, if angle.abs() < UPRIGHT { 0.0 } else { angle });
+        let length = if vertical { extent_y } else { extent_x };
+        let strokes = |ink: &GrayImage| {
+            let stroke_width = find_stroke_width(ink, 0.15);
+            let resolution = (stroke_width.unwrap_or(1.0) / length).atan().to_degrees();
+            let tilt = if angle.abs() < resolution.max(UPRIGHT) {
+                0.0
+            } else {
+                angle
+            };
+            (stroke_width, tilt)
+        };
+        let outlined = outlined(page, &block, &ink, [left, top], |ink| {
+            breadth(ink, vertical, strokes(ink).1)
+        });
+        let ink = outlined.as_ref().map_or(&ink, |outlined| &outlined.glyphs);
+        let (stroke_width, tilt) = strokes(ink);
+        let size = breadth(ink, vertical, tilt);
 
         let (ink_color, paper_color) = match color_segment(&crop, 60, 8, 1, 4) {
             Ok(Some(segments)) => {
@@ -187,19 +201,166 @@ impl Lettering {
             tilt,
             size,
             stroke_width,
-            ink: ink_color,
+            ink: outlined
+                .as_ref()
+                .map_or(ink_color, |outlined| Some(outlined.ink)),
             paper: paper_color,
-            outline: outline(
-                page,
-                &ink,
-                [left, top],
-                size,
-                ink_color,
-                stroke_width,
-                self.bubble.is_some(),
-            ),
+            outline: match &outlined {
+                Some(outlined) => Some(outlined.outline),
+                None => outline(
+                    page,
+                    ink,
+                    [left, top],
+                    size,
+                    ink_color,
+                    stroke_width,
+                    self.bubble.is_some(),
+                ),
+            },
         })
     }
+}
+
+/// How broad `ink`'s lines, not all blank, are across at `tilt`: the median of
+/// those at least as broad as the median line. A line is as broad as its
+/// broadest glyph, and kana are narrower than the em kanji fill: in a text
+/// of two kana columns and one with kanji, the median of the three read it a
+/// fifth small, which made its stroke read bold.
+fn breadth(ink: &GrayImage, vertical: bool, tilt: f32) -> f32 {
+    let lines = lines(ink, vertical, tilt);
+    let middle = median(&lines).expect("the profile's peak is a run").breadth;
+    let broad: Vec<Line> = (lines.into_iter())
+        .filter(|line| line.breadth >= middle)
+        .collect();
+    median(&broad).expect("the median line is broad").breadth as f32
+}
+
+/// A line of ink: where it starts across the lines, in pixels from the
+/// ink's first, how broad it is, how far its ink reaches along it, and how
+/// much ink it holds.
+struct Line {
+    start: usize,
+    breadth: usize,
+    length: f32,
+    ink: u32,
+}
+
+/// `ink`'s lines when they run down the page or across it, at `tilt`, in
+/// order across them: the ink's profile across the lines splits into a run
+/// for each.
+fn lines(ink: &GrayImage, vertical: bool, tilt: f32) -> Vec<Line> {
+    let (sin, cos) = tilt.to_radians().sin_cos();
+    // Each pixel of ink, across the lines and along them.
+    let points: Vec<(f32, f32)> = ink
+        .enumerate_pixels()
+        .filter(|(_, _, pixel)| pixel.0[0] != 0)
+        .map(|(x, y, _)| {
+            let (x, y) = (x as f32, y as f32);
+            let (u, v) = (x * cos + y * sin, y * cos - x * sin);
+            if vertical { (u, v) } else { (v, u) }
+        })
+        .collect();
+    let low = points
+        .iter()
+        .map(|(across, _)| *across)
+        .fold(f32::MAX, f32::min);
+    let mut profile = Vec::<u32>::new();
+    for (across, _) in &points {
+        let bin = (across - low) as usize;
+        if profile.len() <= bin {
+            profile.resize(bin + 1, 0);
+        }
+        profile[bin] += 1;
+    }
+    // Close lines' anti-aliased edges can meet, so a gap is where the
+    // profile falls below an eighth of its peak.
+    let gap = profile.iter().copied().max().unwrap_or(0) / 8;
+    let mut lines = Vec::new();
+    let mut start = None;
+    for (bin, &count) in profile.iter().chain([&0]).enumerate() {
+        match (count > gap, start) {
+            (true, None) => start = Some(bin),
+            (false, Some(from)) => {
+                lines.push(Line {
+                    start: from,
+                    breadth: bin - from,
+                    length: 0.0,
+                    ink: profile[from..bin].iter().sum(),
+                });
+                start = None;
+            }
+            _ => {}
+        }
+    }
+    let mut line_of = vec![None; profile.len()];
+    for (index, line) in lines.iter().enumerate() {
+        line_of[line.start..line.start + line.breadth].fill(Some(index));
+    }
+    let mut reach = vec![(f32::MAX, f32::MIN); lines.len()];
+    for (across, along) in &points {
+        if let Some(index) = line_of[(across - low) as usize] {
+            reach[index] = (reach[index].0.min(*along), reach[index].1.max(*along));
+        }
+    }
+    for (line, (first, last)) in lines.iter_mut().zip(reach) {
+        line.length = last - first + 1.0;
+    }
+    lines
+}
+
+/// The line holding the median of the ink, the lines ordered by breadth,
+/// which stands for them all: ruby or a stray mark doesn't.
+fn median(lines: &[Line]) -> Option<&Line> {
+    let mut ordered: Vec<&Line> = lines.iter().collect();
+    ordered.sort_unstable_by_key(|line| (line.breadth, line.ink));
+    let total: u32 = lines.iter().map(|line| line.ink).sum();
+    let mut seen = 0;
+    ordered.into_iter().find(|line| {
+        seen += line.ink;
+        2 * seen >= total
+    })
+}
+
+/// Whether `ink` stands in columns at `tilt`: its lines down the page are at
+/// least three times as long as broad, so each holds a few glyphs, and the
+/// gaps between them are wider by half than those between its rows across,
+/// as the space between lines is wider than between the glyphs of a line.
+/// A single column's parts, such as い's two strokes, lie closer than its
+/// glyphs. A line no more than half as broad as the median one is gap: ruby,
+/// half its base's size, stands between columns, and its sparse glyphs split
+/// into slivers a pixel or two broad, whose gaps had read three short
+/// columns with ruby as rows.
+fn columns(ink: &GrayImage, tilt: f32) -> bool {
+    let broad = |lines: Vec<Line>| -> Vec<Line> {
+        let Some(middle) = median(&lines).map(|line| line.breadth) else {
+            return lines;
+        };
+        (lines.into_iter())
+            .filter(|line| 2 * line.breadth > middle)
+            .collect()
+    };
+    let (down, across) = (
+        broad(lines(ink, true, tilt)),
+        broad(lines(ink, false, tilt)),
+    );
+    let Some(column) = median(&down) else {
+        return false;
+    };
+    // The median gap between neighbouring lines, or 0 for one line.
+    let between = |lines: &[Line]| {
+        let mut gaps: Vec<f32> = lines
+            .windows(2)
+            .map(|pair| (pair[1].start - pair[0].start - pair[0].breadth) as f32)
+            .collect();
+        gaps.sort_unstable_by(f32::total_cmp);
+        match gaps.len() {
+            0 => 0.0,
+            count if count % 2 == 0 => (gaps[count / 2 - 1] + gaps[count / 2]) / 2.0,
+            count => gaps[count / 2],
+        }
+    };
+    let (columns, rows) = (between(&down), between(&across));
+    column.length >= 3.0 * column.breadth as f32 && columns > rows && columns >= 1.5 * rows
 }
 
 /// How far from the band's median colour, in every channel, an outline's
@@ -218,7 +379,7 @@ const OUTLINE_TOLERANCE: u8 = 48;
 /// count. On paper of the band's colour it fades over many rings, toward a
 /// panel's border or the art, or never leaves, and the lettering has
 /// none.
-fn outline(
+pub(super) fn outline(
     page: &RgbImage,
     glyphs: &GrayImage,
     [left, top]: [u32; 2],
@@ -395,8 +556,10 @@ fn outline(
 /// its box, which hugs each stroke and its outline but misses counters and
 /// parts of strokes, with its block's ink, widened by 2 pixels per 1024 of the
 /// page's longer side for anti-aliased edges. The paper or art between glyphs
-/// stays out, so inpainting redraws only the lettering.
-pub(super) fn glyph_mask(mask: &Mask, bbox: [f32; 4], page: &RgbImage) -> Mask {
+/// stays out, so inpainting redraws only the lettering. And the box, grown
+/// over the glyphs it cuts that the block holds, so that what's cut to the
+/// box after keeps them whole.
+pub(super) fn glyph_mask(mask: &Mask, bbox: [f32; 4], page: &RgbImage) -> (Mask, [f32; 4]) {
     let (page_width, page_height) = (page.width(), page.height());
     // RF-DETR's mask can stop a few pixels short of a glyph's ends, and LaMa
     // grows even a sliver of ink left outside into a stroke, so the ink may
@@ -455,9 +618,18 @@ pub(super) fn glyph_mask(mask: &Mask, bbox: [f32; 4], page: &RgbImage) -> Mask {
         page_height,
     );
     let block = block(&mask, page_width, page_height);
-    let Some((_, ink, [left, top])) = ink(&block, page, reach, Some(bbox)) else {
-        return mask;
+    let Some((_, ink, [left, top], held)) = ink(&block, page, reach, Some(bbox)) else {
+        return (mask, bbox);
     };
+    let bbox = held.map_or(bbox, |held| {
+        let [x0, y0, x1, y1] = held.map(|edge| edge as f32);
+        [
+            bbox[0].min(x0),
+            bbox[1].min(y0),
+            bbox[2].max(x1),
+            bbox[3].max(y1),
+        ]
+    });
     let margin = scaled(2.0, page_width, page_height);
     let (left, top) = (
         i64::from(left) - i64::from(margin),
@@ -499,7 +671,7 @@ pub(super) fn glyph_mask(mask: &Mask, bbox: [f32; 4], page: &RgbImage) -> Mask {
         }
     }
     let fitted = dilate(&canvas, Norm::L2, margin as u8);
-    crop(&fitted, left, top, page_width, page_height)
+    (crop(&fitted, left, top, page_width, page_height), bbox)
 }
 
 /// Fills what `canvas`'s marked pixels enclose: unmarked areas its edge
@@ -577,20 +749,21 @@ fn block(mask: &Mask, page_width: u32, page_height: u32) -> Mask {
     crop(&closed, left, top, page_width, page_height)
 }
 
+/// A crop of the page, its ink, its place on the page, and the extent of the
+/// glyphs the block holds inside the box, as `ink` finds them.
+type Ink = (RgbImage, GrayImage, [u32; 2], Option<[u32; 4]>);
+
 /// The page's crop around the block and the detection's box, `reach` pixels
-/// wider than both on every side, its ink, and the crop's place on the page.
-/// The ink is the side of one Otsu split of the crop that isn't the paper:
-/// inside the block, in the glyph ends it cut off, and on plain paper in the
-/// glyph-sized parts wholly inside the box or in line with it. The paper is
-/// what the crop shows around the block, or with none around, the side
-/// covering more of the block, so light lettering on dark counts too. `None`
-/// when the block holds no ink.
-fn ink(
-    block: &Mask,
-    page: &RgbImage,
-    reach: u32,
-    bbox: Option<[f32; 4]>,
-) -> Option<(RgbImage, GrayImage, [u32; 2])> {
+/// wider than the block and than the box widened by its line on every side,
+/// its ink, the crop's place on the page, and the extent of the glyphs the
+/// block holds inside the box. The ink is the side of one Otsu split of the
+/// crop that isn't the paper: inside the block, in the glyph ends it cut off,
+/// and on plain paper in the glyph-sized parts wholly inside the box, held by
+/// the block inside it, or in line with it. The paper is what the crop shows
+/// around the block, or with none around, the side covering more of the
+/// block, so light lettering on dark counts too. `None` when the block holds
+/// no ink.
+fn ink(block: &Mask, page: &RgbImage, reach: u32, bbox: Option<[f32; 4]>) -> Option<Ink> {
     if block.width == 0 || block.height == 0 {
         return None;
     }
@@ -602,15 +775,16 @@ fn ink(
             (bottom.ceil().max(0.0) as u32).min(page.height()),
         ]
     });
+    // A glyph is no longer than its line is wide, the box's narrower side.
+    let line = boxed.map_or(0, |[box_left, box_top, box_right, box_bottom]| {
+        box_right
+            .saturating_sub(box_left)
+            .min(box_bottom.saturating_sub(box_top))
+    });
     // The box, lengthened at both ends of its line by the line's width: a
     // glyph the box cuts off lies in line with the others.
     let lined = boxed.map(|[box_left, box_top, box_right, box_bottom]| {
-        let (box_width, box_height) = (
-            box_right.saturating_sub(box_left),
-            box_bottom.saturating_sub(box_top),
-        );
-        let line = box_width.min(box_height);
-        if box_height >= box_width {
+        if box_bottom.saturating_sub(box_top) >= box_right.saturating_sub(box_left) {
             [
                 box_left,
                 box_top.saturating_sub(line),
@@ -631,16 +805,19 @@ fn ink(
         (block.x + block.width + reach).min(page.width()),
         (block.y + block.height + reach).min(page.height()),
     );
-    // `reach` past the lengthened box too, so ink crossing its edge shows
-    // outside it.
-    if let Some([box_left, box_top, box_right, box_bottom]) = lined {
+    // `reach` past the box widened by its line on every side too, so ink
+    // crossing the lengthened box's edge shows outside it, and a glyph the
+    // box cuts shows whole: one in a line the box ends inside reaches past
+    // its side.
+    if let Some([box_left, box_top, box_right, box_bottom]) = boxed {
+        let around = line + reach;
         (left, top) = (
-            left.min(box_left.saturating_sub(reach)),
-            top.min(box_top.saturating_sub(reach)),
+            left.min(box_left.saturating_sub(around)),
+            top.min(box_top.saturating_sub(around)),
         );
         (right, bottom) = (
-            right.max((box_right + reach).min(page.width())),
-            bottom.max((box_bottom + reach).min(page.height())),
+            right.max((box_right + around).min(page.width())),
+            bottom.max((box_bottom + around).min(page.height())),
         );
     }
     let (width, height) = (right - left, bottom - top);
@@ -761,16 +938,21 @@ fn ink(
     }
     // On plain paper every glyph-sized ink part wholly inside the box is
     // lettering: RF-DETR's mask can miss a thin glyph, such as 一, whole. So
-    // is one in line with the box, past its ends, when the paper there is
-    // plain too and the part stands on the box's own paper: the box can miss
-    // it as well, but not past a balloon's or panel's border, which parts the
-    // paper. The paper is plain when nearly all of it away from the ink's
-    // edges is near its median colour; on art no part counts.
+    // is one the block holds inside the box, whole past it: RF-DETR's box can
+    // end inside a line, and its mask with it, and the glyph's rest is one
+    // line further at most, not the next. So is one in line with the box,
+    // past its ends, when the paper there is plain too and the part stands
+    // on the box's own paper: the box can miss it as well, but not past a
+    // balloon's or panel's border, which parts the paper. The paper is plain
+    // when nearly all of it away from the ink's edges is near its median
+    // colour; on art no part counts.
     let all_ink = GrayImage::from_fn(width, height, |x, y| {
         Luma([if is_ink(x, y) { 255 } else { 0 }])
     });
     let pieces = connected_components(&all_ink, Connectivity::Eight, Luma([0]));
     let mut lettering = vec![false; labels(&pieces)];
+    // The extent of the glyphs the block holds inside the box, in the crop.
+    let mut held_extent: Option<[u32; 4]> = None;
     if let (Some(boxed), Some(lined)) = (boxed, lined) {
         let within = |[box_left, box_top, box_right, box_bottom]: [u32; 4], x: u32, y: u32| {
             (box_left..box_right).contains(&(x + left))
@@ -815,12 +997,6 @@ fn ink(
         };
         let (plain_box, plain_line) = (plain(boxed), plain(lined));
         if plain_box || plain_line {
-            // A glyph is no longer than its line is wide: a longer part, such
-            // as a ruled line under the text, is art.
-            let [box_left, box_top, box_right, box_bottom] = boxed;
-            let line = box_right
-                .saturating_sub(box_left)
-                .min(box_bottom.saturating_sub(box_top));
             // The paper's parts, and the one covering most of the box.
             let paper = connected_components(&all_ink, Connectivity::Four, Luma([255]));
             let mut covering = vec![0usize; labels(&paper)];
@@ -831,7 +1007,8 @@ fn ink(
             }
             let own = (1..covering.len()).max_by_key(|&part| covering[part]);
             let mut extents: Vec<Option<[u32; 4]>> = vec![None; lettering.len()];
-            let (mut leaves_box, mut leaves_line, mut on_own) = (
+            let (mut leaves_box, mut held, mut leaves_line, mut on_own) = (
+                vec![false; lettering.len()],
                 vec![false; lettering.len()],
                 vec![false; lettering.len()],
                 vec![false; lettering.len()],
@@ -843,6 +1020,8 @@ fn ink(
                 }
                 if !within(boxed, x, y) {
                     leaves_box[piece] = true;
+                } else if inside(x, y) {
+                    held[piece] = true;
                 }
                 if !within(lined, x, y) {
                     leaves_line[piece] = true;
@@ -869,10 +1048,25 @@ fn ink(
                 ];
             }
             for (piece, extent) in extents.into_iter().enumerate() {
-                if let Some([x0, y0, x1, y1]) = extent {
-                    lettering[piece] = (x1 - x0 + 1).max(y1 - y0 + 1) <= line
+                let Some([x0, y0, x1, y1]) = extent else {
+                    continue;
+                };
+                // A glyph is no longer than its line is wide: a longer part,
+                // such as a ruled line under the text, is art.
+                let glyph = (x1 - x0 + 1).max(y1 - y0 + 1) <= line;
+                let whole = glyph && plain_box && held[piece];
+                lettering[piece] = whole
+                    || glyph
                         && ((plain_box && !leaves_box[piece])
                             || (plain_line && !leaves_line[piece] && on_own[piece]));
+                if whole {
+                    let extent = held_extent.get_or_insert([x0, y0, x1, y1]);
+                    *extent = [
+                        extent[0].min(x0),
+                        extent[1].min(y0),
+                        extent[2].max(x1),
+                        extent[3].max(y1),
+                    ];
                 }
             }
         }
@@ -891,10 +1085,23 @@ fn ink(
             },
         ])
     });
+    let held =
+        held_extent.map(|[x0, y0, x1, y1]| [x0 + left, y0 + top, x1 + left + 1, y1 + top + 1]);
     ink.pixels()
         .any(|pixel| pixel.0[0] != 0)
-        .then_some((crop, ink, [left, top]))
+        .then_some((crop, ink, [left, top], held))
 }
+
+/// How far from the lines' direction, in degrees, a block's edge still
+/// counts toward it: a turned block's sides, stepped on the pixel grid,
+/// spread about that far, while a mark leaning further, such as a
+/// hand-lettered !!, doesn't count.
+const TILT_REACH: f64 = 10.0;
+
+/// The tilt, in degrees, under which lettering reads as upright, as a missed
+/// turn costs less than a false one: the 41 upright texts that the plain
+/// average turned by up to 7° on 8 Manga109 spreads measure at most 1.3°.
+const UPRIGHT: f32 = 3.0;
 
 /// How far from the paper's median colour, in every channel, a pixel of
 /// plain paper lies, and how much of it must.
@@ -902,7 +1109,7 @@ const PAPER_TOLERANCE: u8 = 32;
 const PLAIN_PAPER: f32 = 0.99;
 
 /// `per_1024` pixels for every 1024 of the page's longer side.
-fn scaled(per_1024: f32, page_width: u32, page_height: u32) -> u32 {
+pub(super) fn scaled(per_1024: f32, page_width: u32, page_height: u32) -> u32 {
     ((page_width.max(page_height) as f32 / 1024.0) * per_1024)
         .round()
         .clamp(1.0, 127.0) as u32
@@ -986,7 +1193,7 @@ mod tests {
             height: 136,
             pixels,
         };
-        let fitted = glyph_mask(&detected, [80.0, 36.0, 120.0, 180.0], &page);
+        let (fitted, _) = glyph_mask(&detected, [80.0, 36.0, 120.0, 180.0], &page);
         assert!(fitted.contains(100, 192));
         assert!(!fitted.contains(100, 213));
     }
@@ -1024,9 +1231,187 @@ mod tests {
             height: 176,
             pixels,
         };
-        let fitted = glyph_mask(&detected, [80.0, 36.0, 120.0, 180.0], &page);
+        let (fitted, _) = glyph_mask(&detected, [80.0, 36.0, 120.0, 180.0], &page);
         assert!(fitted.contains(100, 48));
         assert!(!fitted.contains(100, 16));
+    }
+
+    #[test]
+    fn a_line_the_box_ends_inside_is_masked_whole() {
+        // Three lines of glyphs on white paper, the box and its mask ending
+        // halfway down the last, and another lettering's line under them.
+        let mut page = RgbImage::from_pixel(300, 200, Rgb([255, 255, 255]));
+        let lines = [60, 80, 100, 130];
+        for top in lines {
+            for left in (40..190).step_by(14) {
+                for y in top..top + 14 {
+                    for x in left..left + 10 {
+                        page.put_pixel(x, y, Rgb([0, 0, 0]));
+                    }
+                }
+            }
+        }
+        let bbox = [36.0, 56.0, 200.0, 107.0];
+        let detected = Mask {
+            x: 0,
+            y: 0,
+            width: 300,
+            height: 200,
+            pixels: (0..200)
+                .flat_map(|y| (0..300).map(move |x| (x, y)))
+                .map(|(x, y)| {
+                    let glyph = page.get_pixel(x, y).0[0] == 0;
+                    u8::from(glyph && y < 107) * u8::MAX
+                })
+                .collect(),
+        };
+        let (fitted, grown) = glyph_mask(&detected, bbox, &page);
+        assert!(fitted.contains(45, 113));
+        assert!(grown[3] >= 114.0);
+        assert!(!fitted.contains(45, 131) && grown[3] < 130.0);
+    }
+
+    #[test]
+    fn a_ragged_column_stays_upright_and_a_turned_one_turns() {
+        use imageproc::{drawing::draw_polygon_mut, point::Point};
+
+        use crate::koharu_layout_highres::Kind;
+
+        // Shapes around a column's top centre, turned clockwise about it, on
+        // a 1024-pixel page, whose blocks close over gaps of up to 12 pixels.
+        let tilt = |shapes: Vec<[(f32, f32); 4]>, turn: f32| {
+            let mut page = RgbImage::from_pixel(1024, 1024, Rgb([255, 255, 255]));
+            let (sin, cos) = turn.to_radians().sin_cos();
+            for corners in shapes {
+                let points = corners.map(|(x, y)| {
+                    Point::new(
+                        (500.0 + x * cos - y * sin).round() as i32,
+                        (400.0 + x * sin + y * cos).round() as i32,
+                    )
+                });
+                draw_polygon_mut(&mut page, &points, Rgb([0, 0, 0]));
+            }
+            let pixels = page
+                .pixels()
+                .map(|pixel| if pixel.0[0] < 128 { 255 } else { 0 })
+                .collect();
+            let lettering = Lettering {
+                kind: Kind::Text,
+                score: 1.0,
+                bbox: [450.0, 350.0, 550.0, 600.0],
+                mask: Mask {
+                    x: 0,
+                    y: 0,
+                    width: 1024,
+                    height: 1024,
+                    pixels,
+                },
+                bubble: None,
+                panel: None,
+                room: None,
+            };
+            lettering
+                .typography(&page)
+                .expect("the column holds ink")
+                .tilt
+        };
+        let bar = |left: f32, top: f32, width: f32, height: f32| {
+            [
+                (left, top),
+                (left + width, top),
+                (left + width, top + height),
+                (left, top + height),
+            ]
+        };
+        // Three 三, 24 pixels wide and 28 apart, ending in a hand-lettered
+        // !!: two bars leaning 25°, narrower than the column, as ー, っ, and
+        // !! make a column's sides ragged.
+        let mut ragged: Vec<_> = (0..3)
+            .flat_map(|row| {
+                [0.0, 11.0, 22.0].map(|line| bar(-12.0, 28.0 * row as f32 + line, 24.0, 2.0))
+            })
+            .collect();
+        ragged.extend([-4.0, 4.0].map(|left| {
+            [
+                (left, 82.0),
+                (left + 3.0, 82.0),
+                (left - 7.0, 104.0),
+                (left - 10.0, 104.0),
+            ]
+        }));
+        assert_eq!(tilt(ragged, 0.0), 0.0);
+        let solid = (0..5)
+            .map(|row| bar(-12.0, 28.0 * row as f32, 24.0, 24.0))
+            .collect();
+        let turned = tilt(solid, 12.0);
+        assert!((turned - 12.0).abs() < 1.0, "turned {turned}°");
+    }
+
+    #[test]
+    fn short_columns_read_down_and_short_rows_across() {
+        use crate::koharu_layout_highres::Kind;
+
+        // Hollow 24-pixel glyphs with 2-pixel strokes on a 1024-pixel page,
+        // in `columns` by `rows`, `across` pixels apart side by side and
+        // `down` pixels apart above and below, and with `ruby` a hollow
+        // 10-pixel glyph with 1-pixel strokes a pixel right of each column's
+        // first and centred on it, as ruby stands beside one word of a
+        // column.
+        let vertical = |columns: u32, rows: u32, across: u32, down: u32, ruby: bool| {
+            let mut page = RgbImage::from_pixel(1024, 1024, Rgb([255, 255, 255]));
+            let mut hollow = |left: u32, top: u32, size: u32, stroke: u32| {
+                for (x, y) in
+                    (left..left + size).flat_map(|x| (top..top + size).map(move |y| (x, y)))
+                {
+                    let edge = x < left + stroke
+                        || x >= left + size - stroke
+                        || y < top + stroke
+                        || y >= top + size - stroke;
+                    if edge {
+                        page.put_pixel(x, y, Rgb([0, 0, 0]));
+                    }
+                }
+            };
+            for (column, row) in
+                (0..columns).flat_map(|column| (0..rows).map(move |row| (column, row)))
+            {
+                let (left, top) = (400 + column * (24 + across), 400 + row * (24 + down));
+                hollow(left, top, 24, 2);
+                if ruby && row == 0 {
+                    hollow(left + 25, top + 7, 10, 1);
+                }
+            }
+            let pixels = page
+                .pixels()
+                .map(|pixel| if pixel.0[0] < 128 { 255 } else { 0 })
+                .collect();
+            let lettering = Lettering {
+                kind: Kind::Text,
+                score: 1.0,
+                bbox: [390.0, 390.0, 560.0, 500.0],
+                mask: Mask {
+                    x: 0,
+                    y: 0,
+                    width: 1024,
+                    height: 1024,
+                    pixels,
+                },
+                bubble: None,
+                panel: None,
+                room: None,
+            };
+            lettering
+                .typography(&page)
+                .expect("the glyphs are ink")
+                .vertical
+        };
+        // Four columns of three glyphs, wider than tall, the columns 12
+        // pixels apart and their glyphs 4, with ruby and without.
+        assert!(vertical(4, 3, 12, 4, false));
+        assert!(vertical(4, 3, 12, 4, true));
+        // Three rows of four glyphs, also wider than tall, the rows 12
+        // pixels apart and their glyphs 4.
+        assert!(!vertical(4, 3, 4, 12, false));
     }
 
     #[test]

@@ -15,12 +15,14 @@ use crate::fonts::Font;
 mod arrange;
 mod breaks;
 mod draw;
+mod emphasis;
 mod fit;
 mod itemize;
 mod label;
 mod lettering;
 mod lines;
 mod room;
+mod ruby;
 mod shape;
 mod style;
 
@@ -33,6 +35,10 @@ pub struct TextRun {
     /// UTF-16 code units of the text.
     pub range: Range<usize>,
     pub post_script_name: String,
+    /// The face isn't bold, and was drawn bolder.
+    pub faux_bold: bool,
+    /// The face is upright, and was drawn leaning.
+    pub faux_italic: bool,
     /// The size it was drawn at.
     pub size: f32,
     pub fill: Color,
@@ -44,11 +50,19 @@ pub struct TextRun {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ResolvedText {
     pub runs: Vec<TextRun>,
+    /// The runs its ruby is set in, each one's range its base's.
+    pub ruby: Vec<TextRun>,
+    /// The runs its emphasis marks are set in, each one's range from the
+    /// first character it marks to the last.
+    pub emphasis: Vec<TextRun>,
     /// The box the text was laid out in, in its own coordinates: the frame's
     /// box, a grown box, a path's bounds, or a point text's lines.
     pub frame: Rect,
     /// The scale fitting drew it at; 1 at its set size.
     pub scale: f32,
+    /// Each line's box, in its own coordinates: as long as its characters
+    /// along it and a line's pitch across it, grown by its strokes.
+    pub lines: Vec<Rect>,
     /// UTF-16 offsets where a line ends with an added hyphen.
     pub hyphens: Vec<usize>,
     pub overflowed: bool,
@@ -66,10 +80,6 @@ pub struct ResolvedText {
     /// The characters no font of their span has, drawn as its first font's
     /// missing glyph, in code point order.
     pub uncovered: Vec<char>,
-    /// Fork addition: each line's characters, from the first to the last
-    /// along the line and its pitch across it, stroke included, in the
-    /// text's own coordinates.
-    pub strips: Vec<Rect>,
 }
 
 /// `text` laid out, each span set in the chain `fonts` gives for its

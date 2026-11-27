@@ -23,10 +23,10 @@ koharu-llm = { workspace = true }
 koharu-pipeline = { workspace = true }
 koharu-renderer = { workspace = true }
 koharu-scene = { workspace = true }
+kurbo = { workspace = true }
 parking_lot = { workspace = true }
 rig-agent = { workspace = true }
 rig-core = { workspace = true }
-rig-memory = { workspace = true }
 rmcp = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }

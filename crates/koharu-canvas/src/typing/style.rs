@@ -1,9 +1,9 @@
 //! What typing tells the host for its type bar: the character style of the
 //! selection, as Photoshop's Character panel shows it, a value the selected
-//! characters don't share left empty.
+//! characters don't share left empty; and the base its ruby would go over.
 
 use koharu_scene::{CharStyle, LayerId};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 /// One of the values a character's style holds.
@@ -17,6 +17,31 @@ pub enum CharKey {
     Fill,
     Stroke,
     StrokeWidth,
+    Orientation,
+    Emphasis,
+}
+
+/// What the type bar's ruby field does to the text being typed.
+#[derive(Clone, Debug, PartialEq, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum RubyEdit {
+    /// Opens on the selected characters, or on the base the caret is in, which
+    /// its ruby goes over until it closes.
+    Open,
+    /// Sets its ruby, or takes it off.
+    Set { ruby: Option<String> },
+    /// Closes, keeping the ruby.
+    Keep,
+    /// Closes, putting back the text as it opened on it.
+    Cancel,
+}
+
+/// The characters a ruby goes over, as Clip Studio Paint shows a reading's
+/// target string.
+#[derive(Clone, Debug, PartialEq, Serialize, Type)]
+pub struct RubyBase {
+    pub text: String,
+    pub ruby: Option<String>,
 }
 
 /// The text being typed into, as the host shows it.
@@ -30,6 +55,12 @@ pub struct Typed {
     /// The values the selected characters don't share, which `chars` leaves
     /// empty.
     pub mixed: Vec<CharKey>,
+    /// The selected characters, or the base the caret is in; `None` at a caret
+    /// in none.
+    pub base: Option<RubyBase>,
+    /// Whether the ruby field is open on `base`: anything else that changes
+    /// the text or moves the caret closes it.
+    pub annotating: bool,
 }
 
 /// What `styles`, each a character's whole style, share, and the values
@@ -55,6 +86,8 @@ pub(super) fn shared(mut styles: impl Iterator<Item = CharStyle>) -> (CharStyle,
             CharKey::StrokeWidth,
             chars.stroke_width == style.stroke_width,
         );
+        differs(CharKey::Orientation, chars.orientation == style.orientation);
+        differs(CharKey::Emphasis, chars.emphasis == style.emphasis);
     }
     for key in &mixed {
         match key {
@@ -65,6 +98,8 @@ pub(super) fn shared(mut styles: impl Iterator<Item = CharStyle>) -> (CharStyle,
             CharKey::Fill => chars.fill = None,
             CharKey::Stroke => chars.stroke = None,
             CharKey::StrokeWidth => chars.stroke_width = None,
+            CharKey::Orientation => chars.orientation = None,
+            CharKey::Emphasis => chars.emphasis = None,
         }
     }
     (chars, mixed)

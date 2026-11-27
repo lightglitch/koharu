@@ -161,6 +161,7 @@
     "close": "إغلاق السجل",
     "opened": "عند الفتح",
     "steps": {
+      "add_layer": "طبقة جديدة",
       "add_text": "إضافة نص",
       "delete_layers": "حذف الطبقات",
       "delete_pages": "حذف الصفحات",
@@ -182,7 +183,9 @@
       "set_text": "تحرير النص",
       "set_visibility": "إظهار أو إخفاء",
       "translate": "الترجمة",
-      "update_layer": "تغيير الطبقة"
+      "update_layer": "تغيير الطبقة",
+      "update_style": "تحديث النمط",
+      "use_default_styles": "استخدام الأنماط الافتراضية"
     },
     "title": "السجل"
   },
@@ -230,15 +233,40 @@
     "borderWidth": "عرض الحدود",
     "chooseBorderWidth": "اختر عرض الحدود",
     "chooseFontSize": "اختر حجم الخط",
+    "emphasis": "علامات التوكيد",
+    "emphasisMarks": {
+      "circle": "دائرة",
+      "dot": "نقطة",
+      "double_circle": "دائرة مزدوجة",
+      "none": "بلا",
+      "open_circle": "دائرة مفرغة",
+      "open_dot": "نقطة مفرغة",
+      "open_double_circle": "دائرة مزدوجة مفرغة",
+      "open_sesame": "سمسم مفرغ",
+      "open_triangle": "مثلث مفرغ",
+      "sesame": "سمسم",
+      "triangle": "مثلث"
+    },
     "font": "الخط",
     "fontSize": "حجم الخط",
     "fontStyles": {
+      "bold": "عريض",
+      "fauxBold": "عريض زائف",
+      "fauxItalic": "مائل زائف",
       "italic": "مائل",
       "oblique": "منحرف"
     },
     "fontWeight": "وزن الخط",
     "horizontal": "أفقي",
     "opacity": "العتامة",
+    "orientation": "اتجاه الأحرف",
+    "orientations": {
+      "sideways": "جانبية",
+      "tate_chu_yoko": "تاتي-تشو-يوكو",
+      "upright": "قائمة"
+    },
+    "removeRuby": "إزالة شرح روبي",
+    "ruby": "شرح روبي",
     "selectPage": "اختر صفحة لعرض طبقاتها.",
     "source": "النص المصدر",
     "text": "نص",
@@ -292,12 +320,14 @@
   },
   "menu": {
     "about": "عن البرنامج",
+    "checkForUpdates": "التحقق من وجود تحديثات",
     "closeProject": "إغلاق المشروع",
     "delete": "حذف المحدّد",
     "discord": "Discord",
     "donate": "تبرّع",
     "edit": "تحرير",
     "export": "تصدير المشروع",
+    "exportSelected": "تصدير الصفحات المحدّدة",
     "feedback": "إرسال ملاحظات",
     "file": "ملف",
     "fit": "ملاءمة النافذة",
@@ -305,11 +335,14 @@
     "help": "مساعدة",
     "history": "السجل",
     "import": "استيراد الصفحات",
+    "original": "إظهار الأصل",
     "redo": "إعادة",
+    "saveDefaultStyles": "حفظ الأنماط كافتراضية",
     "selectAllLayers": "تحديد كل الطبقات",
     "settings": "الإعدادات",
     "undo": "تراجع",
     "unloadModels": "إلغاء تحميل النماذج",
+    "useDefaultStyles": "استخدام الأنماط الافتراضية",
     "view": "عرض"
   },
   "model": {
@@ -522,19 +555,14 @@
     },
     "title": "الإعدادات",
     "typesetting": {
-      "addFallback": "إضافة خط بديل",
-      "addFamily": "إضافة عائلة خطوط",
-      "description": "عيّن مجموعة الخطوط المرتّبة المستخدمة عندما لا يكون لطبقة النص عائلة معيّنة.",
-      "empty": "لا توجد عائلات افتراضية. سيستخدم Koharu البديل من النظام.",
-      "fallbacks": "البدائل",
-      "fallbacksDescription": "تُستخدم بالترتيب للأحرف التي يفتقدها الخط الأساسي. اسحب لإعادة الترتيب، أو إلى الأساسي للتبديل.",
-      "familyLabel": "عائلة الخطوط الافتراضية {{index}}",
-      "fontFallback": "الخطوط المفضلة",
-      "fontFallbackDescription": "يستخدم Koharu أول عائلة متاحة تدعم النص.",
-      "loadError": "تعذّر تحميل الخطوط. لا يزال بإمكانك إزالة العائلات الحالية.",
-      "loadingFonts": "جارٍ تحميل الخطوط…",
-      "primary": "أساسي",
-      "removeFamily": "إزالة {{family}}",
+      "description": "الأنماط التي يبدأ بها كل مشروع جديد، بحسب نظام الكتابة. بعد ذلك يحتفظ المشروع بأنماطه: ملف ← استخدام الأنماط الافتراضية يطبّق هذه مجددًا.",
+      "loadError": "تعذّر تحميل الخطوط. ما زالت الخطوط المضبوطة مستخدمة.",
+      "restore": "استعادة الافتراضيات",
+      "restoreDescription": "تعود أنماط كل أنظمة الكتابة إلى أنماط Koharu، وتضيع الخطوط التي ضبطتها هنا؛ وتحتفظ المشاريع بأنماطها.",
+      "restoreTitle": "استعادة الأنماط الافتراضية؟",
+      "script": "نظام الكتابة",
+      "styles": "الأنماط",
+      "stylesDescription": "تأخذ الترجمة نمط خط النص الأصلي. النمط المتروك على الافتراضي يأخذ خط الأنتيك في نظام الكتابة نفسه.",
       "title": "محرك العرض"
     }
   },
@@ -577,7 +605,44 @@
     "title": "القصة",
     "translate": "ترجمة {{name}}"
   },
+  "styles": {
+    "clearOverrides": "مسح التجاوزات",
+    "default": "الافتراضي (خط الأنتيك: {{name}})",
+    "defaultWeight": "الافتراضي",
+    "font": "خط {{name}}",
+    "groups": {
+      "brush": "أنماط الفرشاة",
+      "design": "أنماط التصميم",
+      "mincho": "أنماط مينتشو"
+    },
+    "italic": "{{name}} مائل",
+    "kernel": "النمط",
+    "kernels": {
+      "antique": "أنتيك",
+      "brush": "فرشاة",
+      "decorative": "زخرفي",
+      "design": "تصميمي",
+      "fangsong": "فانغسونغ",
+      "gothic": "قوطي",
+      "gyokai": "شبه نظامي",
+      "gyosho": "شبه متصل",
+      "handwriting": "خط اليد",
+      "kaisho": "الخط النظامي",
+      "kointai": "كوينتاي",
+      "mincho": "مينتشو",
+      "pop": "بوب",
+      "reisho": "خط الكتبة",
+      "rounded": "مستدير",
+      "sosho": "متصل",
+      "tensho": "خط الأختام",
+      "textbook": "خط الكتب المدرسية",
+      "weibei": "نقوش وي"
+    },
+    "updateToMatch": "تحديث {{name}} ليطابق هذا النص",
+    "weight": "سماكة {{name}}"
+  },
   "tools": {
+    "block": "كتلة نص",
     "brushSize": "حجم الفرشاة",
     "brushSizeInput": "حجم الفرشاة",
     "brushSizePixels": "حجم الفرشاة: {{size}} بكسل",
@@ -610,6 +675,10 @@
       "title": "فشل التحديث"
     },
     "later": "لاحقًا",
+    "latest": {
+      "description": "Koharu <strong>{{version}}</strong> هو أحدث إصدار",
+      "title": "لا توجد تحديثات"
+    },
     "noNotes": "لا توجد ملاحظات إصدار.",
     "retry": "إعادة المحاولة",
     "update": "تحديث"

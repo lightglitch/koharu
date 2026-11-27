@@ -15,7 +15,7 @@ use imageproc::{
     contours::{BorderType, find_contours_with_threshold},
     distance_transform::euclidean_squared_distance_transform,
     drawing::draw_polygon_mut,
-    geometry::{approximate_polygon_dp, arc_length, contour_area, convex_hull},
+    geometry::{approximate_polygon_dp, arc_length, contour_area},
 };
 use kurbo::{BezPath, Line, PathEl, PathSeg, Point, Rect, Shape};
 
@@ -87,6 +87,30 @@ fn closed(points: &[Point]) -> BezPath {
         .collect()
 }
 
+/// Whether `boxes` lie less than `STRADDLE` inside the balloon `outline`, by a
+/// grid of points over each: written across its edge, as a remark beside a
+/// balloon is.
+pub fn straddles(outline: &BezPath, boxes: &[Rect]) -> bool {
+    let points: Vec<Point> = boxes
+        .iter()
+        .flat_map(|rect| {
+            (0..12).flat_map(move |gx| {
+                (0..12).map(move |gy| {
+                    Point::new(
+                        rect.x0 + rect.width() * (f64::from(gx) + 0.5) / 12.0,
+                        rect.y0 + rect.height() * (f64::from(gy) + 0.5) / 12.0,
+                    )
+                })
+            })
+        })
+        .collect();
+    let inside = points
+        .iter()
+        .filter(|&&point| outline.contains(point))
+        .count();
+    !points.is_empty() && (inside as f64) < STRADDLE * points.len() as f64
+}
+
 /// One room in the balloon `outline` for each group of boxes, in page
 /// pixels. Each group's boxes seed the balloon's pixels under them, so a
 /// translation covering several texts gets one room, and stay whole in it.
@@ -97,35 +121,18 @@ fn closed(points: &[Point]) -> BezPath {
 /// past the edge too, so the others' rooms keep off its lettering, and its
 /// room is its boxes' bounds, as a free text's frame is its box, since the
 /// outline's edge through it would cut its lines short. A group whose room
-/// comes out empty gets the whole outline.
-pub fn rooms(outline: &BezPath, groups: &[Vec<Rect>]) -> Vec<BezPath> {
+/// comes out empty gets the whole outline. Each other room reaches `reach`
+/// pixels into the outline past its borders with the others, a waist's
+/// chord too, which aren't drawn, so a text may keep less of a margin from
+/// them than from the outline.
+pub fn rooms(outline: &BezPath, groups: &[Vec<Rect>], reach: f64) -> Vec<BezPath> {
     let whole = || vec![outline.clone(); groups.len()];
     if groups.len() < 2 {
         return whole();
     }
-    // A grid of points over each group's boxes, and the share inside.
     let straddles: Vec<bool> = groups
         .iter()
-        .map(|boxes| {
-            let points: Vec<Point> = boxes
-                .iter()
-                .flat_map(|rect| {
-                    (0..12).flat_map(move |gx| {
-                        (0..12).map(move |gy| {
-                            Point::new(
-                                rect.x0 + rect.width() * (f64::from(gx) + 0.5) / 12.0,
-                                rect.y0 + rect.height() * (f64::from(gy) + 0.5) / 12.0,
-                            )
-                        })
-                    })
-                })
-                .collect();
-            let inside = points
-                .iter()
-                .filter(|&&point| outline.contains(point))
-                .count();
-            !points.is_empty() && (inside as f64) < STRADDLE * points.len() as f64
-        })
+        .map(|boxes| straddles(outline, boxes))
         .collect();
     let bounds = groups
         .iter()
@@ -270,9 +277,21 @@ pub fn rooms(outline: &BezPath, groups: &[Vec<Rect>]) -> Vec<BezPath> {
             {
                 return bounds.to_path(0.1);
             }
-            let room = GrayImage::from_fn(width, height, |lx, ly| {
+            let mut room = GrayImage::from_fn(width, height, |lx, ly| {
                 Luma([u8::from(labels.get_pixel(lx, ly)[0] == label) * u8::MAX])
             });
+            if reach > 0.0 {
+                let near = euclidean_squared_distance_transform(&room);
+                for (lx, ly, pixel) in room.enumerate_pixels_mut() {
+                    let other = labels.get_pixel(lx, ly)[0];
+                    if outside.get_pixel(lx, ly)[0] == 0
+                        && (other == 0 || !straddles[other as usize - 1])
+                        && near.get_pixel(lx, ly)[0] <= reach * reach
+                    {
+                        *pixel = Luma([u8::MAX]);
+                    }
+                }
+            }
             outline_of(&room, x.saturating_sub(1), y.saturating_sub(1))
                 .unwrap_or_else(|| outline.clone())
         })
@@ -413,21 +432,7 @@ fn waist(
 /// pocket between corners of its convex hull, the vertex farthest from the
 /// hull, as OpenCV's `convexityDefects` finds them.
 fn notches(polygon: &[Point], depth: f64) -> Vec<usize> {
-    let hull = convex_hull(
-        polygon
-            .iter()
-            .map(|point| imageproc::point::Point::new(point.x, point.y))
-            .collect::<Vec<_>>(),
-    );
-    let mut corners: Vec<usize> = hull
-        .iter()
-        .filter_map(|corner| {
-            polygon
-                .iter()
-                .position(|point| point.x == corner.x && point.y == corner.y)
-        })
-        .collect();
-    corners.sort_unstable();
+    let corners = hull(polygon);
     let count = polygon.len();
     let mut found: Vec<usize> = corners
         .iter()
@@ -450,9 +455,39 @@ fn notches(polygon: &[Point], depth: f64) -> Vec<usize> {
     found
 }
 
+/// The indices of the corners of `polygon`'s convex hull, in order, by
+/// Andrew's monotone chain. imageproc's `convex_hull` cuts coordinates to
+/// whole numbers to order points by, so it can misplace or panic over those of
+/// a balloon moved or resized off whole pixels.
+fn hull(polygon: &[Point]) -> Vec<usize> {
+    let mut order: Vec<usize> = (0..polygon.len()).collect();
+    order.sort_by(|&left, &right| {
+        let (left, right) = (polygon[left], polygon[right]);
+        left.x.total_cmp(&right.x).then(left.y.total_cmp(&right.y))
+    });
+    // One side of the hull from left to right, then the other back.
+    let mut corners = Vec::new();
+    for _ in 0..2 {
+        let mut side: Vec<usize> = Vec::new();
+        for &index in &order {
+            while let [.., before, last] = side[..]
+                && (polygon[last] - polygon[before]).cross(polygon[index] - polygon[before]) <= 0.0
+            {
+                side.pop();
+            }
+            side.push(index);
+        }
+        corners.append(&mut side);
+        order.reverse();
+    }
+    corners.sort_unstable();
+    corners.dedup();
+    corners
+}
+
 #[cfg(test)]
 mod tests {
-    use kurbo::{BezPath, Point, Rect, Shape, Vec2};
+    use kurbo::{Affine, BezPath, Point, Rect, Shape, Vec2};
 
     use super::{closed, rooms};
 
@@ -505,11 +540,39 @@ mod tests {
                 vec![Rect::new(20.0, 80.0, 60.0, 120.0)],
                 vec![Rect::new(140.0, 80.0, 180.0, 120.0)],
             ],
+            0.0,
         );
 
         let [left_room, right_room] = [found[0].bounding_box(), found[1].bounding_box()];
         assert!((left_room.x1 - 100.0).abs() <= 3.0, "{left_room:?}");
         assert!((right_room.x0 - 100.0).abs() <= 3.0, "{right_room:?}");
+    }
+
+    #[test]
+    fn a_balloon_resized_off_whole_pixels_splits_at_its_waist() {
+        // The same two circles in 64 points, resized to 0.37 of their size.
+        let outline = ellipses(
+            Point::new(100.0, 100.0),
+            &[
+                (Point::new(50.0, 100.0), Vec2::new(60.0, 60.0)),
+                (Point::new(150.0, 100.0), Vec2::new(60.0, 60.0)),
+            ],
+        );
+        let outline: BezPath = outline.elements().iter().copied().step_by(4).collect();
+        let resize = Affine::scale(0.37);
+
+        let found = rooms(
+            &(resize * outline),
+            &[
+                vec![resize.transform_rect_bbox(Rect::new(20.0, 80.0, 60.0, 120.0))],
+                vec![resize.transform_rect_bbox(Rect::new(140.0, 80.0, 180.0, 120.0))],
+            ],
+            0.0,
+        );
+
+        let [left_room, right_room] = [found[0].bounding_box(), found[1].bounding_box()];
+        assert!((left_room.x1 - 37.0).abs() <= 3.0, "{left_room:?}");
+        assert!((right_room.x0 - 37.0).abs() <= 3.0, "{right_room:?}");
     }
 
     #[test]
@@ -533,6 +596,7 @@ mod tests {
                 vec![Rect::new(56.0, 56.0, 84.0, 176.0)],
                 vec![Rect::new(100.0, 44.0, 124.0, 84.0)],
             ],
+            0.0,
         );
 
         let lower = Point::new(134.0, 99.0);
@@ -550,7 +614,7 @@ mod tests {
             [wide.clone(), column.clone()],
             [column.clone(), wide.clone()],
         ] {
-            let found = rooms(&outline, &groups);
+            let found = rooms(&outline, &groups, 0.0);
             let at = usize::from(groups[0] == wide);
             // Most of the column's 40 by 180 box.
             let area = found[at].area().abs();
@@ -570,6 +634,7 @@ mod tests {
                 vec![Rect::new(40.0, 20.0, 140.0, 180.0)],
                 vec![Rect::new(170.0, 20.0, 230.0, 180.0)],
             ],
+            0.0,
         );
         let remark = found[1].bounding_box();
         assert!(remark.x1 >= 228.0 && remark.height() >= 155.0, "{remark:?}");
@@ -579,6 +644,7 @@ mod tests {
                 vec![Rect::new(40.0, 20.0, 140.0, 180.0)],
                 vec![Rect::new(150.0, 20.0, 204.0, 180.0)],
             ],
+            0.0,
         );
         assert!(
             found[1].bounding_box().x1 <= 201.0,

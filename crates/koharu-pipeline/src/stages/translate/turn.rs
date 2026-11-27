@@ -1,20 +1,22 @@
 //! A page's turn of the conversation.
 
-use std::future::IntoFuture;
-
-use anyhow::{Context as _, Result, bail, ensure};
-use koharu_llm::rig::{
-    completion::{
-        AssistantContent, GenerationOptions, Message, Reasoning, Usage,
-        message::{DocumentSourceKind, Image, ImageMediaType, UserContent},
+use anyhow::{Context as _, Result, anyhow, bail, ensure};
+use koharu_llm::{
+    Context, KOHARU, PromptError,
+    rig::{
+        completion::{
+            AssistantContent, GenerationOptions, Message, Reasoning, Usage,
+            message::{DocumentSourceKind, Image, ImageMediaType, UserContent},
+        },
+        driver::DynModel,
+        operation::Completion,
+        structured_output::json_in_text,
     },
-    driver::DynModel,
-    operation::Completion,
 };
 use serde_json::{Map, Value, json};
-use tokio_util::sync::CancellationToken;
 
 use super::{Conversation, repair};
+use crate::stages::Failed;
 
 pub(super) struct Turn<'a> {
     system: String,
@@ -24,7 +26,6 @@ pub(super) struct Turn<'a> {
     /// The page, which the model sees with its texts.
     image: Option<&'a str>,
     reasoning: Option<Reasoning>,
-    cancel: &'a CancellationToken,
 }
 
 impl<'a> Turn<'a> {
@@ -33,7 +34,6 @@ impl<'a> Turn<'a> {
         texts: &'a [String],
         image: Option<&'a str>,
         reasoning: Option<Reasoning>,
-        cancel: &'a CancellationToken,
     ) -> Self {
         let keys = keys(texts.len());
         Self {
@@ -43,82 +43,79 @@ impl<'a> Turn<'a> {
             texts,
             image,
             reasoning,
-            cancel,
         }
     }
 
-    /// The page's translations, recorded in `conversation` once they pass;
-    /// `None` when the run stopped first.
+    /// The page's translations, recorded in `conversation` once they pass.
     pub(super) async fn take(
         self,
         conversation: &mut Conversation,
         model: &DynModel<Completion>,
-    ) -> Result<Option<Vec<String>>> {
-        conversation.context.fit(model).await?;
-        let history: Vec<Message> = conversation
-            .context
-            .messages()
-            .iter()
-            .map(|message| Message::clone(message))
-            .collect();
-        let Some(mut asked) = self.ask(model, history).await? else {
-            return Ok(None);
-        };
+    ) -> Result<Vec<String>> {
+        let next = Message::user(self.page.clone());
+        conversation.context.fit(model, &next).await;
+        let mut asked = self.ask(model, &mut conversation.context).await?;
         // A small model can answer a page with its answer to the page
         // before, word for word, as Index-Translate 2B did on one of 16
         // Blue Archive pages; without that answer to copy, it reads the page.
         if self.echoes(&asked.0, conversation.last.as_ref()) {
             tracing::info!("the answer echoed the page before's; asking again without the history");
-            let Some(again) = self.ask(model, Vec::new()).await? else {
-                return Ok(None);
-            };
-            asked = again;
+            asked = self.ask(model, &mut Context::default()).await?;
         }
         let (translations, messages, usage) = asked;
         conversation.context.record([(remembered(messages), usage)]);
         conversation.last = Some((self.texts.to_vec(), translations.clone()));
-        Ok(Some(translations))
+        Ok(translations)
     }
 
-    /// The page asked after `history`: its translations, the turn's
-    /// messages, and their usage; `None` when the run stopped first.
+    /// The page asked after `context`, and again with each remedy for why it
+    /// got no answer: its translations, the turn's messages, and their usage.
     async fn ask(
         &self,
         model: &DynModel<Completion>,
-        history: Vec<Message>,
-    ) -> Result<Option<(Vec<String>, Vec<Message>, Usage)>> {
-        let mut content = Vec::new();
-        if let Some(image) = self.image {
-            ensure!(
-                model.spec().is_some_and(|spec| spec.input.image),
-                "the translation model reads no images; turn vision off"
-            );
-            content.push(UserContent::Image(Image {
-                data: DocumentSourceKind::Base64(image.to_owned()),
-                media_type: Some(ImageMediaType::JPEG),
-                detail: None,
-                native: None,
-            }));
-        }
-        content.push(UserContent::text(self.page.clone()));
+        context: &mut Context,
+    ) -> Result<(Vec<String>, Vec<Message>, Usage)> {
+        let page = self.message(model);
         let mut options = GenerationOptions::default();
         if let Some(reasoning) = self.reasoning {
             options = options.reasoning(reasoning);
         }
-        let request = koharu_llm::answers(model, schema(&self.keys)?)
+        let agent = koharu_llm::answers(model, schema(&self.keys)?)
             .preamble(&self.system)
             .options(options)
-            .build()
-            .prompt(Message::from(content))
-            .history(history);
-        let response = tokio::select! {
-            response = request.into_future() => response?,
-            () = self.cancel.cancelled() => return Ok(None),
+            .build();
+        let request = |context: &Context| {
+            let history = context.messages().iter();
+            agent
+                .prompt(page.clone())
+                .history(history.map(|message| Message::clone(message)))
         };
-        let (translations, repaired) = self.read(&response.output())?;
+        let mut answer = request(context).await;
+        let remedies = match &answer {
+            Ok(_) => &[],
+            Err(error) => remedies(error, model, context),
+        };
+        for remedy in remedies {
+            tracing::info!(?remedy, "asking the page again");
+            answer = match remedy {
+                Remedy::Alone => request(&Context::default()).await,
+                Remedy::Halved => {
+                    context.halve();
+                    request(context).await
+                }
+                Remedy::Warmer(temperature) => request(context).temperature(*temperature).await,
+            };
+            if answer.is_ok() {
+                break;
+            }
+        }
+        let response = answer.map_err(failure)?;
+        let (translations, repaired) = self.read(&response.output()).map_err(Failed)?;
+        // The first call's covers the history, the page, and an answer, as the
+        // conversation keeps them; one asked again also read the first answer.
         let usage = response
             .completion_calls
-            .last()
+            .first()
             .map_or_else(Usage::default, |call| call.usage);
         let mut messages = response.messages;
         // A repaired answer enters the history as the clean JSON of the texts
@@ -133,7 +130,7 @@ impl<'a> Turn<'a> {
         {
             *answer = Message::assistant(answered);
         }
-        Ok(Some((translations, messages, usage)))
+        Ok((translations, messages, usage))
     }
 
     /// The page's translations in `answer`, and when it had to be repaired,
@@ -182,6 +179,28 @@ impl<'a> Turn<'a> {
         Ok((translations, Some(answered)))
     }
 
+    /// The page's texts, after the page itself when the model sees it, which
+    /// one that reads no images doesn't.
+    fn message(&self, model: &DynModel<Completion>) -> Message {
+        let mut content = Vec::new();
+        match self.image {
+            Some(image) if model.spec().is_some_and(|spec| spec.input.image) => {
+                content.push(UserContent::Image(Image {
+                    data: DocumentSourceKind::Base64(image.to_owned()),
+                    media_type: Some(ImageMediaType::JPEG),
+                    detail: None,
+                    native: None,
+                }));
+            }
+            Some(_) => {
+                tracing::warn!("the translation model reads no images; leaving the page's out")
+            }
+            None => {}
+        }
+        content.push(UserContent::text(self.page.clone()));
+        Message::from(content)
+    }
+
     /// Whether `translations` repeat the `last` page's, in order, for at least
     /// two texts and half of them, though the texts differ.
     fn echoes(&self, translations: &[String], last: Option<&(Vec<String>, Vec<String>)>) -> bool {
@@ -197,12 +216,92 @@ impl<'a> Turn<'a> {
     }
 }
 
+/// Why a page got no answer it can take, which is the page's alone: a request
+/// that failed otherwise would fail for the next page too.
+enum Refusal {
+    /// The provider blocked the page, or its answer, for its content.
+    Blocked,
+    /// The page doesn't fit the model's window.
+    TooLong,
+    /// The answer was cut off.
+    CutOff,
+    /// The answer doesn't fit the page.
+    Misfit,
+}
+
+impl Refusal {
+    fn of(error: &PromptError) -> Option<Self> {
+        match error {
+            PromptError::Report(report) if report.refusal => Some(Self::Blocked),
+            PromptError::Report(report) if report.is_context_overflow() => Some(Self::TooLong),
+            // rig words an answer that was cut off as a cancelled run.
+            PromptError::Cancelled { .. } => Some(Self::CutOff),
+            PromptError::OutputSchemaMismatch { .. } => Some(Self::Misfit),
+            _ => None,
+        }
+    }
+}
+
+/// How a page that got no answer is asked again.
+#[derive(Debug)]
+enum Remedy {
+    /// Without the history.
+    Alone,
+    /// With the newer half of the history.
+    Halved,
+    /// At a temperature above the model's own.
+    Warmer(f64),
+}
+
+/// How a page `error` left without an answer is asked again, in turn.
+fn remedies(
+    error: &PromptError,
+    model: &DynModel<Completion>,
+    context: &Context,
+) -> &'static [Remedy] {
+    let spec = model.spec();
+    match Refusal::of(error) {
+        // A local model decodes greedily, and would answer the same way, such
+        // as one that kept repeating itself. OpenAI's Whisper falls back so
+        // (`decode_with_fallback`, whisper/transcribe.py at 86098128).
+        Some(Refusal::CutOff) if spec.is_some_and(|it| it.provider.vendor() == KOHARU) => {
+            &[Remedy::Warmer(0.4), Remedy::Warmer(0.8)]
+        }
+        _ if context.messages().is_empty() => &[],
+        // The history may be what's blocked.
+        Some(Refusal::Blocked) => &[Remedy::Alone],
+        Some(Refusal::TooLong) => &[Remedy::Halved],
+        // A model that doesn't say its window cuts an answer off at its end.
+        Some(Refusal::CutOff) if spec.is_none_or(|it| it.input_limit().is_none()) => {
+            &[Remedy::Halved]
+        }
+        _ => &[],
+    }
+}
+
+/// `error`, as its page's alone when the page was refused.
+fn failure(error: PromptError) -> anyhow::Error {
+    let refused = Refusal::of(&error).is_some();
+    let error = match error {
+        PromptError::Cancelled { reason, .. } => anyhow!(reason),
+        error => error.into(),
+    };
+    match refused {
+        true => Failed(error).into(),
+        false => error,
+    }
+}
+
 /// A turn's messages as the conversation keeps them: the page's texts and
-/// the answer. The image and the reasoning served this turn alone; kept, every
-/// later turn would send them again, and they'd fill the context.
-pub(crate) fn remembered(messages: Vec<Message>) -> Vec<Message> {
+/// the answer. The image, the reasoning, and an answer that had to be asked for
+/// again served this turn alone; kept, every later turn would send them again,
+/// and they'd fill the context.
+pub(crate) fn remembered(mut messages: Vec<Message>) -> Vec<Message> {
+    let answer = messages.pop();
+    messages.truncate(1);
     messages
         .into_iter()
+        .chain(answer)
         .map(|message| match message {
             Message::User { mut content } => {
                 content.retain(|part| !matches!(part, UserContent::Image(_)));
@@ -254,13 +353,11 @@ fn schema(keys: &[String]) -> Result<schemars::Schema> {
 }
 
 /// The translation for each of `keys` in `answer`, which must hold exactly
-/// those keys, each a text that isn't blank.
+/// those keys, each a text that isn't blank. A model asked in its prompt can
+/// write prose or a code fence around it.
 fn answers(answer: &str, keys: &[String]) -> Result<Vec<String>> {
-    let Value::Object(mut answer) =
-        serde_json::from_str(answer).context("the answer isn't JSON")?
-    else {
-        bail!("the answer isn't a JSON object");
-    };
+    let mut answer: Map<String, Value> =
+        json_in_text(answer).context("the answer isn't a JSON object")?;
     let translations = keys
         .iter()
         .map(|key| match answer.remove(key) {
@@ -276,12 +373,36 @@ fn answers(answer: &str, keys: &[String]) -> Result<Vec<String>> {
 
 #[cfg(test)]
 mod tests {
-    use koharu_llm::rig::completion::AssistantMessage;
+    use indoc::indoc;
+    use koharu_llm::rig::completion::{AssistantMessage, FinishReason};
+    use rig_core::{
+        catalog::ModelSpec,
+        providers::registry::ProviderId,
+        test_utils::{MockCompletionModel, MockTurn},
+    };
 
     use super::*;
 
+    #[tokio::test]
+    async fn a_local_answer_cut_off_is_asked_for_again_sampled() -> Result<()> {
+        let mock = MockCompletionModel::from_turns([
+            MockTurn::text(r#"{"1": "Aaaaaa"#).with_finish_reason(FinishReason::Length),
+            MockTurn::text(r#"{"1": "Argh!"}"#),
+        ])
+        .priced_as(ModelSpec::new(ProviderId::declare(KOHARU)?, "mock"));
+        let texts = ["ぎゃああ".to_owned()];
+        let answer = Turn::new("Translate.".to_owned(), &texts, None, None)
+            .take(&mut Conversation::new(), &mock.clone().erase())
+            .await?;
+        assert_eq!(answer, ["Argh!"]);
+        let requests = mock.requests();
+        let temperatures: Vec<_> = requests.iter().map(|asked| asked.temperature).collect();
+        assert_eq!(temperatures, [None, Some(0.4)]);
+        Ok(())
+    }
+
     #[test]
-    fn the_conversation_keeps_no_image_or_reasoning() {
+    fn the_conversation_keeps_no_image_reasoning_or_refused_answer() {
         let image = UserContent::Image(Image {
             data: DocumentSourceKind::Base64("AAAA".to_owned()),
             media_type: Some(ImageMediaType::JPEG),
@@ -294,6 +415,8 @@ mod tests {
         ]);
         let kept = remembered(vec![
             Message::from(vec![image, UserContent::text("{\"01\": \"やあ\"}")]),
+            Message::assistant("{}"),
+            Message::user("Answer again."),
             Message::Assistant(answer),
         ]);
         assert_eq!(
@@ -308,8 +431,7 @@ mod tests {
     #[test]
     fn a_repaired_answer_keeps_the_source_where_it_lacks_a_text() {
         let texts = ["やあ", "元気？", "!?"].map(str::to_owned);
-        let cancel = CancellationToken::new();
-        let turn = Turn::new(String::new(), &texts, None, None, &cancel);
+        let turn = Turn::new(String::new(), &texts, None, None);
         let (translations, history) = turn
             .read("```json\n{\"1\": \"Hi\", \"3\": \"!?\"}\n```")
             .expect("a repaired answer");
@@ -351,5 +473,11 @@ mod tests {
         assert!(answers(r#"{"1": "One", "2": " "}"#, &keys).is_err());
         assert!(answers(r#"{"1": "One", "2": "Two", "3": "Three"}"#, &keys).is_err());
         assert!(answers("One, Two", &keys).is_err());
+        let fenced = indoc! {r#"
+            ```json
+            {"1": "One", "2": "Two"}
+            ```"#
+        };
+        assert_eq!(answers(fenced, &keys).expect("an answer"), ["One", "Two"]);
     }
 }

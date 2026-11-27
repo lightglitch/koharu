@@ -624,14 +624,14 @@ fn measure(
         if !project.layer(id)?.visible {
             continue;
         }
-        let Some(resolved) = renderer.layout(id, translation)? else {
+        let Some(resolved) = renderer.layout(project, id, translation)? else {
             continue;
         };
         let transform = Affine::from(translation.transform);
         let scale = transform.determinant().abs().sqrt() as f32;
         let size = resolved.runs.iter().map(|run| run.size).fold(0.0, f32::max) * scale;
         let quads: Vec<[Point; 4]> = resolved
-            .strips
+            .lines
             .iter()
             .map(|strip| {
                 [
@@ -1168,7 +1168,7 @@ mod tests {
         use koharu_scene::{Created, Edit, Session};
 
         let dir = tempfile::tempdir()?;
-        let mut session = Session::create(dir.path().join("test.khr"))?;
+        let mut session = Session::create(dir.path().join("test.khr"), koharu_scene::Meta::default())?;
         let block = json!({"kind": "block", "role": "text",
         "source": {"frame": {"box": {"bounds": {"x": 10.0, "y": 10.0, "width": 40.0, "height": 120.0}}}},
         "translation": {

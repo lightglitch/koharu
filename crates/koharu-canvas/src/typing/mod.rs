@@ -12,12 +12,11 @@ use std::{ops::Range, time::Instant};
 
 use icu_segmenter::{GraphemeClusterSegmenter, WordSegmenter, options::WordBreakInvariantOptions};
 use koharu_renderer::{Lettering, Renderer};
-use koharu_scene::{CharStyle, Content, Edit, LayerId, Op, Page, RichText, Text, Uuid};
+use koharu_scene::{CharStyle, Content, Edit, LayerId, Op, Page, Project, RichText, Text, Uuid};
 use kurbo::{Affine, Line, Point, Rect};
-use serde_json::json;
 
 pub(crate) use self::keys::Keyed;
-pub use self::style::{CharKey, Typed};
+pub use self::style::{CharKey, RubyBase, RubyEdit, Typed};
 use crate::{Effect, tools::added};
 
 /// How long the caret shows, and then hides, as Windows blinks one.
@@ -26,11 +25,9 @@ const BLINK: u128 = 530;
 /// What a session types into.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Target {
-    /// A text layer, or a block's translation.
+    /// A text layer, or a block's translation, which the scene adds when the
+    /// block has none.
     Layer(LayerId),
-    /// A block without a translation, which the commit gives one in its
-    /// source's place.
-    Untranslated(LayerId),
     /// A new text, which the commit adds.
     New,
 }
@@ -44,6 +41,8 @@ struct Composition {
 
 pub(crate) struct Typing {
     renderer: Renderer,
+    /// The project the text is in, whose faces it's laid out in.
+    project: Project,
     target: Target,
     /// The text typed into: its frame, transform, and style. Its content is
     /// `content`.
@@ -56,6 +55,10 @@ pub(crate) struct Typing {
     anchor: usize,
     /// The marks the next character typed takes, set at the caret.
     held: Option<CharStyle>,
+    /// While the ruby field is open, the base it's on and the content it
+    /// opened on, which each ruby typed is set in anew: a half-typed one that
+    /// matches its neighbour's would join the two bases.
+    annotating: Option<(Range<usize>, RichText)>,
     composition: Option<Composition>,
     /// Where moving up and down keeps the caret along the lines.
     goal: Option<f64>,
@@ -69,33 +72,36 @@ pub(crate) struct Typing {
 }
 
 impl Typing {
-    /// Typing into `layer`'s `text`; with `untranslated`, `text` is a block's
-    /// source standing in for the translation it doesn't have yet.
+    /// Typing into `layer`'s `text`, of `project`.
     pub fn layer(
         renderer: &Renderer,
+        project: &Project,
         layer: LayerId,
         text: &Text,
-        untranslated: bool,
     ) -> anyhow::Result<Self> {
-        let (target, content) = match untranslated {
-            true => (Target::Untranslated(layer), RichText::default()),
-            false => (Target::Layer(layer), text.content.clone()),
-        };
-        Self::start(renderer, target, text.clone(), content)
+        Self::start(
+            renderer,
+            project,
+            Target::Layer(layer),
+            text.clone(),
+            text.content.clone(),
+        )
     }
 
-    /// Typing a new text, `text` giving its frame and place.
-    pub fn new_text(renderer: &Renderer, text: Text) -> anyhow::Result<Self> {
-        Self::start(renderer, Target::New, text, RichText::default())
+    /// Typing a new text into `project`, `text` giving its frame and place.
+    pub fn new_text(renderer: &Renderer, project: &Project, text: Text) -> anyhow::Result<Self> {
+        Self::start(renderer, project, Target::New, text, RichText::default())
     }
 
     fn start(
         renderer: &Renderer,
+        project: &Project,
         target: Target,
         base: Text,
         content: RichText,
     ) -> anyhow::Result<Self> {
         let lettering = renderer.lettering(
+            project,
             LayerId(Uuid::nil()),
             &Text {
                 content: content.clone(),
@@ -104,6 +110,7 @@ impl Typing {
         )?;
         Ok(Self {
             renderer: renderer.clone(),
+            project: project.clone(),
             target,
             base,
             original: content.clone(),
@@ -111,6 +118,7 @@ impl Typing {
             caret: 0,
             anchor: 0,
             held: None,
+            annotating: None,
             composition: None,
             goal: None,
             since: Instant::now(),
@@ -123,16 +131,17 @@ impl Typing {
     /// The layer typed into; `None` for a new text.
     pub fn target(&self) -> Option<LayerId> {
         match self.target {
-            Target::Layer(layer) | Target::Untranslated(layer) => Some(layer),
+            Target::Layer(layer) => Some(layer),
             Target::New => None,
         }
     }
 
     /// Takes the text's frame, place, and style again from `text`, as
     /// another change left them, keeping what's typed.
-    pub fn rebase(&mut self, text: &Text) -> anyhow::Result<()> {
+    pub fn rebase(&mut self, project: &Project, text: &Text) -> anyhow::Result<()> {
+        self.project = project.clone();
         self.base = text.clone();
-        self.relay()
+        self.relay_annotating()
     }
 
     pub fn version(&self) -> u64 {
@@ -235,15 +244,24 @@ impl Typing {
 
     /// Lays the shown text out again after a change.
     fn relay(&mut self) -> anyhow::Result<()> {
-        self.lettering = self
-            .renderer
-            .lettering(LayerId(Uuid::nil()), &self.shown())?;
+        self.lettering =
+            self.renderer
+                .lettering(&self.project, LayerId(Uuid::nil()), &self.shown())?;
         self.touch();
         Ok(())
     }
 
-    /// Marks a change the caret shows from.
+    /// Lays it out again as `relay` does, the ruby field staying open.
+    fn relay_annotating(&mut self) -> anyhow::Result<()> {
+        let annotating = self.annotating.take();
+        self.relay()?;
+        self.annotating = annotating;
+        Ok(())
+    }
+
+    /// Marks a change the caret shows from, which closes the ruby field.
     fn touch(&mut self) {
+        self.annotating = None;
         self.version += 1;
         self.since = Instant::now();
     }
@@ -412,6 +430,57 @@ impl Typing {
         self.relay()
     }
 
+    /// What a ruby goes over: the base the ruby field is on, the selection but
+    /// the white space at its ends, or the base of the character before the
+    /// caret, or of the first at the start.
+    fn base(&self) -> Option<Range<usize>> {
+        if let Some((base, _)) = &self.annotating {
+            return Some(base.clone());
+        }
+        let range = self.selected();
+        if !range.is_empty() {
+            let plain = self.content.text();
+            let selected = &plain[range.clone()];
+            let start = range.end - selected.trim_start().len();
+            let end = range.start + selected.trim_end().len();
+            return (start < end).then_some(start..end);
+        }
+        let at = range.start;
+        self.content
+            .ruby()
+            .into_iter()
+            .map(|(base, _)| base)
+            .find(|base| at <= base.end && (base.start < at || at == 0 && base.start == 0))
+    }
+
+    /// What the ruby field does: it opens on a base, and sets its ruby until it
+    /// closes.
+    pub fn annotate(&mut self, edit: &RubyEdit) -> anyhow::Result<()> {
+        match edit {
+            RubyEdit::Open => {
+                self.settle();
+                self.relay()?;
+                self.annotating = self.base().map(|base| (base, self.content.clone()));
+            }
+            RubyEdit::Set { ruby } => {
+                let Some((base, opened)) = &self.annotating else {
+                    return Ok(());
+                };
+                self.content = opened.annotated(base.clone(), ruby.as_deref());
+                self.relay_annotating()?;
+            }
+            RubyEdit::Keep => self.touch(),
+            RubyEdit::Cancel => {
+                let Some((_, opened)) = self.annotating.take() else {
+                    return Ok(());
+                };
+                self.content = opened;
+                self.relay()?;
+            }
+        }
+        Ok(())
+    }
+
     /// The input method's text as it composes, empty when it stops; it
     /// replaces the selection.
     pub fn compose(&mut self, text: &str, selected: Option<Range<usize>>) -> anyhow::Result<()> {
@@ -456,6 +525,16 @@ impl Typing {
             layer: self.target(),
             chars,
             mixed,
+            base: self.base().map(|base| RubyBase {
+                ruby: self
+                    .content
+                    .ruby()
+                    .into_iter()
+                    .find(|(of, _)| of.start <= base.start && base.end <= of.end)
+                    .map(|(_, ruby)| ruby.to_owned()),
+                text: self.content.text()[base].to_owned(),
+            }),
+            annotating: self.annotating.is_some(),
         }
     }
 
@@ -477,25 +556,12 @@ impl Typing {
             Target::Layer(layer) if self.content != self.original => {
                 vec![edit("set_text", vec![spans(layer, self.content)])]
             }
-            Target::Untranslated(layer) if !self.content.0.is_empty() => {
-                // The translation takes its source's place and style; its
-                // characters come only through the text ops.
-                let mut placed = serde_json::to_value(&self.base).expect("a text serializes");
-                if let Some(fields) = placed.as_object_mut() {
-                    fields.remove("content");
-                }
-                let place = Op::UpdateLayer {
-                    layer: layer.into(),
-                    patch: json!({ "translation": placed }),
-                };
-                vec![edit("set_text", vec![place, spans(layer, self.content)])]
-            }
             Target::New if !self.content.0.is_empty() => {
                 let text = Text {
                     content: self.content,
                     ..self.base
                 };
-                let (id, add) = added(page, Content::Text(Box::new(text)));
+                let (id, add) = added(page, None, Content::Text(Box::new(text)));
                 vec![edit("add_text", vec![add]), Effect::Selection(vec![id])]
             }
             _ => Vec::new(),

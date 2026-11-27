@@ -15,12 +15,14 @@ import { toRgba } from '@/lib/color'
 import { navigatePages } from '@/lib/pages'
 import { send, usePage } from '@/lib/queries'
 import { deleteSelection } from '@/lib/scene'
-import { shortcuts, toolKeys } from '@/lib/shortcuts'
+import { shortcuts, toolKeys, useKeyboard } from '@/lib/shortcuts'
 import { useKoharuStore, type CanvasTool } from '@/lib/store'
 import { commands, type Rgba } from '@koharu/ipc/protocol'
 
 /** A command's shortcut matches the letter its key types, and keeps the key from the webview. */
 const command = { preventDefault: true, useKey: true } as const
+/** One on a digit or punctuation key matches the key, by its `KeyboardEvent.code`. */
+const key = { preventDefault: true } as const
 const tools = Object.keys(toolKeys) as CanvasTool[]
 
 /** Each arrow key's step in page pixels, y growing downward. */
@@ -77,6 +79,13 @@ export function CanvasWorkspace() {
     [panel, storyHover],
   )
 
+  // The reader draws its pages on the same canvas, as they are.
+  const original = useKoharuStore((state) => state.original)
+  useEffect(() => {
+    send(commands.setOriginal, original)
+    return () => send(commands.setOriginal, false)
+  }, [original])
+
   useEffect(
     () =>
       send(commands.setBrush, {
@@ -119,7 +128,8 @@ export function CanvasWorkspace() {
 
   // Photoshop's shortcuts, which leave a focused field's or control's keys to it.
   const selectedLayers = useKoharuStore((state) => state.selectedLayers)
-  const { selectLayers, setTool } = useKoharuStore.getState()
+  const { selectLayers, setOriginal, setTool } = useKoharuStore.getState()
+  const keyboard = useKeyboard()
   useHotkeys(shortcuts.undo, () => send(commands.undo), command)
   useHotkeys(shortcuts.redo, () => send(commands.redo), command)
   useHotkeys(
@@ -128,7 +138,8 @@ export function CanvasWorkspace() {
     command,
   )
   useHotkeys(shortcuts.deselect, () => send(commands.deselect), command)
-  useHotkeys(shortcuts.fit, () => send(commands.fit), command)
+  useHotkeys(shortcuts.fit, () => send(commands.fit), key)
+  useHotkeys(keyboard.place(shortcuts.original), () => setOriginal(!original), key)
   useHotkeys(
     [shortcuts.delete, 'backspace'],
     () => {

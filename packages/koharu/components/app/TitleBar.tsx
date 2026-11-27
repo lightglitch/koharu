@@ -1,21 +1,32 @@
 'use client'
 
 import * as Sentry from '@sentry/nextjs'
+import { useIsMutating, useMutation } from '@tanstack/react-query'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { BookOpen, FilePlus2, FolderOpen, LoaderCircle, PenLine } from 'lucide-react'
 import Image from 'next/image'
 import { useState, type ComponentProps } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
 import { AboutDialog } from '@/components/app/AboutDialog'
 import { ExportCbzDialog } from '@/components/app/ExportCbzDialog'
+import { checkForUpdates } from '@/components/app/Updater'
 import { useMacOS, WindowControls } from '@/components/app/WindowChrome'
+import {
+  send,
+  useCommand,
+  useImportPages,
+  usePage,
+  usePreferences,
+  useProject,
+  useSavePreferences,
+} from '@/lib/queries'
 import { exportProgressChannel } from '@/lib/exportProgress'
-import { send, useCommand, useImportPages, usePage, useProject } from '@/lib/queries'
-import { deleteSelection } from '@/lib/scene'
-import { shortcutLabel, shortcuts } from '@/lib/shortcuts'
+import { applyDefaultStyles, deleteSelection } from '@/lib/scene'
+import { shortcutLabel, shortcuts, useKeyboard } from '@/lib/shortcuts'
 import { useKoharuStore } from '@/lib/store'
-import { commands } from '@koharu/ipc/protocol'
+import { commands, type PageId } from '@koharu/ipc/protocol'
 import {
   Menubar,
   MenubarCheckboxItem,
@@ -35,34 +46,34 @@ import { cn } from '@koharu/ui/lib/utils'
 export function TitleBar() {
   const { t } = useTranslation()
   const [aboutOpen, setAboutOpen] = useState(false)
-  const [cbzOpen, setCbzOpen] = useState(false)
+  // Fork addition: the pages a CBZ export asks its pages' format for, all of them when null, and
+  // closed when undefined. It lives here, as the menu that opens it closes first.
+  const [cbzPages, setCbzPages] = useState<PageId[] | null>()
+  const { run: exportCbz } = useCommand(['export', 'cbz'], commands.export, 'menu.export')
   const macOS = useMacOS()
   const project = useProject().data
+  const preferences = usePreferences().data
+  const savePreferences = useSavePreferences()
   const pageQuery = usePage(Boolean(project))
   const pages = project?.pages ?? []
   const page = project ? (pageQuery.data ?? null) : null
   const pageNumber = page ? pages.findIndex((candidate) => candidate.id === page.id) + 1 : 0
   const history = project?.history
+  const original = useKoharuStore((state) => state.original)
+  const setOriginal = useKoharuStore((state) => state.setOriginal)
   const historyOpen = useKoharuStore((state) => state.historyOpen)
   const setHistoryOpen = useKoharuStore((state) => state.setHistoryOpen)
   const selectedLayers = useKoharuStore((state) => state.selectedLayers)
   const selectLayers = useKoharuStore((state) => state.selectLayers)
+  const selectedPages = useKoharuStore((state) => state.selectedPages)
   const setSettingsOpen = useKoharuStore((state) => state.setSettingsOpen)
   const settingsOpen = useKoharuStore((state) => state.settingsOpen)
   const reading = useKoharuStore((state) => state.reading)
   const setReading = useKoharuStore((state) => state.setReading)
   const { importPages, importing } = useImportPages()
-  const { run: exportProject, busy: exporting } = useCommand(
-    ['export-project'],
-    commands.export,
-    'menu.export',
-  )
-
-  const psdLabels = {
-    background: t('psd.background'),
-    cleanup: t('psd.cleanup'),
-    outline: t('psd.outline'),
-  }
+  const updateCheck = useMutation({ mutationFn: () => checkForUpdates(true) })
+  // The selection keeps a page an undo or an agent took away.
+  const exportable = pages.map(({ id }) => id).filter((id) => selectedPages.includes(id))
 
   /** Sentry's feedback form, in the interface's language; it leaves the page when it closes. */
   const sendFeedback = async () => {
@@ -107,14 +118,12 @@ export function TitleBar() {
           <div className='w-[84px] shrink-0' />
         ) : (
           <div className='relative z-10 flex h-full w-10 shrink-0 items-center justify-center rounded-br-lg'>
-            {/* Its weight is in its top, its feet pale, so centred it reads 2 px above the
-                menus' words; lowered by that to sit on their line. */}
             <Image
-              className='pointer-events-none translate-y-0.5'
+              className='pointer-events-none'
               src='/icon.png'
               alt='Koharu'
-              width={17}
-              height={17}
+              width={16}
+              height={16}
               draggable={false}
               priority
             />
@@ -140,30 +149,42 @@ export function TitleBar() {
                   </MenubarItem>
                 </MenubarSubContent>
               </MenubarSub>
-              <MenubarSub>
-                <MenubarSubTrigger
-                  disabled={!project || pages.length === 0 || exporting}
-                  aria-busy={exporting}
-                >
-                  {exporting && <LoaderCircle className='animate-spin' aria-hidden='true' />}
-                  {t('menu.export')}
-                </MenubarSubTrigger>
-                <MenubarSubContent>
-                  {(['png', 'psd', 'cbz'] as const).map((format) => (
-                    <MenubarItem
-                      key={format}
-                      disabled={exporting}
-                      onClick={() =>
-                        format === 'cbz'
-                          ? setCbzOpen(true)
-                          : exportProject(format, psdLabels, 'png', exportProgressChannel())
-                      }
-                    >
-                      {format.toUpperCase()}…
-                    </MenubarItem>
-                  ))}
-                </MenubarSubContent>
-              </MenubarSub>
+              <ExportMenu
+                label='menu.export'
+                pages={null}
+                disabled={pages.length === 0}
+                onCbz={setCbzPages}
+              />
+              <ExportMenu
+                label='menu.exportSelected'
+                pages={exportable}
+                disabled={exportable.length === 0}
+                onCbz={setCbzPages}
+              />
+              <MenubarSeparator />
+              {/* Google Docs' Use my default styles and Save as my default styles: a project keeps
+                its own styles, which Preferences' only start. */}
+              <MenubarItem
+                disabled={!project || !preferences}
+                onClick={() =>
+                  preferences && send(applyDefaultStyles, preferences.renderer.styles ?? {})
+                }
+              >
+                {t('menu.useDefaultStyles')}
+              </MenubarItem>
+              <MenubarItem
+                disabled={!project || !preferences}
+                onClick={() =>
+                  project &&
+                  preferences &&
+                  savePreferences.mutate({
+                    ...preferences,
+                    renderer: { ...preferences.renderer, styles: project.meta.styles ?? {} },
+                  })
+                }
+              >
+                {t('menu.saveDefaultStyles')}
+              </MenubarItem>
               <MenubarSeparator />
               <MenubarItem disabled={!project} onClick={() => send(commands.close)}>
                 {t('menu.closeProject')}
@@ -223,6 +244,15 @@ export function TitleBar() {
               </MenubarItem>
               <MenubarCheckboxItem
                 disabled={!page}
+                checked={original}
+                onCheckedChange={setOriginal}
+                closeOnClick
+              >
+                {t('menu.original')}
+                <KeyShortcut code={shortcuts.original} />
+              </MenubarCheckboxItem>
+              <MenubarCheckboxItem
+                disabled={!page}
                 checked={historyOpen}
                 onCheckedChange={setHistoryOpen}
                 closeOnClick
@@ -259,6 +289,9 @@ export function TitleBar() {
                 {t('menu.feedback')}
               </MenubarItem>
               <MenubarSeparator />
+              <MenubarItem disabled={updateCheck.isPending} onClick={() => updateCheck.mutate()}>
+                {t('menu.checkForUpdates')}
+              </MenubarItem>
               <MenubarItem onClick={() => setAboutOpen(true)}>{t('menu.about')}</MenubarItem>
             </MenubarContent>
           </MenubarMenu>
@@ -308,13 +341,73 @@ export function TitleBar() {
         {!macOS && <WindowControls />}
       </header>
       <ExportCbzDialog
-        open={cbzOpen}
-        onOpenChange={setCbzOpen}
-        onConfirm={(encoding) => exportProject('cbz', psdLabels, encoding, exportProgressChannel())}
+        open={cbzPages !== undefined}
+        onOpenChange={(open) => !open && setCbzPages(undefined)}
+        onConfirm={(encoding) =>
+          cbzPages !== undefined &&
+          exportCbz(cbzPages, 'cbz', psdLabels(t), encoding, exportProgressChannel())
+        }
       />
       <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
     </>
   )
+}
+
+/** A PSD's names for the layers the scene names nothing, in the interface's language. */
+function psdLabels(t: TFunction) {
+  return {
+    background: t('psd.background'),
+    cleanup: t('psd.cleanup'),
+    outline: t('psd.outline'),
+  }
+}
+
+/** The formats the pages go out in, all of them when `pages` is null. One export runs at a time.
+ * A CBZ first asks its pages' format, through `onCbz` (fork addition). */
+function ExportMenu({
+  label,
+  pages,
+  disabled,
+  onCbz,
+}: {
+  label: 'menu.export' | 'menu.exportSelected'
+  pages: PageId[] | null
+  disabled: boolean
+  onCbz: (pages: PageId[] | null) => void
+}) {
+  const { t } = useTranslation()
+  const { run, busy } = useCommand(['export', label], commands.export, label)
+  const exporting = useIsMutating({ mutationKey: ['export'] }) > 0
+
+  return (
+    <MenubarSub>
+      <MenubarSubTrigger disabled={disabled || exporting} aria-busy={busy}>
+        {busy && <LoaderCircle className='animate-spin' aria-hidden='true' />}
+        {t(label)}
+      </MenubarSubTrigger>
+      <MenubarSubContent>
+        {(['png', 'psd', 'cbz', 'pdf'] as const).map((format) => (
+          <MenubarItem
+            key={format}
+            disabled={exporting}
+            onClick={() =>
+              format === 'cbz'
+                ? onCbz(pages)
+                : run(pages, format, psdLabels(t), 'png', exportProgressChannel())
+            }
+          >
+            {format.toUpperCase()}…
+          </MenubarItem>
+        ))}
+      </MenubarSubContent>
+    </MenubarSub>
+  )
+}
+
+/** A shortcut on a punctuation key, named by what the user's layout types on the key standing for
+ * it; the menu mounts it as it opens, which reads the layout again. */
+function KeyShortcut({ code }: { code: string }) {
+  return <MenubarShortcut>{useKeyboard().label(code)}</MenubarShortcut>
 }
 
 function MenubarTrigger({ className, ...props }: ComponentProps<typeof UiMenubarTrigger>) {

@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use koharu_canvas::{Brush, Colors, Rect, Story, Tool, Vec2};
+use koharu_canvas::{Brush, Colors, Rect, RubyEdit, Story, Tool, Vec2};
 use koharu_scene::{CharStyle, LayerId};
 use tauri::State;
 
@@ -42,6 +42,14 @@ pub fn set_colors(app: State<'_, Arc<App>>, colors: Colors) {
 #[specta::specta]
 pub fn set_story(app: State<'_, Arc<App>>, story: Story) {
     app.screen.set_story(story);
+}
+
+/// Whether the page shows its scan alone, as Lightroom's Before view shows a
+/// photo without its edits.
+#[tauri::command]
+#[specta::specta]
+pub fn set_original(app: State<'_, Arc<App>>, original: bool) {
+    app.screen.set_original(original);
 }
 
 /// Fits the page in the canvas, as the fit shortcut does.
@@ -88,4 +96,13 @@ pub fn deselect(app: State<'_, Arc<App>>) {
 #[specta::specta]
 pub fn style_typing(app: State<'_, Arc<App>>, patch: CharStyle) {
     app.screen.style_typing(patch);
+}
+
+/// What the type bar's ruby field does to the text being typed: it opens on the
+/// selected characters, or on the base the caret is in, sets their ruby, and
+/// closes.
+#[tauri::command]
+#[specta::specta]
+pub fn annotate_typing(app: State<'_, Arc<App>>, edit: RubyEdit) {
+    app.screen.annotate_typing(edit);
 }

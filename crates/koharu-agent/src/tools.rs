@@ -7,10 +7,14 @@
 use std::{collections::BTreeSet, io::Cursor, sync::Arc, time::Duration};
 
 use base64::Engine as _;
-use image::{DynamicImage, ImageFormat, Rgba, RgbaImage, imageops};
+use image::{
+    DynamicImage, ImageFormat, Rgba, RgbaImage,
+    imageops::{self, FilterType},
+};
 use koharu_pipeline::{Event, Pipeline, Request, RunId, Stage, Target};
-use koharu_renderer::{Frame, Renderer};
-use koharu_scene::{Answer, Change, LayerId, Op, PageId, Query, Session};
+use koharu_renderer::Renderer;
+use koharu_scene::{Bounds, Change, LayerId, Op, PageId, Query, Session, Transform};
+use kurbo::{BezPath, Shape as _};
 use parking_lot::Mutex;
 use rig_agent::tool::ToolSet;
 use rig_core::{
@@ -22,14 +26,14 @@ use rig_core::{
 };
 use schemars::{JsonSchema, generate::SchemaSettings};
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 /// How long `wait` waits for a run to end, so an agent following a run
 /// doesn't spend a turn on every look, as Codex waits on a long command for
 /// up to 30 seconds before it answers.
 const WAIT: Duration = Duration::from_secs(30);
 
-/// The longest side of a page `view_page` shows, as translation's sight is.
+/// The longer side of what `view_page` shows, as translation's sight is.
 const SIGHT: u32 = 1280;
 
 /// What the tools work on: one open project, with the pipeline that runs its
@@ -74,7 +78,9 @@ impl Tools {
     /// The project's outline, which goes with each of the agent's requests.
     pub fn context(&self) -> anyhow::Result<Value> {
         let answer = self.session.lock().query(Query::GetProject)?;
-        Ok(serde_json::to_value(answer)?)
+        let mut project = serde_json::to_value(answer)?;
+        outline(&mut project);
+        Ok(project)
     }
 }
 
@@ -121,6 +127,24 @@ struct WaitArgs {
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+struct ViewArgs {
+    /// The page.
+    page: PageId,
+    /// Look at the page's scan alone, as it was imported, without its layers:
+    /// what a block's source says, whether or not it's been cleaned up.
+    #[serde(default)]
+    original: bool,
+    /// The part of the page to look at, in page pixels, such as a block's
+    /// source bounds with some room around them; the whole page when left
+    /// out.
+    region: Option<Bounds>,
+}
+
+// schemars leaves `properties` out of a struct without fields, and LM Studio
+// refuses a request when one of its tools has none.
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[schemars(extend("properties" = {}))]
 struct NoArgs {}
 
 struct GetProject;
@@ -128,11 +152,12 @@ struct GetProject;
 impl Tool for GetProject {
     const NAME: &'static str = "get_project";
     type Args = NoArgs;
-    type Output = Answer;
+    type Output = Value;
     type Error = ToolExecutionError;
 
     fn description(&self) -> String {
-        "The project's pages in order, each with its size, its scan, and how many of its blocks are translated.".to_owned()
+        "The project's pages in order, each with how many blocks it has and how many are translated."
+            .to_owned()
     }
 
     fn parameters(&self) -> Value {
@@ -143,8 +168,8 @@ impl Tool for GetProject {
         ToolAnnotations::default().with_read_only(true)
     }
 
-    async fn call(&self, context: &mut ToolContext, _: NoArgs) -> Result<Answer, Self::Error> {
-        query(context, Query::GetProject).await
+    async fn call(&self, context: &mut ToolContext, _: NoArgs) -> Result<Value, Self::Error> {
+        query(context, Query::GetProject, outline).await
     }
 }
 
@@ -153,12 +178,13 @@ struct GetPage;
 impl Tool for GetPage {
     const NAME: &'static str = "get_page";
     type Args = PageArgs;
-    type Output = Answer;
+    type Output = Value;
     type Error = ToolExecutionError;
 
     fn description(&self) -> String {
-        "A page with its layers nested in reading order: panels, balloons, and blocks, each \
-         block with its source and translation."
+        "A page with its size, its scan, and its layers nested in reading order: panels, \
+         balloons, and blocks, each block with its source and translation. A path is shown by \
+         its bounds; get_layer has it, with a layer's attributes, its mask, and its clean-up."
             .to_owned()
     }
 
@@ -170,8 +196,9 @@ impl Tool for GetPage {
         ToolAnnotations::default().with_read_only(true)
     }
 
-    async fn call(&self, context: &mut ToolContext, args: PageArgs) -> Result<Answer, Self::Error> {
-        query(context, Query::GetPage { page: args.page }).await
+    async fn call(&self, context: &mut ToolContext, args: PageArgs) -> Result<Value, Self::Error> {
+        let page = Query::GetPage { page: args.page };
+        query(context, page, |page| sparse(&mut page["layers"])).await
     }
 }
 
@@ -180,11 +207,11 @@ struct GetLayer;
 impl Tool for GetLayer {
     const NAME: &'static str = "get_layer";
     type Args = LayerArgs;
-    type Output = Answer;
+    type Output = Value;
     type Error = ToolExecutionError;
 
     fn description(&self) -> String {
-        "One layer with everything inside it.".to_owned()
+        "One layer with all its values, and what's inside it as get_page shows it.".to_owned()
     }
 
     fn parameters(&self) -> Value {
@@ -195,12 +222,9 @@ impl Tool for GetLayer {
         ToolAnnotations::default().with_read_only(true)
     }
 
-    async fn call(
-        &self,
-        context: &mut ToolContext,
-        args: LayerArgs,
-    ) -> Result<Answer, Self::Error> {
-        query(context, Query::GetLayer { layer: args.layer }).await
+    async fn call(&self, context: &mut ToolContext, args: LayerArgs) -> Result<Value, Self::Error> {
+        let layer = Query::GetLayer { layer: args.layer };
+        query(context, layer, |layer| sparse(&mut layer["children"])).await
     }
 }
 
@@ -330,18 +354,19 @@ struct ViewPage;
 
 impl Tool for ViewPage {
     const NAME: &'static str = "view_page";
-    type Args = PageArgs;
+    type Args = ViewArgs;
     type Output = ToolResultContent;
     type Error = ToolExecutionError;
 
     fn description(&self) -> String {
-        "Look at a page as the editor draws it, its translations and clean-ups included, at most \
-         1,280 pixels on its longer side."
+        "Look at a page as the editor draws it, its translations and clean-ups included, or at its \
+         scan alone, 1,280 pixels on its longer side. A region fills those, so look at one to read \
+         small text."
             .to_owned()
     }
 
     fn parameters(&self) -> Value {
-        schema::<PageArgs>()
+        schema::<ViewArgs>()
     }
 
     fn annotations(&self) -> ToolAnnotations {
@@ -351,15 +376,28 @@ impl Tool for ViewPage {
     async fn call(
         &self,
         context: &mut ToolContext,
-        args: PageArgs,
+        args: ViewArgs,
     ) -> Result<ToolResultContent, Self::Error> {
         let tools = project(context)?;
         let jpeg = tokio::task::spawn_blocking(move || {
-            let frame = tools
+            let mut frame = tools
                 .renderer
                 .render(&tools.session.lock(), args.page)
                 .map_err(failed)?;
-            seen(&frame)
+            let mut area = frame.area();
+            if let Some(region) = args.region {
+                area = area.intersect(region.into());
+                if area.is_zero_area() {
+                    return Err(failed("the region is outside the page"));
+                }
+            }
+            if args.original {
+                frame = frame
+                    .background()
+                    .ok_or_else(|| failed("the page has no scan"))?
+                    .cropped();
+            }
+            seen(&frame.rasterize_rect(area.expand()).map_err(failed)?)
         })
         .await
         .map_err(failed)??;
@@ -378,12 +416,64 @@ fn project(context: &ToolContext) -> Result<Arc<Tools>, ToolExecutionError> {
         .ok_or_else(|| ToolExecutionError::other("no project is open"))
 }
 
-/// `query`'s answer, the project's own values.
-async fn query(context: &ToolContext, query: Query) -> Result<Answer, ToolExecutionError> {
+/// `query`'s answer, the project's own values, cut by `cut` to what a model
+/// reads them for.
+async fn query(
+    context: &ToolContext,
+    query: Query,
+    cut: fn(&mut Value),
+) -> Result<Value, ToolExecutionError> {
     let tools = project(context)?;
-    tokio::task::spawn_blocking(move || tools.session.lock().query(query).map_err(failed))
-        .await
-        .map_err(failed)?
+    tokio::task::spawn_blocking(move || {
+        let answer = tools.session.lock().query(query).map_err(failed)?;
+        let mut answer = serde_json::to_value(answer).map_err(failed)?;
+        cut(&mut answer);
+        Ok(answer)
+    })
+    .await
+    .map_err(failed)?
+}
+
+/// Takes each page's size and scan out of a project, which the page's own
+/// answer has: a scan's hash is half of what a page takes in every request.
+fn outline(project: &mut Value) {
+    for page in project["pages"].as_array_mut().into_iter().flatten() {
+        if let Value::Object(page) = page {
+            page.retain(|key, _| !matches!(key.as_str(), "size" | "background"));
+        }
+    }
+}
+
+/// Cuts layers to what each is, where it is, and what it says, as Figma's
+/// `get_metadata` answers a layer tree: whole, one page's can take more than a
+/// small model's context.
+fn sparse(value: &mut Value) {
+    match value {
+        Value::Object(fields) => {
+            for key in ["outline", "path"] {
+                let path = fields.get(key).and_then(Value::as_str);
+                if let Some(Ok(path)) = path.map(BezPath::from_svg) {
+                    let bounds = path.bounding_box().expand();
+                    let bounds = json!({
+                        "x": bounds.x0, "y": bounds.y0,
+                        "width": bounds.width(), "height": bounds.height(),
+                    });
+                    fields.remove(key);
+                    fields.insert("bounds".to_owned(), bounds);
+                }
+            }
+            // A span's attributes are its marks, so only a layer's go.
+            let layer = fields.contains_key("kind");
+            fields.retain(|key, value| match key.as_str() {
+                "attributes" | "mask" | "cleanup" if layer => false,
+                "transform" => *value != json!(Transform::default()),
+                _ => !value.is_null(),
+            });
+            fields.values_mut().for_each(sparse);
+        }
+        Value::Array(values) => values.iter_mut().for_each(sparse),
+        _ => {}
+    }
 }
 
 /// `error` as the model sees it, word for word: rig shows a model only the
@@ -415,19 +505,20 @@ fn schema<T: JsonSchema>() -> Value {
     serde_json::to_value(schema).unwrap_or_default()
 }
 
-/// `frame` as the model sees it: over white, fit to `SIGHT`, as a JPEG in
+/// `drawn` as the model sees it: over white, scaled to `SIGHT`, as a JPEG in
 /// base 64.
-fn seen(frame: &Frame) -> Result<String, ToolExecutionError> {
-    let raster = frame.rasterize().map_err(failed)?;
-    let (width, height) = raster.image.dimensions();
-    let mut page = RgbaImage::from_pixel(width, height, Rgba([255; 4]));
-    imageops::overlay(&mut page, &raster.image, 0, 0);
-    let mut page = DynamicImage::ImageRgba8(page);
-    if width.max(height) > SIGHT {
-        page = page.thumbnail(SIGHT, SIGHT);
-    }
+fn seen(drawn: &RgbaImage) -> Result<String, ToolExecutionError> {
+    let (width, height) = drawn.dimensions();
+    let mut view = RgbaImage::from_pixel(width, height, Rgba([255; 4]));
+    imageops::overlay(&mut view, drawn, 0, 0);
+    let view = DynamicImage::ImageRgba8(view);
+    let view = if width.max(height) > SIGHT {
+        view.thumbnail(SIGHT, SIGHT)
+    } else {
+        view.resize(SIGHT, SIGHT, FilterType::CatmullRom)
+    };
     let mut bytes = Vec::new();
-    DynamicImage::ImageRgb8(page.to_rgb8())
+    DynamicImage::ImageRgb8(view.to_rgb8())
         .write_to(&mut Cursor::new(&mut bytes), ImageFormat::Jpeg)
         .map_err(failed)?;
     Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
@@ -435,9 +526,9 @@ fn seen(frame: &Frame) -> Result<String, ToolExecutionError> {
 
 #[cfg(test)]
 mod tests {
+    use image::Rgb;
     use koharu_pipeline::PipelineConfig;
-    use koharu_renderer::RendererConfig;
-    use koharu_scene::Created;
+    use koharu_scene::{Background, Created, Hash, Ref};
     use rig_core::completion::message::DocumentSourceKind;
     use serde_json::json;
 
@@ -447,11 +538,12 @@ mod tests {
     /// defaults.
     fn open() -> (tempfile::TempDir, Tools) {
         let dir = tempfile::tempdir().expect("a folder");
-        let session = Session::create(dir.path().join("test.khr")).expect("a project");
+        let session = Session::create(dir.path().join("test.khr"), koharu_scene::Meta::default())
+            .expect("a project");
         let tools = Tools::new(
             Arc::new(Mutex::new(session)),
             Pipeline::new(PipelineConfig::default()),
-            Renderer::new(RendererConfig::default()),
+            Renderer::new(),
         );
         (dir, tools)
     }
@@ -477,20 +569,115 @@ mod tests {
     fn every_tool_schema_is_inlined() {
         for definition in Tools::toolset().tool_definitions() {
             let schema = definition.parameters.to_string();
-            assert!(!schema.contains("$ref"), "{}", definition.name.as_str());
+            assert!(
+                !schema.contains(r#""$ref":"#),
+                "{}",
+                definition.name.as_str()
+            );
         }
+    }
+
+    /// They go with every request, and with a layer's types inlined they took
+    /// more than a local model's whole context.
+    #[test]
+    fn the_tools_leave_a_small_context_room() {
+        let definitions = Tools::toolset().tool_definitions();
+        let taken: usize = definitions
+            .iter()
+            .map(|tool| tool.description.len() + tool.parameters.to_string().len())
+            .sum();
+        assert!(taken < 32_000, "{taken} characters");
     }
 
     /// What agents never send is skipped by schemars attributes on `Op`.
     #[test]
     fn edit_offers_the_ops_agents_send() {
         let schema = Edit.parameters().to_string();
-        for op in ["update_layer", "set_text", "set_attribute", "translation"] {
+        for op in [
+            "update_layer",
+            "set_rich_text",
+            "set_attribute",
+            "translation",
+        ] {
             assert!(schema.contains(op), "{op}");
         }
-        for op in ["add_file", "write_pixels", "set_rich_text", "\"add_page\""] {
+        for op in ["add_file", "write_pixels", "\"add_page\""] {
             assert!(!schema.contains(op), "{op}");
         }
+    }
+
+    #[tokio::test]
+    async fn a_page_is_read_without_the_paths_its_layers_are_read_with() {
+        let (_dir, tools) = open();
+        let page = add_page(&tools, 100, 100);
+        let block = json!({"kind": "block", "source": {
+            "content": [{"insert": "a", "attributes": {"stroke_width": 8.0}}],
+        }});
+        let ops = json!([
+            {"op": "add_layer", "id": "$balloon", "page": page, "index": 0,
+             "layer": {"kind": "balloon", "outline": "M10 20 H50 V40 H10 Z"}},
+            {"op": "add_layer", "page": page, "parent": "$balloon", "index": 0, "layer": block},
+        ]);
+        let change = tools
+            .session
+            .lock()
+            .apply(koharu_scene::Edit {
+                label: "test".to_owned(),
+                ops: serde_json::from_value(ops).expect("ops"),
+            })
+            .expect("a balloon and its block");
+        let Some(Created::Layer { id: layer, .. }) = change.created.first() else {
+            panic!("{change:?}");
+        };
+
+        let mut context = tools.tool_context();
+        let read = GetPage
+            .call(&mut context, PageArgs { page })
+            .await
+            .expect("the page");
+        let balloon = &read["layers"][0];
+        let bounds = json!({"x": 10.0, "y": 20.0, "width": 40.0, "height": 20.0});
+        assert_eq!(balloon["bounds"], bounds);
+        assert!(balloon.get("outline").is_none(), "{balloon}");
+        let inside = &balloon["children"][0];
+        assert!(inside.get("attributes").is_none(), "{inside}");
+        // A span's marks share their name with a layer's attributes.
+        let marks = &inside["source"]["content"][0]["attributes"];
+        assert_eq!(*marks, json!({"stroke_width": 8.0}));
+
+        let whole = GetLayer
+            .call(&mut context, LayerArgs { layer: *layer })
+            .await
+            .expect("the balloon");
+        assert_eq!(whole["outline"], "M10 20 H50 V40 H10 Z");
+        assert_eq!(whole["children"][0], *inside);
+    }
+
+    #[tokio::test]
+    async fn rich_text_is_written_as_the_schema_offers_it_and_read_back() {
+        let (_dir, tools) = open();
+        let page = add_page(&tools, 100, 100);
+        let spans = json!([
+            {"insert": "The "},
+            {"insert": "Holy Sword", "ruby": "Excalibur", "attributes": {"weight": 700}},
+            {"insert": " rises"},
+        ]);
+        let args = json!({"label": "Letter", "ops": [
+            {"op": "add_layer", "id": "$block", "page": page, "index": 0,
+             "layer": {"kind": "block", "source": {}}},
+            {"op": "set_rich_text", "layer": "$block", "spans": spans},
+        ]});
+        assert_eq!(refusal(&Edit.parameters(), &args), None);
+        let mut context = tools.tool_context();
+        Edit.call(&mut context, serde_json::from_value(args).expect("an edit"))
+            .await
+            .expect("the block is lettered");
+        let read = GetPage
+            .call(&mut context, PageArgs { page })
+            .await
+            .expect("the page");
+        let content = &read["layers"][0]["translation"]["content"];
+        assert_eq!(*content, spans, "{read}");
     }
 
     #[tokio::test]
@@ -538,14 +725,9 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn a_page_view_fits_in_1280_pixels() {
-        let (_dir, tools) = open();
-        let page = add_page(&tools, 2000, 3000);
-        let view = ViewPage
-            .call(&mut tools.tool_context(), PageArgs { page })
-            .await
-            .expect("a view");
+    async fn view(tools: &Tools, args: Value) -> Result<DynamicImage, ToolExecutionError> {
+        let args = serde_json::from_value(args).expect("a view's arguments");
+        let view = ViewPage.call(&mut tools.tool_context(), args).await?;
         let ToolResultContent::Image(image) = view else {
             panic!("{view:?}");
         };
@@ -556,7 +738,78 @@ mod tests {
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(data)
             .expect("base 64");
-        let decoded = image::load_from_memory(&bytes).expect("a JPEG");
-        assert_eq!(decoded.width().max(decoded.height()), 1280);
+        Ok(image::load_from_memory(&bytes).expect("a JPEG"))
+    }
+
+    #[tokio::test]
+    async fn a_page_view_fits_in_1280_pixels() {
+        let (_dir, tools) = open();
+        let page = add_page(&tools, 2000, 3000);
+        let view = view(&tools, json!({"page": page})).await.expect("a view");
+        assert_eq!(view.width().max(view.height()), 1280);
+    }
+
+    /// A block's source is read off the scan, whatever was drawn over it
+    /// since.
+    #[tokio::test]
+    async fn a_view_shows_a_region_of_the_scan_under_the_layers() {
+        // Under a red layer, a scan whose left half is green and right blue.
+        let (_dir, tools) = open();
+        let page = add_page(&tools, 200, 100);
+        let region = json!({"x": 100, "y": 20, "width": 60, "height": 120});
+        let original = json!({"page": page, "original": true, "region": region});
+        let error = view(&tools, original.clone()).await.expect_err("no scan");
+        assert_eq!(error.message(), "the page has no scan");
+        let scan = image::RgbImage::from_fn(200, 100, |x, _| match x < 100 {
+            true => Rgb([0, 255, 0]),
+            false => Rgb([0, 0, 255]),
+        });
+        let mut bytes = Vec::new();
+        scan.write_to(&mut Cursor::new(&mut bytes), ImageFormat::Png)
+            .expect("a PNG");
+        let background = Background {
+            file: Hash::of(&bytes),
+            visible: true,
+        };
+        let layer = json!({"op": "add_layer", "page": page, "index": 0, "layer": {
+            "kind": "shape", "path": "M0 0 H200 V100 H0 Z", "fill": [1.0, 0.0, 0.0, 1.0],
+        }});
+        let ops = vec![
+            Op::AddFile { bytes },
+            Op::SetBackground {
+                page: Ref::from(page),
+                background: Some(background),
+            },
+            serde_json::from_value(layer).expect("an op"),
+        ];
+        tools
+            .session
+            .lock()
+            .apply(koharu_scene::Edit {
+                label: "test".to_owned(),
+                ops,
+            })
+            .expect("a scan under a layer");
+        // The middle's strongest channel, as a JPEG keeps it.
+        let strongest = |view: &DynamicImage| {
+            let pixel = view
+                .to_rgb8()
+                .get_pixel(view.width() / 2, view.height() / 2)
+                .0;
+            (0..3).max_by_key(|&channel| pixel[channel])
+        };
+        let scan = view(&tools, original).await.expect("a view");
+        // 60 by the 80 of its 120 the page has.
+        assert_eq!((scan.width(), scan.height()), (960, 1280));
+        assert_eq!(strongest(&scan), Some(2));
+        let drawn = view(&tools, json!({"page": page, "region": region}))
+            .await
+            .expect("a view");
+        assert_eq!(strongest(&drawn), Some(0));
+        let outside = json!({"x": 200.5, "y": 0, "width": 10, "height": 10});
+        let error = view(&tools, json!({"page": page, "region": outside}))
+            .await
+            .expect_err("outside");
+        assert_eq!(error.message(), "the region is outside the page");
     }
 }

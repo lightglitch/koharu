@@ -9,6 +9,7 @@ pub(crate) mod export;
 mod fonts;
 mod gallery;
 pub(crate) mod import;
+mod keyboard;
 mod pages;
 mod preferences;
 mod processing;
@@ -103,12 +104,15 @@ pub fn handler() -> impl Fn(Invoke<CefRuntime>) -> bool + Send + Sync + 'static 
         import::import,
         export::export,
         export::stop_export,
+        keyboard::get_keyboard,
         canvas::set_viewport,
         canvas::set_tool,
         canvas::set_brush,
         canvas::set_colors,
         canvas::set_story,
+        canvas::set_original,
         canvas::style_typing,
+        canvas::annotate_typing,
         canvas::fit,
         canvas::set_zoom,
         canvas::select,
@@ -189,12 +193,15 @@ pub fn bindings(types: &mut Types) -> Vec<Function> {
         import::import,
         export::export,
         export::stop_export,
+        keyboard::get_keyboard,
         canvas::set_viewport,
         canvas::set_tool,
         canvas::set_brush,
         canvas::set_colors,
         canvas::set_story,
+        canvas::set_original,
         canvas::style_typing,
+        canvas::annotate_typing,
         canvas::fit,
         canvas::set_zoom,
         canvas::select,

@@ -76,7 +76,7 @@ struct Candidate {
     priority: Priority,
 }
 
-/// A running task's stage and its jobs.
+/// A running task's stage, its jobs, and the page it fails on.
 struct Running {
     stage: Stage,
     jobs: Vec<(RunId, NodeIndex)>,
@@ -91,7 +91,7 @@ pub(crate) struct Scheduler {
     runs: Vec<Run>,
     /// A permit for each page in flight, which its task holds.
     ahead: Arc<Semaphore>,
-    tasks: JoinSet<Result<(), String>>,
+    tasks: JoinSet<anyhow::Result<()>>,
     running: HashMap<task::Id, Running>,
     conversations: Conversations,
     /// When the models no setting uses leave: `KEEP` after a run last ended.
@@ -176,50 +176,53 @@ impl Scheduler {
         }
     }
 
-    fn done(&mut self, joined: Result<(task::Id, Result<(), String>), JoinError>) {
-        let id = match &joined {
-            Ok((id, _)) => *id,
-            Err(error) => error.id(),
-        };
-        let Running { stage, jobs } = self
+    fn done(&mut self, joined: Result<(task::Id, anyhow::Result<()>), JoinError>) {
+        let (id, result) = joined.unwrap_or_else(|error| (error.id(), Err(error.into())));
+        let task = self
             .running
             .remove(&id)
             .expect("every task is recorded when it starts");
-        let result = match joined {
-            Ok((_, result)) => result,
-            Err(error) => Err(format!("{stage} failed: {error}")),
-        };
-        let mut ended = false;
+        let runs = self.runs.len();
+        // Fork divergence: upstream goes past only a failure marked as the
+        // page's alone (`stages::Failed`) and ends the run at any other;
+        // here every failure is the page's alone, and the run goes on.
+        let reason = result
+            .err()
+            .map(|error| format!("{} failed: {error:#}", task.stage));
+        self.leave(&task, reason.as_deref());
+        if self.runs.len() < runs {
+            self.rest();
+        }
+    }
+
+    /// `task`'s jobs leave their runs, finished or failed for `reason`, and a
+    /// run ends with its last, naming the pages that failed.
+    fn leave(&mut self, task: &Running, reason: Option<&str>) {
         for mut run in std::mem::take(&mut self.runs) {
-            for &(id, job) in &jobs {
+            for &(id, job) in &task.jobs {
                 // A job gone from the graph was on a page given up on.
                 if id != run.id || !run.graph.contains_node(job) {
                     continue;
                 }
-                let page = run.graph[job].page;
-                match &result {
-                    Ok(()) => {
+                let (page, stage) = (run.graph[job].page, run.graph[job].stage);
+                match reason {
+                    None => {
                         run.graph.remove_node(job);
-                        self.emit(Event::Finished {
-                            run: id,
-                            page,
-                            stage,
-                        });
+                        self.emit(Event::Finished { run: id, page, stage });
                     }
-                    // Fork divergence: upstream ends the run here; the
-                    // failure is the page's alone, and the run goes on.
-                    Err(reason) => {
+                    // Fork addition: the page's other stages are dropped.
+                    Some(reason) => {
                         run.abandon(page);
                         run.failures.push(PageFailure {
                             page,
                             stage,
-                            reason: reason.clone(),
+                            reason: reason.to_owned(),
                         });
                         self.emit(Event::Failed {
                             run: id,
                             page,
                             stage,
-                            reason: reason.clone(),
+                            reason: reason.to_owned(),
                         });
                     }
                 }
@@ -232,7 +235,6 @@ impl Scheduler {
                 .values()
                 .any(|running| running.jobs.iter().any(|&(id, _)| id == run.id));
             if run.graph.node_count() == 0 && !flying {
-                ended = true;
                 let outcome = match std::mem::take(&mut run.failures) {
                     failures if failures.is_empty() => Outcome::Done,
                     failures => Outcome::Failed { failures },
@@ -244,9 +246,6 @@ impl Scheduler {
             } else {
                 self.runs.push(run);
             }
-        }
-        if ended {
-            self.rest();
         }
     }
 
@@ -353,6 +352,7 @@ impl Scheduler {
                     blocks: job.blocks.clone(),
                     session: Arc::clone(&run.session),
                     cancel: run.cancel.clone(),
+                    started: Default::default(),
                 }
             })
             .collect();

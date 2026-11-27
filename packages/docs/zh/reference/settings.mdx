@@ -1,7 +1,6 @@
 ---
 title: '设置'
 description: '查找外观、模型、提供商、翻译、字体和网站登录设置。'
-icon: 'gear'
 ---
 
 通过**文件 → 设置**、页面列表中的设置按钮或开始界面的设置按钮打开。修改会在短暂延迟后自动保存；选择**返回编辑器**即可回到编辑。
@@ -20,17 +19,103 @@ icon: 'gear'
 
 ## 渲染器
 
-按顺序设置首选字体；未修改时依次为 CCWildWords 和 Adobe 黑体 Std。文本没有指定字体，或字体无法提供某个字形时，Koharu 会使用这些字体，最后回退到系统字体。单个文本图层仍保留自己的排版。
+按书写系统设置新项目开始时使用的书体。相近的书体列在同一标题下（如宋体类：宋体、仿宋、楷体、教科书体）。每种书体有字体菜单、字重菜单和斜体开关，菜单第一项**默认**使用日漫黑体的字体。未修改时，拉丁文字使用汉化组字体指南为各类台词选用的字体：日漫黑体为 CCWildWords，宋体的旁白为 CCVictorySpeechLower，黑体的喊叫为 CreativeBlock BB，圆体的独白为 Anime Ace 3 BB 斜体，手写体为 Ashcan BB，书法体为 Ninjutsu BB，美术体为 Voice Activated BB，POP体为 Komika Slick，古印体和装饰体为 ManEater BB。这些字体不含的西里尔字母和希腊字母使用 CCWildWords 的斜体或粗斜体；中文和日文使用各书体的内置字体。留空的值使用日漫黑体的值。**恢复默认**会把所有书写系统的书体恢复为 Koharu 的默认值。之后项目保留自己的书体，**文件 → 使用默认书体**可再次套用这些；文本自己的字体、字重和斜体仍然优先。
 
 ## 图库
 
 [图库](/zh/guides/gallery)读取的网站列表。**登录**会在单独的窗口中打开网站自己的登录页面；关闭窗口后，该行会显示网站报告的账号，**退出登录**会清除该网站的登录。没有账号的网站显示**无需账号**。
 
-<Note>
-  设置保存在 `~/.koharu/config.toml` 中，每个组件一张表：`[pipeline]`（包含
-  `[pipeline.translator]`）、`[providers]`、用于排版的 `[renderer]` 以及
-  `[agent]`。界面中没有入口的选项可以直接编辑该文件；类型错误的值会报错，而不会当作默认值。凭据不要写进该文件，请使用**设置
-  → 提供商**。
-</Note>
+## 配置文件
+
+设置保存在 `~/.koharu/config.toml` 中，每个组件一张表。应用没有界面的选项（例如本地模型的量化）可以直接编辑此文件设置。省略的键使用默认值，应用只写入你更改过的键。无法读取的值（例如类型错误的值或已不存在的模型）会回退为默认值；不是有效 TOML 的文件会报错。凭据不要写在这里，请在**设置 → 提供商**中保存。
+
+```toml
+[pipeline.translator]
+model = "koharu/index-translate-9b:Q8_0"
+target = "ja"
+instructions = "保留 -san、-senpai 等敬称。"
+
+[providers.openai-compatible]
+base_url = "https://example.com/v1"
+context_window = 32768
+```
+
+### `[pipeline.detector]`
+
+<ResponseField name='model' type='string' default='koharu-layout-highres'>
+  检测模型。
+</ResponseField>
+<ResponseField name='text, onomatopoeia, bubble, panel' type='number'>
+  每类检测保留的最低置信度，取值 0 到 1。省略时使用模型自己的值。
+</ResponseField>
+
+### `[pipeline.recognizer]`
+
+<ResponseField name='model' type='string' default='hayai-ocr'>
+  识别模型：`hayai-ocr`、`manga-ocr-ar` 或 `baberu-ocr`。
+</ResponseField>
+
+### `[pipeline.inpainter]`
+
+<ResponseField name='model' type='string' default='lama'>
+  清理页面和**移除**笔画所用的模型：`lama`、`flux3-klein` 或 `qwen-image`。
+</ResponseField>
+<ResponseField name='fill' type='string' default='flux3-klein'>
+  **创成式填充**上次使用的模型，下次会默认选中它。
+</ResponseField>
+<ResponseField name='prompt' type='string'>
+  当任务没有自带提示词时，发给 `flux3-klein` 和 `qwen-image`
+  的指示。默认要求模型移除所有文字（包括对白、拟声词和手写注释），让对白框保持空白，其余一切保持不变。
+</ResponseField>
+
+### `[pipeline.translator]`
+
+<ResponseField name='model' type='string' default='koharu/index-translate-9b'>
+  与模型选择器相同的 `provider/model` 引用。本地模型可在冒号后指定量化，例如
+  `koharu/index-translate-9b:Q8_0`。
+</ResponseField>
+<ResponseField name='target' type='string' default='en'>
+  目标语言的 BCP 47 标签，例如 `ja`、`pt-BR` 或 `zh-Hant`。
+</ResponseField>
+<ResponseField name='instructions' type='string'>
+  **附加指示**，按原样附加在 Koharu 自己的提示词之后。
+</ResponseField>
+<ResponseField name='vision' type='boolean' default={false}>
+  是否把每页图像连同文字一起发给模型。
+</ResponseField>
+<ResponseField name='reasoning' type='string'>
+  `off`，或推理等级：`minimal`、`low`、`medium`、`high`、`xhigh` 或
+  `max`。省略时使用模型自己的设置。
+</ResponseField>
+
+### `[providers.<provider>]`
+
+每个有服务器地址的提供商一张表：`ollama`、`lmstudio` 和 `openai-compatible`。
+
+<ResponseField name='base_url' type='string'>
+  服务器地址。省略时为 Ollama 和 LM Studio 常用的本地地址。OpenAI 兼容服务器的地址应结束于 OpenAI 的
+  `/v1` 所在的位置。
+</ResponseField>
+<ResponseField name='context_window' type='integer'>
+  OpenAI 兼容服务器运行模型时的上下文长度（token 数），例如 llama.cpp 的
+  `--ctx-size`。参见[翻译的工作原理](/zh/how-it-works/translation#对话保留的内容)。
+</ResponseField>
+
+### `[renderer]`
+
+<ResponseField name='styles' type='table'>
+  新项目开始时每种书体在每种书写系统中的字体，写在 `styles.<书体>.<书写系统>` 下，包含 `family`、
+  `weight` 和 `italic`，例如 `styles.rounded.Latn.italic = true`。书体为 `antique`、`mincho`、`fangsong`、`kaisho`、`textbook`、`gothic`、`rounded`、`handwriting`、`brush`、`gyosho`、`gyokai`、`sosho`、`reisho`、`tensho`、`kointai`、`weibei`、`design`、`pop`
+  和 `decorative`；书写系统为 `Latn`、`Hans`、`Hant`、`Jpan` 等 ISO 15924 代码。只要修改一项，整个表都会写入。
+</ResponseField>
+
+### `[agent]`
+
+<ResponseField name='model' type='string'>
+  Agent 的模型，`provider/model` 引用。选择之前不会写入。
+</ResponseField>
+<ResponseField name='reasoning' type='string'>
+  与翻译的 `reasoning` 相同，用于 Agent。
+</ResponseField>
 
 项目和下载内容的存储位置参见[数据位置](/zh/reference/data)。

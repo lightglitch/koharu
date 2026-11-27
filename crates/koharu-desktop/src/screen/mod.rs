@@ -28,7 +28,8 @@ use std::{
 use anyhow::{Context as _, Result};
 use image::{DynamicImage, RgbaImage, codecs::jpeg::JpegEncoder, imageops::FilterType};
 use koharu_canvas::{
-    Brush, Camera, Canvas, Colors, Effect, Facing, Rect, Snapshot, Story, Tool, Typed, Vec2,
+    Brush, Camera, Canvas, Colors, Effect, Facing, Rect, RubyEdit, Snapshot, Story, Tool, Typed,
+    Vec2,
 };
 use koharu_renderer::Gpu;
 use koharu_scene::{Bounds, CharStyle, LayerId, PageId};
@@ -53,7 +54,11 @@ use winit::{
 };
 
 use self::{compose::Compositor, input::Input, pace::Pacer, paint::Painted, shared::Importer};
-pub use self::{input::Pointer, shared::sharing};
+pub use self::{
+    input::Pointer,
+    keys::{Place, places},
+    shared::sharing,
+};
 use crate::{app::App, events};
 
 /// The window's label in `tauri.conf.json`, and its webview's.
@@ -190,6 +195,17 @@ impl Screen {
         });
     }
 
+    /// What the type bar's ruby field does while typing.
+    pub fn annotate_typing(&self, edit: RubyEdit) {
+        self.change(move |main| {
+            if let Some(canvas) = &mut main.canvas
+                && let Err(error) = canvas.annotate_typing(&edit)
+            {
+                tracing::error!("the canvas failed to set ruby on its typing: {error:#}");
+            }
+        });
+    }
+
     /// Types `text` into what's being typed, as a paste does.
     pub fn insert(&self, text: String) {
         self.change(move |main| {
@@ -224,6 +240,15 @@ impl Screen {
             main.settings.story = story;
             if let Some(canvas) = &mut main.canvas {
                 canvas.set_story(story);
+            }
+        });
+    }
+
+    pub fn set_original(&self, original: bool) {
+        self.change(move |main| {
+            main.settings.original = original;
+            if let Some(canvas) = &mut main.canvas {
+                canvas.set_original(original);
             }
         });
     }
@@ -395,6 +420,7 @@ struct Settings {
     brush: Brush,
     colors: Colors,
     story: Story,
+    original: bool,
 }
 
 impl Main {
@@ -432,6 +458,7 @@ impl Main {
             canvas.set_brush(settings.brush);
             canvas.set_colors(settings.colors);
             canvas.set_story(settings.story);
+            canvas.set_original(settings.original);
             canvas
         });
         if self.canvas.is_none() {
