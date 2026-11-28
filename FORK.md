@@ -159,6 +159,30 @@ Code: `components/editor/LayersHeader.tsx` and
   clean-up to the block's Story menu. Add text keeps any marked shape as the
   mask and runs the stages itself, so both stay.
 
+### Format Painter
+
+- A toolbar tool (paint roller, key `P`, before the Hand) that copies one
+  text's style onto others, as Word's Format Painter and InDesign's
+  Eyedropper do with type. Upstream has none.
+- The canvas (`koharu-canvas` `tools/painter.rs`, `Tool::FormatPainter`)
+  only finds the text under a press, a block's translation among them, and
+  outlines it on hover. It answers `Effect::Painter(PainterPress { layer,
+  reload })`, `reload` with Alt, which the desktop sends as the `painter`
+  event.
+- The interface (`lib/formatPainter.ts`) holds the copied style: the first
+  press copies, the next ones paste, Alt-click copies afresh. A paste is
+  `pasteStyle` in `lib/scene.ts`, the type bar's `setStyle` edit under its
+  own undo label, `paste_style`.
+- It copies what every character shares (`sharedChars` in `TypeBar.tsx`) of
+  font, weight, italic, size, fill, outline and its width, and emphasis,
+  plus alignment, line height, and kernel. A value the source leaves unset
+  is cleared on the target, so it follows its style as the source does. The
+  box, its position, the words, and vertical orientation stay.
+- `FormatPainterBar.tsx`, at the canvas's foot while the tool is on, says
+  what to click, then shows the style held as an "Aa" preview, with
+  **Apply to selected (N)** and a × (or Esc) to drop it. Another tool drops
+  it too, except the Hand, which Space holds for a moment.
+
 ### Translate a book from the command line
 
 - `koharu --input x.cbz --output y.cbz [--format png|jpeg|webp]
