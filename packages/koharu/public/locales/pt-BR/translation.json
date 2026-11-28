@@ -74,19 +74,10 @@
     "unknown": "O aplicativo nativo retornou um erro desconhecido."
   },
   "export": {
-    "cbzDescription": "Escolha como as páginas dentro do arquivo são codificadas.",
-    "cbzTitle": "Exportar CBZ",
-    "format": {
-      "jpeg": "JPEG",
-      "png": "PNG",
-      "webp": "WebP"
-    },
-    "formatHint": {
-      "jpeg": "Arquivos menores. A transparência é achatada sobre branco.",
-      "png": "Sem perdas. Arquivos maiores.",
-      "webp": "Menor que PNG e mantém a transparência."
-    },
-    "start": "Exportar"
+    "export": "Exportar",
+    "imageFormat": "Formato de imagem",
+    "quality": "Qualidade",
+    "title": "Exportar {{format}}"
   },
   "feedback": {
     "addScreenshot": "Adicionar captura de tela",
@@ -470,10 +461,10 @@
     },
     "backToEditor": "Voltar ao editor",
     "export": {
-      "description": "Controle como as páginas são codificadas ao exportar um arquivo.",
+      "description": "Escolha a qualidade inicial das exportações JPEG e WebP.",
       "jpegQuality": "Qualidade JPEG",
-      "quality": "Qualidade do arquivo",
-      "qualityDescription": "Vale para os formatos com perdas ao exportar um CBZ. PNG é sempre sem perdas.",
+      "quality": "Qualidade inicial",
+      "qualityDescription": "A caixa de exportação começa a qualidade de JPEG ou WebP aqui, e a linha de comando exporta com ela. PNG é sempre sem perdas.",
       "qualityHint": "1-100. Valores altos preservam melhor as retículas e aumentam o tamanho.",
       "qualityLabel": "Qualidade",
       "title": "Exportação",

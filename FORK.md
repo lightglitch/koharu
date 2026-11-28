@@ -345,23 +345,21 @@ Code: `components/editor/LayersHeader.tsx` and
   `copy_text` command in `crates/koharu-desktop/src/commands/clipboard.rs`).
   - Each failed page, a whole failed run and a failed download copy to the system
     clipboard through the desktop, not the webview's clipboard API.
-- **CBZ page format, quality, progress and stop**
-  (`crates/koharu-desktop/src/commands/export.rs`: `PageEncoding`, `ExportConfig`,
-  `stop_export`).
-  - CBZ pages can be PNG, JPEG (flattened onto white) or WebP.
+- **Export progress, stop, and a starting quality**
+  (`crates/koharu-desktop/src/commands/export.rs`: `ExportProgress`,
+  `stop_export`, `ExportConfig`).
+  - Since 0.102 upstream exports JPEG and WebP, and CBZs of either, at a
+    quality its dialog asks for (`ImageFormat`, `ExportDialog` in
+    `TitleBar.tsx`), which starts at 90 each time the app starts. The fork
+    takes upstream's formats, encoder and dialog, and adds what follows.
+  - Every export, a folder's, a CBZ, or a PDF, tells Activity each page
+    written, and Stop ends it before its next page (`lib/exportProgress.ts`,
+    passed to every `run` in `TitleBar.tsx`).
+  - A CBZ or PDF that is stopped or fails is deleted.
   - An `[export]` settings section holds `jpeg_quality` (default 90) and
-    `webp_quality` (default 85), each from 1 to 100. The UI is
-    `components/preferences/ExportPreferences.tsx`, on a Settings tab.
-  - The format is chosen in `components/app/ExportCbzDialog.tsx`, which the
-    title bar holds open (`cbzPages` in `TitleBar.tsx`) for upstream's
-    **Export** and **Export selected** menus alike.
-  - Upstream's PDF export and its selected pages (0.95) go through the same
-    `write`, so a PDF shows its progress and stops too, and one left
-    unfinished is deleted.
-  - Activity shows the pages written, and Stop ends the export
-    (`lib/exportProgress.ts`).
-  - A CBZ that is stopped or fails is deleted.
-  - Upstream writes PNG-only CBZs that can't be followed or stopped.
+    `webp_quality` (default 85), each from 1 to 100, on a Settings tab
+    (`components/preferences/ExportPreferences.tsx`). The dialog starts at
+    them until a quality is chosen, and the command line exports at them.
 - **AVIF import** (`crates/koharu-desktop/Cargo.toml` enables `image`'s
   `avif-native`; `"avif"` is in `EXTENSIONS` and `raster()` in
   `commands/import.rs`).
@@ -417,6 +415,9 @@ vcpkg plus the variables above on Windows.
 
 These went upstream from the fork or were made unnecessary by upstream:
 
+- CBZ pages as JPEG or WebP, and their format chosen in a dialog before the
+  CBZ is written (upstream 0.102, `ImageFormat`; the fork's `PageEncoding`
+  and `ExportCbzDialog` were dropped);
 - the selection count in the rail header (#1096);
 - the CBZ export core (#1095);
 - the Activity page label (#1041, later trimmed to "Page N");

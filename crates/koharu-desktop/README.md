@@ -64,11 +64,16 @@ do: with the scene's own queries and edits, its undo and redo, and its history.
   install's projects.
 - **Import** makes a page of each image, of each image in a ZIP, CBZ, RAR, or
   CBR archive, and of each page of a PDF, in name order.
-- **Export** writes every page, or the selected ones, as PNG or PSD files in a
-  folder, as a CBZ of PNGs, or as a PDF. A page's file takes its number in the
-  project whichever pages go with it, so one exported again replaces its own
-  file. A PDF's pages are lossless images at 300 DPI, which import renders PDFs
-  at, so a page comes back with the same pixels.
+- **Export** writes every page, or the selected ones, as PNG, JPEG, WebP, or
+  PSD files in a folder, as a CBZ of images, or as a PDF. A page's file takes
+  its number in the project whichever pages go with it, so one exported again
+  replaces its own file. A PNG holds only the channels its page needs, gray or
+  RGB when they hold it exactly; JPEG and WebP take the quality the interface
+  asks for. A PDF's pages are lossless images at 300 DPI, which import renders PDFs
+  at, so a page comes back with the same pixels. (Fork:) It tells the
+  interface each page written, and `stop_export` ends it before its next
+  page; a CBZ or PDF left unfinished, stopped or failed, is deleted. The
+  dialog's quality starts at `[export]`'s, which the command line uses too.
 
 ## 4. Around the project
 

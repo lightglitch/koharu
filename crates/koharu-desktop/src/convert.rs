@@ -22,7 +22,7 @@ use tokio::sync::broadcast::error::RecvError;
 
 use crate::{
     commands::{
-        export::{ExportConfig, ExportFormat, PageEncoding, write},
+        export::{ExportConfig, ExportFormat, ImageFormat, write},
         import::pages,
     },
     library::Library,
@@ -79,10 +79,15 @@ pub enum Step {
 /// failed, whose stages left it as they found it, and the CBZ is written
 /// anyway.
 pub async fn run(args: Args, identifier: &str) -> Result<bool> {
-    let encoding = match args.format {
-        Format::Png => PageEncoding::Png,
-        Format::Jpeg => PageEncoding::Jpeg,
-        Format::Webp => PageEncoding::Webp,
+    let export: ExportConfig = koharu_config::get()?;
+    let format = match args.format {
+        Format::Png => ImageFormat::Png,
+        Format::Jpeg => ImageFormat::Jpeg {
+            quality: export.jpeg_quality,
+        },
+        Format::Webp => ImageFormat::Webp {
+            quality: export.webp_quality,
+        },
     };
     let stages: BTreeSet<Stage> = args
         .stages
@@ -95,10 +100,9 @@ pub async fn run(args: Args, identifier: &str) -> Result<bool> {
             Step::Validate => Stage::Validate,
         })
         .collect();
-    let export: ExportConfig = koharu_config::get()?;
     let renderer = Renderer::get().clone();
     let pipeline = Pipeline::new(koharu_config::get::<PipelineConfig>()?);
-    let output = args.output.as_deref().map(|path| (path, encoding, &export));
+    let output = args.output.as_deref().map(|path| (path, format));
 
     if let Some(name) = args.project {
         let library = Library::new(crate::projects(identifier)?)?;
@@ -149,13 +153,13 @@ pub async fn run(args: Args, identifier: &str) -> Result<bool> {
 }
 
 /// Runs `stages` on every page `session` holds, then writes it to `output`
-/// as a CBZ of pages in its encoding, when there is one.
+/// as a CBZ of pages in `format`, when there is one.
 async fn process(
     pipeline: &Pipeline,
     renderer: &Renderer,
     session: &Arc<Mutex<Session>>,
     stages: BTreeSet<Stage>,
-    output: Option<(&Path, PageEncoding, &ExportConfig)>,
+    output: Option<(&Path, ImageFormat)>,
 ) -> Result<bool> {
     let order: Vec<_> = session
         .lock()
@@ -225,30 +229,21 @@ async fn process(
     if outcome == Outcome::Stopped {
         anyhow::bail!("the run was stopped");
     }
-    let Some((output, encoding, export)) = output else {
+    let Some((output, format)) = output else {
         return Ok(matches!(outcome, Outcome::Done));
     };
 
     eprintln!("writing {}", output.display());
     let session = Arc::clone(session);
     let renderer = renderer.clone();
-    let (output, export) = (output.to_owned(), export.clone());
+    let output = output.to_owned();
     let written = tokio::task::spawn_blocking(move || {
-        // A CBZ names no layers; these are a PSD's.
-        let labels = koharu_psd::Labels {
-            background: String::new(),
-            cleanup: String::new(),
-            outline: String::new(),
-        };
         let progress = |_, _| {};
         let written = write(
             &session,
             &renderer,
             None,
-            ExportFormat::Cbz,
-            &labels,
-            encoding,
-            &export,
+            &ExportFormat::Cbz(format),
             &output,
             progress,
         );

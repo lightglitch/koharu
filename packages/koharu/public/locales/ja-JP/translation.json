@@ -74,19 +74,10 @@
     "unknown": "ネイティブアプリケーションが不明なエラーを返しました。"
   },
   "export": {
-    "cbzDescription": "アーカイブ内のページの形式を選択します。",
-    "cbzTitle": "CBZを書き出す",
-    "format": {
-      "jpeg": "JPEG",
-      "png": "PNG",
-      "webp": "WebP"
-    },
-    "formatHint": {
-      "jpeg": "ファイルは最小です。透明部分は白で塗り潰されます。",
-      "png": "可逆圧縮。ファイルは最大です。",
-      "webp": "PNGより小さく、透明部分を保持します。"
-    },
-    "start": "書き出す"
+    "export": "書き出す",
+    "imageFormat": "画像形式",
+    "quality": "画質",
+    "title": "{{format}}で書き出す"
   },
   "feedback": {
     "addScreenshot": "スクリーンショットを追加",
@@ -470,10 +461,10 @@
     },
     "backToEditor": "エディターに戻る",
     "export": {
-      "description": "アーカイブを書き出すときのページの符号化方法を設定します。",
+      "description": "JPEG と WebP の書き出しの初期画質を選びます。",
       "jpegQuality": "JPEG品質",
-      "quality": "アーカイブの品質",
-      "qualityDescription": "CBZ書き出し時の非可逆形式に適用されます。PNGは常に可逆です。",
+      "quality": "初期画質",
+      "qualityDescription": "書き出しダイアログの JPEG・WebP の画質はここから始まり、コマンドラインはこの画質で書き出します。PNG は常に可逆です。",
       "qualityHint": "1〜100。高いほどスクリーントーンが綺麗になり、ファイルは大きくなります。",
       "qualityLabel": "品質",
       "title": "書き出し",

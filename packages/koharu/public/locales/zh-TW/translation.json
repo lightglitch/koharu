@@ -74,19 +74,10 @@
     "unknown": "原生應用程式傳回了未知錯誤。"
   },
   "export": {
-    "cbzDescription": "選擇封存檔中頁面的編碼方式。",
-    "cbzTitle": "匯出 CBZ",
-    "format": {
-      "jpeg": "JPEG",
-      "png": "PNG",
-      "webp": "WebP"
-    },
-    "formatHint": {
-      "jpeg": "檔案最小。透明區域會合成到白色上。",
-      "png": "無損。檔案最大。",
-      "webp": "比 PNG 更小，並保留透明度。"
-    },
-    "start": "匯出"
+    "export": "匯出",
+    "imageFormat": "影像格式",
+    "quality": "品質",
+    "title": "匯出為 {{format}}"
   },
   "feedback": {
     "addScreenshot": "新增螢幕截圖",
@@ -470,10 +461,10 @@
     },
     "backToEditor": "返回編輯器",
     "export": {
-      "description": "控制匯出封存檔時頁面的編碼方式。",
+      "description": "選擇 JPEG 與 WebP 匯出的初始品質。",
       "jpegQuality": "JPEG 品質",
-      "quality": "封存品質",
-      "qualityDescription": "適用於匯出 CBZ 時的有損格式。PNG 一律無損。",
+      "quality": "初始品質",
+      "qualityDescription": "匯出對話框中 JPEG 或 WebP 的品質從這裡開始，命令列也以此品質匯出。PNG 一律無損。",
       "qualityHint": "1-100。數值越高網點越清晰，檔案越大。",
       "qualityLabel": "品質",
       "title": "匯出",

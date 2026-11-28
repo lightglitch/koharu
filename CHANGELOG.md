@@ -1,3 +1,33 @@
+## [0.102.2](https://github.com/koharu-rs/koharu/compare/0.102.1..0.102.2) - 2026-11-27
+
+### 🐛 Bug Fixes
+
+- *(pipeline)* Give LaMa a mask over art as it is, without the border that hid the art between glyphs and washed out its fills - ([8aeccf5](https://github.com/koharu-rs/koharu/commit/8aeccf509d4c7b66833ee5ff7ee4e3915fd99744))
+
+## [0.102.1](https://github.com/koharu-rs/koharu/compare/0.102.0..0.102.1) - 2026-11-27
+
+### 🐛 Bug Fixes
+
+- *(renderer)* Keep Vietnamese words on one line where they fit ([#1586](https://github.com/koharu-rs/koharu/issues/1586)) - ([fdd0406](https://github.com/koharu-rs/koharu/commit/fdd040658ae25460fb599c0a48c9e29c1fa31a24))
+
+## New Contributors ❤️
+
+* @surinatheworld made their first contribution in [#1586](https://github.com/koharu-rs/koharu/pull/1586)
+
+## [0.102.0](https://github.com/koharu-rs/koharu/compare/0.101.2..0.102.0) - 2026-11-27
+
+### ⛰️  Features
+
+- *(export)* JPEG and WebP at the quality the export asks for, CBZs of either, and PNGs in only the channels a page needs ([#932](https://github.com/koharu-rs/koharu/issues/932)) - ([62d4de9](https://github.com/koharu-rs/koharu/commit/62d4de9f3edfaedf478e9b509d0f960a65eaef2c))
+
+### 🐛 Bug Fixes
+
+- *(ui)* Don't check for updates at launch in a dev build - ([6f6ced3](https://github.com/koharu-rs/koharu/commit/6f6ced3c9290d50f4d8adfe0b17aac34bc9b1ef5))
+
+### ⚙️ Miscellaneous Tasks
+
+- Keep only line tables in debug builds, whose full debug information made every link rewrite a 1.3 GB PDB - ([16ee751](https://github.com/koharu-rs/koharu/commit/16ee751922278ea962b04023df9d664bb5d94176))
+
 ## [0.101.2](https://github.com/koharu-rs/koharu/compare/0.101.1..0.101.2) - 2026-11-27
 
 ### 🐛 Bug Fixes

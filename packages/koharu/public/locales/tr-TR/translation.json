@@ -74,19 +74,10 @@
     "unknown": "Yerel uygulama bilinmeyen bir hata döndürdü."
   },
   "export": {
-    "cbzDescription": "Arşivdeki sayfaların nasıl kodlanacağını seçin.",
-    "cbzTitle": "CBZ Dışa Aktar",
-    "format": {
-      "jpeg": "JPEG",
-      "png": "PNG",
-      "webp": "WebP"
-    },
-    "formatHint": {
-      "jpeg": "En küçük dosyalar. Saydamlık beyaz üzerine düzleştirilir.",
-      "png": "Kayıpsız. En büyük dosyalar.",
-      "webp": "PNG'den küçük ve saydamlığı korur."
-    },
-    "start": "Dışa Aktar"
+    "export": "Dışa Aktar",
+    "imageFormat": "Görüntü biçimi",
+    "quality": "Kalite",
+    "title": "{{format}} Olarak Dışa Aktar"
   },
   "feedback": {
     "addScreenshot": "Ekran görüntüsü ekle",
@@ -470,10 +461,10 @@
     },
     "backToEditor": "Düzenleyiciye dön",
     "export": {
-      "description": "Bir arşivi dışa aktarırken sayfaların nasıl kodlanacağını denetleyin.",
+      "description": "JPEG ve WebP dışa aktarımlarının başlangıç kalitesini seçin.",
       "jpegQuality": "JPEG kalitesi",
-      "quality": "Arşiv kalitesi",
-      "qualityDescription": "CBZ dışa aktarımındaki kayıplı biçimler için geçerlidir. PNG her zaman kayıpsızdır.",
+      "quality": "Başlangıç kalitesi",
+      "qualityDescription": "Dışa aktarma penceresi JPEG veya WebP kalitesini buradan başlatır, komut satırı da bu kaliteyle dışa aktarır. PNG her zaman kayıpsızdır.",
       "qualityHint": "1-100. Yüksek değer tramları korur ve dosyayı büyütür.",
       "qualityLabel": "Kalite",
       "title": "Dışa Aktarma",

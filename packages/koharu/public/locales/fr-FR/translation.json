@@ -74,19 +74,10 @@
     "unknown": "L’application native a renvoyé une erreur inconnue."
   },
   "export": {
-    "cbzDescription": "Choisissez comment les pages de l’archive sont encodées.",
-    "cbzTitle": "Exporter en CBZ",
-    "format": {
-      "jpeg": "JPEG",
-      "png": "PNG",
-      "webp": "WebP"
-    },
-    "formatHint": {
-      "jpeg": "Fichiers les plus légers. La transparence est aplatie sur du blanc.",
-      "png": "Sans perte. Fichiers les plus lourds.",
-      "webp": "Plus léger que le PNG et conserve la transparence."
-    },
-    "start": "Exporter"
+    "export": "Exporter",
+    "imageFormat": "Format d’image",
+    "quality": "Qualité",
+    "title": "Exporter en {{format}}"
   },
   "feedback": {
     "addScreenshot": "Ajouter une capture d’écran",
@@ -470,10 +461,10 @@
     },
     "backToEditor": "Retour à l’éditeur",
     "export": {
-      "description": "Réglez l’encodage des pages lors de l’export d’une archive.",
+      "description": "Choisissez la qualité de départ des exports JPEG et WebP.",
       "jpegQuality": "Qualité JPEG",
-      "quality": "Qualité de l’archive",
-      "qualityDescription": "S’applique aux formats avec perte proposés à l’export CBZ. Le PNG est toujours sans perte.",
+      "quality": "Qualité de départ",
+      "qualityDescription": "La boîte d’export part de cette qualité pour le JPEG ou le WebP, et la ligne de commande exporte avec elle. Le PNG est toujours sans perte.",
       "qualityHint": "1-100. Plus haut garde les trames plus nettes et les fichiers plus lourds.",
       "qualityLabel": "Qualité",
       "title": "Exportation",

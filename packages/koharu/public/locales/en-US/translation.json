@@ -74,19 +74,10 @@
     "unknown": "The native application returned an unknown error."
   },
   "export": {
-    "cbzDescription": "Choose how the pages inside the archive are encoded.",
-    "cbzTitle": "Export CBZ",
-    "format": {
-      "jpeg": "JPEG",
-      "png": "PNG",
-      "webp": "WebP"
-    },
-    "formatHint": {
-      "jpeg": "Smallest files. Transparency is flattened onto white.",
-      "png": "Lossless. Largest files.",
-      "webp": "Smaller than PNG and keeps transparency."
-    },
-    "start": "Export"
+    "export": "Export",
+    "imageFormat": "Image format",
+    "quality": "Quality",
+    "title": "Export {{format}}"
   },
   "feedback": {
     "addScreenshot": "Add a screenshot",
@@ -470,10 +461,10 @@
     },
     "backToEditor": "Back to editor",
     "export": {
-      "description": "Control how pages are encoded when you export an archive.",
+      "description": "Choose the quality JPEG and WebP exports start at.",
       "jpegQuality": "JPEG quality",
-      "quality": "Archive quality",
-      "qualityDescription": "Applies to the lossy formats offered when exporting a CBZ. PNG is always lossless.",
+      "quality": "Starting quality",
+      "qualityDescription": "The export dialog starts a JPEG's or WebP's quality here, and the command line exports at it. PNG is always lossless.",
       "qualityHint": "1-100. Higher keeps screentone cleaner and files larger.",
       "qualityLabel": "Quality",
       "title": "Export",

@@ -74,19 +74,10 @@
     "unknown": "原生应用返转来一个弗晓得个错误。"
   },
   "export": {
-    "cbzDescription": "拣一拣存档里向页面个编码方式。",
-    "cbzTitle": "导出 CBZ",
-    "format": {
-      "jpeg": "JPEG",
-      "png": "PNG",
-      "webp": "WebP"
-    },
-    "formatHint": {
-      "jpeg": "文件顶小。透明个地方会合到白底浪。",
-      "png": "无损。文件顶大。",
-      "webp": "比 PNG 小，透明度也保牢。"
-    },
-    "start": "导出"
+    "export": "导出",
+    "imageFormat": "图片格式",
+    "quality": "质量",
+    "title": "导出为 {{format}}"
   },
   "feedback": {
     "addScreenshot": "加一张截图",
@@ -470,10 +461,10 @@
     },
     "backToEditor": "返回编辑器",
     "export": {
-      "description": "控制导出存档个辰光页面个编码方式。",
+      "description": "拣 JPEG 搭 WebP 导出个起始质量。",
       "jpegQuality": "JPEG 质量",
-      "quality": "存档质量",
-      "qualityDescription": "用勒导出 CBZ 辰光个有损格式浪。PNG 一直是无损个。",
+      "quality": "起始质量",
+      "qualityDescription": "导出对话框里 JPEG 或者 WebP 个质量从搿搭开始，命令行也照搿个质量导出。PNG 一直是无损个。",
       "qualityHint": "1-100。数值越高网点越清爽，文件越大。",
       "qualityLabel": "质量",
       "title": "导出",
